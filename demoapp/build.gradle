@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+}
+
+java {
+    sourceCompatibility(JavaVersion.VERSION_1_8)
+    targetCompatibility(JavaVersion.VERSION_1_8)
+}
+
+repositories {
+    maven {
+        url 'https://arti.tw.ee/artifactory/libs-release'
+    }
+    mavenLocal()
+}
+
+dependencies {
+    annotationProcessor platform("org.springframework.boot:spring-boot-dependencies:2.2.6.RELEASE")
+    implementation platform("org.springframework.boot:spring-boot-dependencies:2.2.6.RELEASE")
+    compileOnly platform("org.springframework.boot:spring-boot-dependencies:2.2.6.RELEASE")
+
+    annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok'
+
+    implementation project(':')
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    implementation 'com.google.guava:guava:28.2-jre'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.apache.curator:curator-framework:4.2.0'
+    implementation 'com.transferwise.common:tw-base-utils:1.2.8'
+
+    implementation 'com.google.protobuf:protobuf-java:3.11.4'
+
+    runtimeOnly 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+    runtimeOnly 'org.postgresql:postgresql'
+}

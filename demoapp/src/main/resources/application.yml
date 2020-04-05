@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: tw-tkms-demoapp
+  datasource:
+    url: "jdbc:mariadb://localhost:13306/tkms"
+    password: "example-password-change-me"
+    username: "root"
+    hikari:
+      validation-timeout: 5000
+      maximum-pool-size: 50
+      minimum-idle: 10
+      transaction-isolation: 2
+      data-source-properties:
+        useServerPrepStmts: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ${spring.application.name}
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.StringOrBytesSerializer
+  flyway:
+    locations: "classpath:db/migration/mysql"
+tw-tmks:
+  desired-latency: 5ms
+  shards-count: 10
+
+tw-graceful-shutdown:
+  clients-reaction-time-ms: 1000
+  strategies-check-interval-time-ms: 1000
+---
+spring:
+  profiles: postgres
+  datasource:
+    url: "jdbc:postgresql://localhost:15432/postgres"
+    username: "postgres"
+  flyway:
+    locations: "classpath:db/migration/postgres"
+
+tw-tkms:
+  database-dialect: POSTGRES

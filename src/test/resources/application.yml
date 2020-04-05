@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: tw-tkms-test
+  datasource:
+    url: "jdbc:mariadb://localhost:${MARIADB_TCP_3306}/tkms"
+    password: "example-password-change-me"
+    username: "root"
+    hikari:
+      validation-timeout: 5000
+      maximum-pool-size: 50
+      minimum-idle: 0
+      transaction-isolation: 2
+      data-source-properties:
+        useServerPrepStmts: true
+
+  kafka:
+    bootstrap-servers: "localhost:${KAFKA_TCP_9092}"
+    consumer:
+      group-id: ${spring.application.name}
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.StringOrBytesSerializer
+    listener:
+      missing-topics-fatal: true
+
+  flyway:
+    locations: "classpath:db/migration/mysql"
+
+zookeeper:
+  connect-string: "localhost:${ZOOKEEPER_TCP_2181}"
+
+tw-tmks:
+  desired-latency: 5ms
+  shards-count: 10
+
+tw-graceful-shutdown:
+  clients-reaction-time-ms: 1000
+  strategies-check-interval-time-ms: 1000
+
+logging.level.org.apache.kafka.clients: WARN

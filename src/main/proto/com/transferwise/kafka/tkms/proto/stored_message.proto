@@ -1,0 +1,22 @@
+syntax = "proto3";
+option java_package = "com.transferwise.kafka.tkms.stored_message";
+
+import "google/protobuf/wrappers.proto";
+
+message Headers{
+  repeated Header headers = 1;
+}
+
+message Header {
+  string key = 1;
+  bytes value = 2;
+}
+
+message Message {
+  string topic = 1;
+  google.protobuf.UInt32Value partition = 2;
+  string key = 3;
+  google.protobuf.UInt64Value timestamp = 4;
+  bytes value = 5;
+  Headers headers = 6;
+}

@@ -1,0 +1,11 @@
+pluginManagement {
+    repositories {
+        maven {
+            setUrl("https://arti.tw.ee/artifactory/plugins-release")
+        }
+        mavenLocal()
+    }
+}
+
+rootProject.name = "tw-tkms"
+include ':demoapp'
