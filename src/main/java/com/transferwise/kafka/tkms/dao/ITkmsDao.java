@@ -1,8 +1,7 @@
 package com.transferwise.kafka.tkms.dao;
 
-import com.transferwise.kafka.tkms.Message;
+import com.transferwise.kafka.tkms.api.Message;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
-import java.time.Instant;
 import java.util.List;
 import lombok.Data;
 import lombok.experimental.Accessors;

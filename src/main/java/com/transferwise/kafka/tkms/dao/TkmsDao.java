@@ -5,11 +5,13 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.kafka.tkms.Message;
+import com.transferwise.kafka.tkms.TkmsAutoConfiguration.TkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.TkmsProperties;
+import com.transferwise.kafka.tkms.api.Message;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.sql.PreparedStatement;
@@ -19,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.PostConstruct;
-import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -42,7 +43,7 @@ public class TkmsDao implements ITkmsDao {
   private Map<Pair<Integer, Integer>, String> deleteSqlsMap;
 
   @Autowired
-  protected DataSource dataSource;
+  protected TkmsDataSourceProvider dataSourceProvider;
 
   @Autowired
   protected TkmsProperties properties;
@@ -54,7 +55,7 @@ public class TkmsDao implements ITkmsDao {
 
   @PostConstruct
   public void init() {
-    jdbcTemplate = new JdbcTemplate(dataSource);
+    jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
     Map<Integer, String> map = new HashMap<>();
     for (int i = 0; i < properties.getShardsCount(); i++) {
@@ -69,10 +70,8 @@ public class TkmsDao implements ITkmsDao {
     getMessagesSqls = ImmutableMap.copyOf(map);
 
     deleteSqlsMap = new HashMap<>();
-    for (int i = 0; i < properties.getShardsCount(); i++) {
-      int shard = i;
-      for (int bz = 0; bz < batchSizes.length; bz++) {
-        int batchSize = batchSizes[bz];
+    for (int shard = 0; shard < properties.getShardsCount(); shard++) {
+      for (int batchSize : batchSizes) {
         Pair<Integer, Integer> p = ImmutablePair.of(shard, batchSize);
         StringBuilder sb = new StringBuilder("delete from " + properties.getTableBaseName() + "_" + shard + " where id in (");
         for (int j = 0; j < batchSize; j++) {
@@ -90,9 +89,7 @@ public class TkmsDao implements ITkmsDao {
 
   @Override
   public long insertMessage(Message message) {
-    KeyHolder keyHolder = new GeneratedKeyHolder();
-
-    int shard = getShard(message);
+    final int shard = getShard(message);
 
     StoredMessage.Headers headers = null;
     if (message.getHeaders() != null && !message.getHeaders().isEmpty()) {
@@ -122,22 +119,31 @@ public class TkmsDao implements ITkmsDao {
 
     byte[] messageBytes = storedMessage.toByteArray();
 
+    final KeyHolder keyHolder = new GeneratedKeyHolder();
     jdbcTemplate.update(con -> {
       PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shard), Statement.RETURN_GENERATED_KEYS);
-      ps.setBytes(1, messageBytes);
-      return ps;
+      try {
+        ps.setBytes(1, messageBytes);
+        return ps;
+      } catch (Exception e) {
+        ps.close();
+        throw e;
+      }
     }, keyHolder);
 
     meterRegistry.counter("tw.tkms.dao.insert.message", "shard", String.valueOf(shard)).increment();
 
+    return keyToLong(keyHolder);
+  }
+
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+  protected long keyToLong(KeyHolder keyHolder) {
     return (long) keyHolder.getKey();
   }
 
   @Override
   public List<MessageRecord> getMessages(int shard, int maxCount) {
-    return jdbcTemplate.query(getMessagesSqls.get(shard), ps -> {
-      ps.setLong(1, maxCount);
-    }, (rs, rowNum) -> ExceptionUtils.doUnchecked(() -> {
+    return jdbcTemplate.query(getMessagesSqls.get(shard), ps -> ps.setLong(1, maxCount), (rs, rowNum) -> ExceptionUtils.doUnchecked(() -> {
       MessageRecord messageRecord = new MessageRecord();
       messageRecord.setId(rs.getLong(1));
       messageRecord.setMessage(StoredMessage.Message.parseFrom(rs.getBytes(2)));
@@ -152,8 +158,7 @@ public class TkmsDao implements ITkmsDao {
   public void deleteMessage(int shard, List<Long> ids) {
     MutableInt idIdx = new MutableInt();
     while (idIdx.getValue() < ids.size()) {
-      for (int bz = 0; bz < batchSizes.length; bz++) {
-        int batchSize = batchSizes[bz];
+      for (int batchSize : batchSizes) {
         if (ids.size() - idIdx.getValue() < batchSize) {
           continue;
         }
@@ -185,7 +190,7 @@ public class TkmsDao implements ITkmsDao {
       return Math.abs(message.getPartition()) % tablesCount;
     }
     if (message.getKey() != null) {
-      return Math.abs(message.getKey().hashCode()) % tablesCount;
+      return Math.abs(message.getKey().hashCode() % tablesCount);
     }
     return ThreadLocalRandom.current().nextInt(tablesCount);
   }

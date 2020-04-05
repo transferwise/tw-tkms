@@ -10,8 +10,9 @@ import org.springframework.context.annotation.Import;
 @Import(TransactionsConfiguration.class)
 @Slf4j
 public class TestApplication {
+
   @PostConstruct
-  public void init(){
+  public void init() {
     log.info("Starting Test Application.");
   }
 }

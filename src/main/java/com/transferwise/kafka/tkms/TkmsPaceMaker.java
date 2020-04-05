@@ -11,20 +11,16 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
 
   @Override
   public void doSmallPause() {
-    ExceptionUtils.doUnchecked(() -> {
-      Thread.sleep(properties.getDesiredLatency().toMillis());
-    });
+    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getDesiredLatency().toMillis()));
   }
 
   @Override
   public void pauseOnError() {
-    ExceptionUtils.doUnchecked(() -> {
-      Thread.sleep(properties.getPauseTimeOnErrors().toMillis());
-    });
+    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getPauseTimeOnErrors().toMillis()));
   }
 
   @Override
-  public Duration getLongWaitTime(){
+  public Duration getLongWaitTime() {
     return Duration.ofSeconds(15);
   }
 }

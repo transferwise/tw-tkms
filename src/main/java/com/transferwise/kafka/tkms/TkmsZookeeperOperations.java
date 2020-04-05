@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Slf4j
 public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
 
-  private Map<Integer, String> lockNodePathMap = new HashMap<>();
+  private final Map<Integer, String> lockNodePathMap = new HashMap<>();
 
   @Autowired
   private TkmsProperties properties;

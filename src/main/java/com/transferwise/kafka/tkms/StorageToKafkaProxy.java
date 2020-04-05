@@ -32,7 +32,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageToKafkaProxy {
 
   @Autowired
-  private KafkaTemplate kafkaTemplate;
+  private KafkaTemplate<String, byte[]> kafkaTemplate;
   @Autowired
   private IExecutorServicesProvider executorServicesProvider;
   @Autowired
@@ -50,7 +50,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   @Autowired
   private UnitOfWorkManager unitOfWorkManager;
 
-  private List<LeaderSelector> leaderSelectors = new ArrayList<>();
+  private final List<LeaderSelector> leaderSelectors = new ArrayList<>();
 
   @PostConstruct
   public void init() {
@@ -63,27 +63,27 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
       leaderSelectors.add(new LeaderSelector(curatorFramework, zkOperations.getLockNodePath(shard), executorService, control -> {
         AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
 
-        control.workAsyncUntilShouldStop(() -> {
-          futureReference.set(executorService.submit(() -> {
-            log.info("Starting to poll shard {}.", shard);
-            poll(control, shard);
-            return true;
-          }));
-        }, () -> {
-          log.info("Stopping polling of shard {}.", shard);
+        control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
+            () -> {
+              log.info("Starting to poll shard {}.", shard);
+              poll(control, shard);
+              return true;
+            })),
+            () -> {
+              log.info("Stopping polling of shard {}.", shard);
 
-          Future<Boolean> future = futureReference.get();
-          if (future != null) {
-            try {
-              Boolean result = future.get(tkmsPaceMaker.getLongWaitTime().toMillis(), TimeUnit.MILLISECONDS);
-              if (result == null) {
-                throw new IllegalStateException("Hang detected, when trying to stop polling of shard " + shard + ".");
+              Future<Boolean> future = futureReference.get();
+              if (future != null) {
+                try {
+                  Boolean result = future.get(tkmsPaceMaker.getLongWaitTime().toMillis(), TimeUnit.MILLISECONDS);
+                  if (result == null) {
+                    throw new IllegalStateException("Hang detected, when trying to stop polling of shard " + shard + ".");
+                  }
+                } catch (Throwable t) {
+                  log.error(t.getMessage(), t);
+                }
               }
-            } catch (Throwable t) {
-              log.error(t.getMessage(), t);
-            }
-          }
-        });
+            });
       }));
     }
   }
@@ -108,15 +108,17 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
             ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
 
             int finalI = i;
-            kafkaTemplate.send(producerRecord).addCallback(result -> {
-              success[finalI] = 1;
-              meterRegistry.counter("tw.tkms.proxy.sent", shardTag.and("topic", producerRecord.topic(), "success", "true")).increment();
-              latch.countDown();
-            }, ex -> {
-              log.error(ex.getMessage(), ex);
-              meterRegistry.counter("tw.tkms.proxy.sent.failed", shardTag.and("topic", producerRecord.topic(), "success", "false")).increment();
-              latch.countDown();
-            });
+            kafkaTemplate.send(producerRecord).addCallback(
+                result -> {
+                  success[finalI] = 1;
+                  meterRegistry.counter("tw.tkms.proxy.sent", shardTag.and("topic", producerRecord.topic(), "success", "true")).increment();
+                  latch.countDown();
+                },
+                ex -> {
+                  log.error(ex.getMessage(), ex);
+                  meterRegistry.counter("tw.tkms.proxy.sent.failed", shardTag.and("topic", producerRecord.topic(), "success", "false")).increment();
+                  latch.countDown();
+                });
           }
           latch.await();
 

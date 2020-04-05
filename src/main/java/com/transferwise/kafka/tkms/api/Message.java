@@ -1,5 +1,6 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.api;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
 import javax.validation.constraints.NotBlank;
@@ -11,8 +12,7 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public
-class Message {
+public class Message {
 
   @NotBlank
   private String topic;
@@ -21,6 +21,7 @@ class Message {
   private Integer partition;
   @Size(min = 1)
   private String key;
+  @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
   private byte[] value;
   private List<Header> headers;
 

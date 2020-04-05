@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.Message;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.validation.Valid;

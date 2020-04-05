@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms.demoapp;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.kafka.tkms.Message;
+import com.transferwise.kafka.tkms.api.Message;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -28,7 +28,7 @@ public class MessagesProducer {
     long startTimeMs = System.currentTimeMillis();
     AtomicLong processedCount = new AtomicLong();
 
-    StringBuilder sb = new StringBuilder("Hello World!");
+    @SuppressWarnings("StringBufferReplaceableByString") StringBuilder sb = new StringBuilder("Hello World!");
 
     /*
     for (int i = 0; i < 2048; i++) {
@@ -76,9 +76,7 @@ public class MessagesProducer {
             log.info("Pace: " + (cnt * 1000 / (endTimeMs - startTimeMs)) + " messages/s");
           }
         }
-        ExceptionUtils.doUnchecked(() -> {
-          Thread.sleep(100);
-        });
+        ExceptionUtils.doUnchecked(() -> Thread.sleep(100));
       }
     });
     trackerThread.start();

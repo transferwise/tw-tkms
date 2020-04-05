@@ -17,9 +17,9 @@ public class TestMessagesListener {
   @Autowired
   private ObjectMapper objectMapper;
 
-  private List<Consumer<ConsumerRecord<String, String>>> consumers = new CopyOnWriteArrayList<>();
+  private final List<Consumer<ConsumerRecord<String, String>>> consumers = new CopyOnWriteArrayList<>();
 
-  @KafkaListener(topics = "MyTopic", properties = "missingTopicsFatal=false")
+  @KafkaListener(topics = "${tw-tkms-test.test-topic}")
   public void retrieveMessage(ConsumerRecord<String, String> cr) throws Exception {
     objectMapper.readValue(cr.value(), TestEvent.class);
     for (Consumer<ConsumerRecord<String, String>> consumer : consumers) {

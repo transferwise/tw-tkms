@@ -16,14 +16,29 @@ plugins {
     id 'idea'
     id 'org.springframework.boot' version '2.2.6.RELEASE' apply false
     id "com.google.protobuf" version "0.8.12"
+    id "com.github.spotbugs" version "3.0.0"
+    id 'checkstyle'
+    id "maven-publish"
 }
 
 apply plugin: 'docker-compose'
 
 java {
-    sourceCompatibility(JavaVersion.VERSION_1_8)
-    targetCompatibility(JavaVersion.VERSION_1_8)
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    withSourcesJar()
 }
+
+compileJava {
+    options.encoding = 'utf-8'
+    options.compilerArgs << '-parameters'
+    options.compilerArgs << '-Xlint'
+    options.compilerArgs << '-Xlint:-processing'
+}
+
+ext.artifactoryUser = project.hasProperty("artifactoryUser") ? project.artifactoryUser : System.env.ARTIFACTORY_USER as String
+ext.artifactoryPassword = project.hasProperty("artifactoryPassword") ? project.artifactoryPassword : System.env.ARTIFACTORY_PASSWORD as String
+group = "com.transferwise.kafka"
 
 repositories {
     maven {
@@ -43,6 +58,7 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 
     compileOnly 'org.projectlombok:lombok'
+    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.0.1'
 
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'org.springframework:spring-jdbc'
@@ -93,3 +109,73 @@ test {
         dockerCompose.exposeAsEnvironment(test)
     }
 }
+
+idea.project {
+    vcs = 'Git'
+    languageLevel = JavaVersion.VERSION_1_8
+    targetBytecodeVersion = JavaVersion.VERSION_1_8
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                packaging = "jar"
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0, Copyright 2019 TransferWise Ltd'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            url "https://arti.tw.ee/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+        }
+    }
+}
+
+tasks.findAll { it.name.startsWith("spotbugs") }*.configure {
+    effort = "max"
+    classes = classes.filter {
+        !it.path.contains("stored_message")
+    }
+
+    reports {
+        xml.enabled false
+        html.enabled true
+    }
+}
+
+spotbugs {
+    spotbugsTest.enabled = false
+}
+
+tasks.withType(Checkstyle) {
+    config = resources.text.fromFile(file('google_checks.xml'))
+
+    maxWarnings = 0
+
+    reports {
+        xml.enabled false
+        html.enabled true
+    }
+}
+
+task addTag(type: Exec) {
+    commandLine 'git', 'tag', "$project.name-$project.version", '-m', "$project.name-$project.version"
+}
+task pushTag(type: Exec) {
+    commandLine 'git', 'push', 'origin', "$project.name-$project.version"
+}
+
+pushTag.dependsOn addTag

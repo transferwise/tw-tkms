@@ -8,6 +8,7 @@ import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.Message;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -33,28 +34,29 @@ public class EndToEndIntTest {
   private TestMessagesListener testMessagesListener;
   @Autowired
   private ITransactionsHelper transactionsHelper;
+  @Autowired
+  private TestProperties testProperties;
 
   @Test
   public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
     String message = "Hello World!";
 
     AtomicInteger receivedCount = new AtomicInteger();
-    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
-      ExceptionUtils.doUnchecked(() -> {
-        TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
-        if (receivedEvent.getMessage().equals(message)) {
-          receivedCount.incrementAndGet();
-        } else {
-          throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
-        }
-      });
-    };
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
+      }
+    });
 
     testMessagesListener.registerConsumer(messageCounter);
     try {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
-      transactionalKafkaMessageSender.sendMessage(new Message().setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+      transactionalKafkaMessageSender
+          .sendMessage(new Message().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -76,18 +78,16 @@ public class EndToEndIntTest {
     ConcurrentHashMap<Integer, AtomicInteger> partitionsMap = new ConcurrentHashMap<>();
 
     AtomicInteger receivedCount = new AtomicInteger();
-    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
-      ExceptionUtils.doUnchecked(() -> {
-        TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
-        if (receivedEvent.getMessage().equals(message)) {
-          receivedMap.computeIfAbsent(receivedEvent.getId(), (k) -> new AtomicInteger()).incrementAndGet();
-          partitionsMap.computeIfAbsent(cr.partition(), (k) -> new AtomicInteger()).incrementAndGet();
-          receivedCount.incrementAndGet();
-        } else {
-          throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
-        }
-      });
-    };
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedMap.computeIfAbsent(receivedEvent.getId(), (k) -> new AtomicInteger()).incrementAndGet();
+        partitionsMap.computeIfAbsent(cr.partition(), (k) -> new AtomicInteger()).incrementAndGet();
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
+      }
+    });
 
     testMessagesListener.registerConsumer(messageCounter);
     try {
@@ -101,19 +101,20 @@ public class EndToEndIntTest {
               for (long i = 0; i < batchSize; i++) {
                 long id = finalT * threadsCount * batchesCount + finalB * batchesCount + i;
                 TestEvent testEvent = new TestEvent().setId(id).setMessage(message);
-                transactionalKafkaMessageSender.sendMessage(new Message().setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+                transactionalKafkaMessageSender
+                    .sendMessage(new Message().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
               }
               return null;
             });
           }
         });
       }
-      long startTimeMs = System.currentTimeMillis();
-      for (int i = 0; i < threads.length; i++) {
-        threads[i].start();
+      final long startTimeMs = System.currentTimeMillis();
+      for (Thread thread : threads) {
+        thread.start();
       }
-      for (int i = 0; i < threads.length; i++) {
-        threads[i].join();
+      for (Thread thread : threads) {
+        thread.join();
       }
 
       await().until(() -> receivedCount.get() >= messagesCount);
@@ -130,9 +131,7 @@ public class EndToEndIntTest {
 
       // All partitions received messages
       assertThat(partitionsMap.entrySet().size()).isEqualTo(10);
-      partitionsMap.entrySet().stream().forEach(e -> {
-        log.info("Partition " + e.getKey() + " received " + e.getValue().get() + " messages.");
-      });
+      partitionsMap.forEach((key, value) -> log.info("Partition " + key + " received " + value.get() + " messages."));
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
 
@@ -160,7 +159,7 @@ public class EndToEndIntTest {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
         transactionalKafkaMessageSender
-            .sendMessage(new Message().setKey(key).setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+            .sendMessage(new Message().setKey(key).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -191,7 +190,8 @@ public class EndToEndIntTest {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
         transactionalKafkaMessageSender
-            .sendMessage(new Message().setPartition(partition).setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+            .sendMessage(
+                new Message().setPartition(partition).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -214,13 +214,11 @@ public class EndToEndIntTest {
     ConcurrentHashMap<Long, List<Long>> receivedMap = new ConcurrentHashMap<>();
     AtomicInteger receivedCount = new AtomicInteger();
 
-    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
-      ExceptionUtils.doUnchecked(() -> {
-        TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
-        receivedMap.computeIfAbsent(receivedEvent.getEntityId(), (k) -> new CopyOnWriteArrayList<>()).add(receivedEvent.getId());
-        receivedCount.incrementAndGet();
-      });
-    };
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      receivedMap.computeIfAbsent(receivedEvent.getEntityId(), (k) -> new CopyOnWriteArrayList<>()).add(receivedEvent.getId());
+      receivedCount.incrementAndGet();
+    });
 
     testMessagesListener.registerConsumer(messageCounter);
     try {
@@ -233,16 +231,17 @@ public class EndToEndIntTest {
             TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalE).setMessage(message);
             ExceptionUtils.doUnchecked(() -> {
               transactionalKafkaMessageSender
-                  .sendMessage(new Message().setKey(String.valueOf(finalE)).setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+                  .sendMessage(new Message().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
+                      .setValue(objectMapper.writeValueAsBytes(testEvent)));
             });
           }
         });
       }
-      for (int i = 0; i < threads.length; i++) {
-        threads[i].start();
+      for (Thread thread : threads) {
+        thread.start();
       }
-      for (int i = 0; i < threads.length; i++) {
-        threads[i].join();
+      for (Thread thread : threads) {
+        thread.join();
       }
 
       await().until(() -> receivedCount.get() >= messagesCount);
