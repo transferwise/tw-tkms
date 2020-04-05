@@ -38,4 +38,5 @@ dependencies {
     runtimeOnly 'org.flywaydb:flyway-core'
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }

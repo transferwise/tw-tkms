@@ -10,6 +10,8 @@ import com.transferwise.kafka.tkms.TkmsProperties;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.HashMap;
@@ -44,6 +46,9 @@ public class TkmsDao implements ITkmsDao {
 
   @Autowired
   protected TkmsProperties properties;
+
+  @Autowired
+  protected MeterRegistry meterRegistry;
 
   protected JdbcTemplate jdbcTemplate;
 
@@ -84,10 +89,10 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public long insertMessage(Message message, long flags) {
+  public long insertMessage(Message message) {
     KeyHolder keyHolder = new GeneratedKeyHolder();
 
-    int tableIndex = getTableIndex(message);
+    int shard = getShard(message);
 
     StoredMessage.Headers headers = null;
     if (message.getHeaders() != null && !message.getHeaders().isEmpty()) {
@@ -118,10 +123,12 @@ public class TkmsDao implements ITkmsDao {
     byte[] messageBytes = storedMessage.toByteArray();
 
     jdbcTemplate.update(con -> {
-      PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(tableIndex), Statement.RETURN_GENERATED_KEYS);
+      PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shard), Statement.RETURN_GENERATED_KEYS);
       ps.setBytes(1, messageBytes);
       return ps;
     }, keyHolder);
+
+    meterRegistry.counter("tw.tkms.dao.insert.message", "shard", String.valueOf(shard)).increment();
 
     return (long) keyHolder.getKey();
   }
@@ -160,12 +167,16 @@ public class TkmsDao implements ITkmsDao {
             ps.setLong(i + 1, id);
           }
         });
+
+        Tags tags = Tags.of("shard", String.valueOf(shard));
+        meterRegistry.counter("tw.tkms.dao.delete.queries", tags).increment();
+        meterRegistry.counter("tw.tkms.dao.delete.records", tags).increment(batchSize);
       }
     }
   }
 
 
-  private int getTableIndex(Message message) {
+  private int getShard(Message message) {
     int tablesCount = properties.getShardsCount();
     if (tablesCount == 1) {
       return 0;

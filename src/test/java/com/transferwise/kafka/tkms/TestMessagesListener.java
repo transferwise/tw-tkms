@@ -40,6 +40,7 @@ public class TestMessagesListener {
   public static class TestEvent {
 
     private Long id;
+    private Long entityId;
     private String message;
   }
 

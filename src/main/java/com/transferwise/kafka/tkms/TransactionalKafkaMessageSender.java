@@ -2,6 +2,7 @@ package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
+import io.micrometer.core.instrument.MeterRegistry;
 import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,16 +14,23 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Autowired
   private ITkmsDao transactionalKafkaMessageSenderDao;
-
   @Autowired
   private Validator validator;
+  @Autowired
+  private MeterRegistry meterRegistry;
 
   @Override
   @Transactional
   public long sendMessage(@Valid Message message) {
     validateMessage(message);
 
-    return transactionalKafkaMessageSenderDao.insertMessage(message, 0);
+    long id = -1;
+    try {
+      id = transactionalKafkaMessageSenderDao.insertMessage(message);
+    } finally {
+      meterRegistry.counter("tw.tkms.sent", "topic", message.getTopic(), "success", id == -1 ? "false" : "true").increment();
+    }
+    return id;
   }
 
   /**
@@ -32,7 +40,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     Errors errors = new BeanPropertyBindingResult(message, "message");
     validator.validate(message, errors);
     if (errors.hasErrors()) {
-      //TODO: PII?
       throw new IllegalArgumentException(errors.toString());
     }
   }

@@ -8,7 +8,9 @@ import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles(profiles = {"test"})
 @SpringBootTest(classes = {TestApplication.class})
 @Slf4j
-public class EndToEndIntSpec {
+public class EndToEndIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -197,6 +199,65 @@ public class EndToEndIntSpec {
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
       assertThat(partitionsMap.get(partition).get()).isEqualTo(n);
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+  }
+
+  @Test
+  public void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
+    String message = "Hello World!";
+    int entitiesCount = 100;
+    int entityEventsCount = 100;
+    int messagesCount = entitiesCount * entityEventsCount;
+
+    ConcurrentHashMap<Long, List<Long>> receivedMap = new ConcurrentHashMap<>();
+    AtomicInteger receivedCount = new AtomicInteger();
+
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
+      ExceptionUtils.doUnchecked(() -> {
+        TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+        receivedMap.computeIfAbsent(receivedEvent.getEntityId(), (k) -> new CopyOnWriteArrayList<>()).add(receivedEvent.getId());
+        receivedCount.incrementAndGet();
+      });
+    };
+
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      Thread[] threads = new Thread[entitiesCount];
+      for (long e = 0; e < entitiesCount; e++) {
+        long finalE = e;
+        threads[(int) e] = new Thread(() -> {
+          for (long i = 0; i < entityEventsCount; i++) {
+            long id = finalE * entityEventsCount + i;
+            TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalE).setMessage(message);
+            ExceptionUtils.doUnchecked(() -> {
+              transactionalKafkaMessageSender
+                  .sendMessage(new Message().setKey(String.valueOf(finalE)).setTopic("MyTopic").setValue(objectMapper.writeValueAsBytes(testEvent)));
+            });
+          }
+        });
+      }
+      for (int i = 0; i < threads.length; i++) {
+        threads[i].start();
+      }
+      for (int i = 0; i < threads.length; i++) {
+        threads[i].join();
+      }
+
+      await().until(() -> receivedCount.get() >= messagesCount);
+
+      log.info("Messages received: " + receivedCount.get());
+
+      for (long i = 0; i < entitiesCount; i++) {
+        List<Long> entityEventsIds = receivedMap.get(i);
+        assertThat(entityEventsIds.size()).isEqualTo(entityEventsCount);
+        for (int j = 0; j < entityEventsIds.size(); j++) {
+          if (j > 0 && entityEventsIds.get(j) < entityEventsIds.get(j - 1)) {
+            throw new IllegalStateException("Invalid order detected for entity " + i);
+          }
+        }
+      }
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }

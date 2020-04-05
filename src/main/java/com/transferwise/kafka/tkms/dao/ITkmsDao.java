@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 
 public interface ITkmsDao {
 
-  long insertMessage(Message message, long flags);
+  long insertMessage(Message message);
 
   List<MessageRecord> getMessages(int shard, int maxCount);
 

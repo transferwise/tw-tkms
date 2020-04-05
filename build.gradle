@@ -56,8 +56,11 @@ dependencies {
     implementation 'org.apache.curator:curator-recipes:4.2.0'
     implementation 'jakarta.validation:jakarta.validation-api'
     implementation 'org.apache.commons:commons-lang3'
+    implementation 'io.micrometer:micrometer-core'
+    implementation 'com.transferwise.common:tw-context:0.2.0'
 
     runtimeOnly 'com.transferwise.common:tw-graceful-shutdown:1.2.4'
+    implementation 'com.transferwise.common:tw-context-starter:0.2.0'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-web'

@@ -1,26 +1,27 @@
 package com.transferwise.kafka.tkms.demoapp;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
 public class MessagesListener {
+  @Autowired
+  private MeterRegistry meterRegistry;
 
   private AtomicLong i = new AtomicLong();
 
   @KafkaListener(topics = "MyTopic")
   @SneakyThrows
   public void listen(ConsumerRecord<String, byte[]> consumerRecord) {
-    if (i.incrementAndGet() % 10000 == -1) {
-      log.info("i: " + i);
-      log.info("Received " + consumerRecord.key());
-      log.info("Latency: " + (Instant.now().toEpochMilli() - consumerRecord.timestamp()));
-    }
+    meterRegistry.timer("tw.tkms.demoapp.messages.received").record(Instant.now().toEpochMilli() - consumerRecord.timestamp(), TimeUnit.MILLISECONDS);
   }
 }

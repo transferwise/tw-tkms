@@ -27,9 +27,26 @@ tw-tmks:
   shards-count: 10
 
 tw-graceful-shutdown:
-  clients-reaction-time-ms: 1000
+  clients-reaction-time-ms: 10000
   strategies-check-interval-time-ms: 1000
+
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        all: false
+        http.server.requests: true
+        http.client.requests: true
+      percentiles:
+        all: 0.5, 0.9, 0.95, 0.99
+  endpoints.web.exposure.include:
+    - health
+    - liveness
+    - prometheus
+    - info
+
 ---
+
 spring:
   profiles: postgres
   datasource:
@@ -40,3 +57,10 @@ spring:
 
 tw-tkms:
   database-dialect: POSTGRES
+
+---
+spring:
+  profiles: node2
+
+server:
+  port: 8081
