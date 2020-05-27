@@ -1,9 +1,8 @@
-package com.transferwise.kafka.tkms.demoapp;
+package com.transferwise.kafka.tkms;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -20,27 +19,24 @@ public class KafkaConfiguration {
 
   @Autowired
   private KafkaAdmin kafkaAdmin;
+  @Autowired
+  private TestProperties tkmsProperties;
 
   @PostConstruct
-  public void inits() {
-    String topic = "MyTopic";
+  public void init() {
     try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig())) {
       try {
-        CreateTopicsResult result = adminClient.createTopics(Collections.singletonList(new NewTopic(topic, 10, (short) 1)));
+        CreateTopicsResult result = adminClient.createTopics(Collections.singletonList(new NewTopic(tkmsProperties.getTestTopic(), 10, (short) 1)));
         result.all().get();
-      } catch (InterruptedException | ExecutionException e) {
-        increasePartitions(adminClient, topic);
+      } catch (Throwable t) {
+        Map<String, NewPartitions> map = new HashMap<>();
+        map.put(tkmsProperties.getTestTopic(), NewPartitions.increaseTo(10));
+        try {
+          adminClient.createPartitions(map).all().get();
+        } catch (Throwable ignored) {
+          //ignored
+        }
       }
-    }
-  }
-
-  protected void increasePartitions(AdminClient adminClient, String topic) {
-    try {
-      Map<String, NewPartitions> map = new HashMap<>();
-      map.put("MyTopic", NewPartitions.increaseTo(10));
-      adminClient.createPartitions(map).all().get();
-    } catch (Throwable ignored) {
-      // ignored
     }
   }
 }

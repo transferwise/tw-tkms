@@ -1,8 +1,8 @@
 package com.transferwise.kafka.tkms.demoapp;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.kafka.tkms.api.Message;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.Message;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,8 +57,7 @@ public class MessagesProducer {
               }
             });
           }
-        }
-        catch (Exception e){
+        } catch (Exception e) {
           log.error(e.getMessage(), e);
         }
       });

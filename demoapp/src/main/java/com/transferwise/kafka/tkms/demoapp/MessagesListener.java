@@ -3,7 +3,6 @@ package com.transferwise.kafka.tkms.demoapp;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,10 +13,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class MessagesListener {
+
   @Autowired
   private MeterRegistry meterRegistry;
-
-  private AtomicLong i = new AtomicLong();
 
   @KafkaListener(topics = "MyTopic")
   @SneakyThrows

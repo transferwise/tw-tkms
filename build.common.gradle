@@ -1,0 +1,55 @@
+apply plugin: "com.github.spotbugs"
+apply plugin: "checkstyle"
+
+group = "com.transferwise.kafka"
+
+ext.artifactoryUser = project.hasProperty("artifactoryUser") ? project.artifactoryUser : System.env.ARTIFACTORY_USER as String
+ext.artifactoryPassword = project.hasProperty("artifactoryPassword") ? project.artifactoryPassword : System.env.ARTIFACTORY_PASSWORD as String
+
+repositories {
+    maven {
+        url 'https://arti.tw.ee/artifactory/libs-release'
+    }
+    mavenLocal()
+}
+
+dependencies {
+    annotationProcessor platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    compileOnly platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    testAnnotationProcessor platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+
+    annotationProcessor 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    implementation 'org.projectlombok:lombok'
+
+    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.0.3'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    withSourcesJar()
+}
+
+compileJava {
+    options.encoding = 'utf-8'
+    options.compilerArgs << '-parameters'
+    options.compilerArgs << '-Xlint'
+    options.compilerArgs << '-Xlint:-processing'
+}
+
+tasks.withType(Checkstyle) {
+    config = resources.text.fromFile(file('../google_checks.xml'))
+
+    // Flyway requires Vx__ class name, which ofc conflicts with all sensible rules.
+    exclude "db/migration/**"
+
+    maxWarnings = 0
+
+    reports {
+        xml.enabled false
+        html.enabled true
+    }
+}

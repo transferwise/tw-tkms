@@ -1,0 +1,238 @@
+package com.transferwise.kafka.tkms.dao;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.UInt32Value;
+import com.google.protobuf.UInt64Value;
+import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.kafka.tkms.ShardPartition;
+import com.transferwise.kafka.tkms.TkmsAutoConfiguration.TkmsDataSourceProvider;
+import com.transferwise.kafka.tkms.TkmsProperties;
+import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
+import com.transferwise.kafka.tkms.stored_message.StoredMessage;
+import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
+import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import javax.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+public class TkmsDao implements ITkmsDao {
+
+  private static final int[] batchSizes = {256, 64, 16, 4, 1};
+
+  protected Map<ShardPartition, String> insertMessageSqls;
+
+  protected Map<ShardPartition, String> getMessagesSqls;
+
+  private Map<Pair<ShardPartition, Integer>, String> deleteSqlsMap;
+
+  @Autowired
+  protected TkmsDataSourceProvider dataSourceProvider;
+
+  @Autowired
+  protected TkmsProperties properties;
+
+  @Autowired
+  protected IMetricsTemplate metricsTemplate;
+
+  protected JdbcTemplate jdbcTemplate;
+
+  @PostConstruct
+  public void init() {
+    jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
+
+    Map<ShardPartition, String> map = new HashMap<>();
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+        ShardPartition sp = ShardPartition.of(s, p);
+        map.put(sp, getInsertSql(sp));
+      }
+    }
+    insertMessageSqls = ImmutableMap.copyOf(map);
+
+    map.clear();
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+        ShardPartition sp = ShardPartition.of(s, p);
+        map.put(sp, getSelectSql(sp));
+      }
+    }
+    getMessagesSqls = ImmutableMap.copyOf(map);
+
+    deleteSqlsMap = new HashMap<>();
+
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+        ShardPartition sp = ShardPartition.of(s, p);
+        for (int batchSize : batchSizes) {
+          Pair<ShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
+          StringBuilder sb = new StringBuilder("delete from " + getTableName(sp) + " where id in (");
+          for (int j = 0; j < batchSize; j++) {
+            sb.append("?");
+            if (j < batchSize - 1) {
+              sb.append(",");
+            }
+          }
+          deleteSqlsMap.put(key, sb.append(")").toString());
+        }
+      }
+    }
+    deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
+  }
+
+  @Override
+  public InsertMessageResult insertMessage(Message message) {
+    final ShardPartition shardPartition = getShardPartition(message);
+    final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
+
+    StoredMessage.Headers headers = null;
+    if (message.getHeaders() != null && !message.getHeaders().isEmpty()) {
+      Builder builder = Headers.newBuilder();
+      for (Message.Header header : message.getHeaders()) {
+        builder.addHeaders(StoredMessage.Header.newBuilder().setKey(header.getKey()).setValue(ByteString.copyFrom(header.getValue())).build());
+      }
+      headers = builder.build();
+    }
+
+    StoredMessage.Message.Builder storedMessageBuilder = StoredMessage.Message.newBuilder();
+    storedMessageBuilder.setValue(ByteString.copyFrom(message.getValue()));
+    if (headers != null) {
+      storedMessageBuilder.setHeaders(headers);
+    }
+    if (message.getPartition() != null) {
+      storedMessageBuilder.setPartition(UInt32Value.of(message.getPartition()));
+    }
+    if (message.getTimestamp() != null) {
+      storedMessageBuilder.setTimestamp(UInt64Value.of(message.getTimestamp().toEpochMilli()));
+    }
+    if (message.getKey() != null) {
+      storedMessageBuilder.setKey(message.getKey());
+    }
+
+    StoredMessage.Message storedMessage = storedMessageBuilder.setTopic(message.getTopic()).build();
+
+    byte[] messageBytes = storedMessage.toByteArray();
+
+    final KeyHolder keyHolder = new GeneratedKeyHolder();
+    jdbcTemplate.update(con -> {
+      PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS);
+      try {
+        ps.setBytes(1, messageBytes);
+        return ps;
+      } catch (Exception e) {
+        ps.close();
+        throw e;
+      }
+    }, keyHolder);
+
+    metricsTemplate.registerDaoMessageInsert(shardPartition);
+
+    result.setId(keyToLong(keyHolder));
+    return result;
+  }
+
+  @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+  protected long keyToLong(KeyHolder keyHolder) {
+    return (long) keyHolder.getKey();
+  }
+
+  @Override
+  public List<MessageRecord> getMessages(ShardPartition shardPartition, int maxCount) {
+    return jdbcTemplate.query(getMessagesSqls.get(shardPartition), ps -> ps.setLong(1, maxCount), (rs, rowNum) -> ExceptionUtils.doUnchecked(() -> {
+      MessageRecord messageRecord = new MessageRecord();
+      messageRecord.setId(rs.getLong(1));
+      messageRecord.setMessage(StoredMessage.Message.parseFrom(rs.getBytes(2)));
+
+      return messageRecord;
+    }));
+  }
+
+
+  @Override
+  @Transactional
+  public void deleteMessage(ShardPartition shardPartition, List<Long> ids) {
+    MutableInt idIdx = new MutableInt();
+    while (idIdx.getValue() < ids.size()) {
+      for (int batchSize : batchSizes) {
+        if (ids.size() - idIdx.getValue() < batchSize) {
+          continue;
+        }
+
+        Pair<ShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
+        String sql = deleteSqlsMap.get(p);
+
+        jdbcTemplate.update(sql, ps -> {
+          for (int i = 0; i < batchSize; i++) {
+            Long id = ids.get(idIdx.getAndIncrement());
+            ps.setLong(i + 1, id);
+          }
+        });
+
+        metricsTemplate.recordDaoMessagesDeletion(shardPartition, batchSize);
+      }
+    }
+  }
+
+
+  private ShardPartition getShardPartition(Message message) {
+    return ShardPartition.of(getShard(message), getPartition(message));
+  }
+
+  private int getShard(Message message) {
+    if (message.getShard() == null) {
+      return properties.getDefaultShard();
+    }
+    if (message.getShard() >= properties.getShardsCount()) {
+      throw new IllegalArgumentException("Given shard " + message.getShard() + " is out of bounds.");
+    }
+
+    return message.getShard();
+  }
+
+  private int getPartition(Message message) {
+    int tablesCount = properties.getPartitionsCount();
+    if (tablesCount == 1) {
+      return 0;
+    }
+    if (message.getPartition() != null) {
+      return Math.abs(message.getPartition()) % tablesCount;
+    }
+    if (message.getKey() != null) {
+      return Math.abs(message.getKey().hashCode() % tablesCount);
+    }
+    return ThreadLocalRandom.current().nextInt(tablesCount);
+  }
+
+  protected String getInsertSql(ShardPartition shardPartition) {
+    return "insert into " + getTableName(shardPartition) + " (message) values (?)";
+  }
+
+  protected String getSelectSql(ShardPartition shardPartition) {
+    return "select id, message from " + getTableName(shardPartition) + " order by id limit ?";
+  }
+
+  /**
+   * String manipulation is one of the most expensive operations, but we don't do caching here.
+   * 
+   * <p>A Method calling this method should cache the result itself.
+   */
+  protected String getTableName(ShardPartition shardPartition) {
+    return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
+  }
+}
