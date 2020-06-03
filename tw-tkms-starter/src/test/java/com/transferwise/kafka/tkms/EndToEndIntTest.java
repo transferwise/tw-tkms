@@ -18,11 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
-@ActiveProfiles(profiles = {"test"})
-@SpringBootTest(classes = {TestApplication.class})
+@BaseTestEnvironment
 @Slf4j
 public class EndToEndIntTest {
 

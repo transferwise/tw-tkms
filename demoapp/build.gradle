@@ -3,6 +3,10 @@ plugins {
     id 'org.springframework.boot'
 }
 
+ext.projectName = "demoapp"
+ext.projectDescription = "demoapp"
+ext.projectArtifactName = "demoapp"
+
 apply from: "../build.common.gradle"
 
 dependencies {

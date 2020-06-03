@@ -13,8 +13,11 @@ public class TkmsProperties {
 
   @Positive
   private int partitionsCount = 1;
+  /**
+   * Let's force engineers to think about the latency concerns by already introducing 2 shards.
+   */
   @Positive
-  private int shardsCount = 1;
+  private int shardsCount = 2;
 
   private int defaultShard = 0;
   /**

@@ -1,0 +1,23 @@
+package com.transferwise.kafka.tkms.test;
+
+import com.transferwise.kafka.tkms.api.Message;
+import java.util.List;
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+public interface IRegisteredMessagesCollector {
+
+  void clear();
+
+  <T> List<T> getRegisteredJsonMessages(String topic, Class<T> clazz);
+
+  List<RegisteredMessage> getRegisteredMessages(String topic);
+
+  @Data
+  @Accessors(chain = true)
+  class RegisteredMessage {
+
+    private Long id;
+    private Message message;
+  }
+}

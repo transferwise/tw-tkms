@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id "maven-publish"
+}
+
+ext.projectName = "tw-tkms-test-starter"
+ext.projectDescription = "tw-tkms-test-starter"
+ext.projectArtifactName = "tw-tkms-test-starter"
+
+apply from: "../build.common.gradle"
+apply from: "../build.library.gradle"
+
+dependencies {
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.0.1'
+
+    implementation project(":tw-tkms-starter")
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.transferwise.common:tw-base-utils:1.2.8'
+    implementation 'jakarta.validation:jakarta.validation-api'
+}

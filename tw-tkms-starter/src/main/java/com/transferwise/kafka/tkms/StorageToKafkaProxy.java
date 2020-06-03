@@ -1,5 +1,6 @@
 package com.transferwise.kafka.tkms;
 
+import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.common.baseutils.clock.ClockHolder;
 import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.concurrency.ThreadNamingExecutorServiceWrapper;
@@ -7,6 +8,8 @@ import com.transferwise.common.context.UnitOfWorkManager;
 import com.transferwise.common.gracefulshutdown.GracefulShutdownStrategy;
 import com.transferwise.common.leaderselector.Leader.Control;
 import com.transferwise.common.leaderselector.LeaderSelector;
+import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
+import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
@@ -26,6 +29,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.kafka.core.KafkaTemplate;
 
 @Slf4j
@@ -49,8 +53,12 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   private UnitOfWorkManager unitOfWorkManager;
   @Autowired
   private IMetricsTemplate metricsTemplate;
+  @Autowired
+  private ApplicationContext applicationContext;
 
+  private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private final List<LeaderSelector> leaderSelectors = new ArrayList<>();
+  private RateLimiter exceptionRateLimiter = RateLimiter.create(2);
 
   @PostConstruct
   public void init() {
@@ -114,11 +122,12 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
             kafkaTemplate.send(producerRecord).addCallback(
                 result -> {
                   acks[finalI] = 1;
+                  fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
                   metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), true);
                   latch.countDown();
                 },
                 ex -> {
-                  log.error(ex.getMessage(), ex);
+                  log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", ex);
                   metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
                   latch.countDown();
                 });
@@ -145,6 +154,23 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
         }
       });
     }
+  }
+
+  protected void fireMessageAcknowledgedEvent(Long id, ProducerRecord<String, byte[]> producerRecord) {
+    List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
+
+    if (listeners.isEmpty()) {
+      return;
+    }
+    listeners.forEach(tkmsEventsListener -> {
+      try {
+        tkmsEventsListener.messageAcknowledged(new MessageAcknowledgedEvent().setId(id).setProducerRecord(producerRecord));
+      } catch (Throwable t) {
+        if (exceptionRateLimiter.tryAcquire()) {
+          log.error(t.getMessage(), t);
+        }
+      }
+    });
   }
 
   private ProducerRecord<String, byte[]> toProducerRecord(MessageRecord messageRecord) {
@@ -200,6 +226,18 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
         return;
       }
     }
+  }
+
+  // Lazy to avoid any circular dependencies from low-quality apps.
+  protected List<ITkmsEventsListener> getTkmsEventsListeners() {
+    if (tkmsEventsListeners == null) {
+      synchronized (this) {
+        if (tkmsEventsListeners == null) {
+          tkmsEventsListeners = new ArrayList<>(applicationContext.getBeansOfType(ITkmsEventsListener.class).values());
+        }
+      }
+    }
+    return tkmsEventsListeners;
   }
 
 }

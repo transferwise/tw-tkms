@@ -5,6 +5,8 @@ import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.kafka.tkms.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
+import com.transferwise.kafka.tkms.api.helpers.IMessageFactory;
+import com.transferwise.kafka.tkms.api.helpers.MessageFactory;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
@@ -26,13 +28,19 @@ public class TkmsAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
+  public IMessageFactory tkmsMessageFactory() {
+    return new MessageFactory();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
   public IMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
     return new MetricsTemplate(meterRegistry);
   }
 
   @Bean
   @ConditionalOnMissingBean
-  public ITransactionalKafkaMessageSender tkmsSender() {
+  public ITransactionalKafkaMessageSender tkmsTransactionalKafkaMessageSender() {
     return new TransactionalKafkaMessageSender();
   }
 
@@ -80,7 +88,7 @@ public class TkmsAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(TkmsDataSourceProvider.class)
-  public TkmsDataSourceProvider twTasksDataSourceProvider(
+  public TkmsDataSourceProvider tkmsDataSourceProvider(
       @Autowired(required = false) @Tkms DataSource dataSource, ConfigurableListableBeanFactory beanFactory) {
     if (dataSource == null) {
       String[] beanNames = beanFactory.getBeanNamesForType(DataSource.class);
@@ -98,7 +106,7 @@ public class TkmsAutoConfiguration {
         }
         if (dataSource == null) {
           throw new IllegalStateException(
-              "" + beanNames.length + " data source(s) found, but none is marked as Primary nor qualified with @TwTasks: "
+              "" + beanNames.length + " data source(s) found, but none is marked as Primary nor qualified with @TwTkms: "
                   + String.join(", ", beanNames));
         }
       }

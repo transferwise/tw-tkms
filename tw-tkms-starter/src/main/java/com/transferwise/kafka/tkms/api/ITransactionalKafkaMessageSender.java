@@ -1,12 +1,11 @@
 package com.transferwise.kafka.tkms.api;
 
-import javax.validation.Valid;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 public interface ITransactionalKafkaMessageSender {
 
-  long sendMessage(@Valid Message message);
+  long sendMessage(Message message);
 
   @Data
   @Accessors(chain = true)

@@ -9,4 +9,5 @@ pluginManagement {
 
 rootProject.name = "tw-tkms"
 include ':tw-tkms-starter'
+include ':tw-tkms-test-starter'
 include ':demoapp'

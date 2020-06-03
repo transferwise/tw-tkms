@@ -1,0 +1,71 @@
+apply plugin: "maven-publish"
+
+ext.projectGitHubRepoName = "tw-tkms"
+ext.projectScmUrl = "https://github.com/transferwise/${projectGitHubRepoName}"
+ext.projectScmConnection = "scm:git:git://github.com/transferwise/${projectGitHubRepoName}.git"
+ext.artifactoryUser = project.hasProperty("artifactoryUser") ? project.artifactoryUser : System.env.ARTIFACTORY_USER as String
+ext.artifactoryPassword = project.hasProperty("artifactoryPassword") ? project.artifactoryPassword : System.env.ARTIFACTORY_PASSWORD as String
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            afterEvaluate {
+                artifactId = projectArtifactName
+            }
+
+            pom {
+                name = projectName
+                description = projectDescription
+                url = projectScmUrl
+                packaging = "jar"
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0, Copyright 2019 TransferWise Ltd'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'onukristo'
+                        name = 'Kristo Kuusküll'
+                        email = "kristo.kuuskull@transferwise.com"
+                        organization = "Transferwise Ltd"
+                        organizationUrl = "https://github.com/transferwise"
+                    }
+                }
+                scm {
+                    connection = projectScmConnection
+                    developerConnection = projectScmConnection
+                    url = projectScmUrl
+                }
+            }
+        }
+    }
+
+    javadoc {
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption('html5', true)
+        }
+    }
+
+    repositories {
+        maven {
+            url "https://arti.tw.ee/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
+            credentials {
+                username = artifactoryUser
+                password = artifactoryPassword
+            }
+        }
+    }
+}
+
+task addTag(type: Exec) {
+    commandLine 'git', 'tag', "$project.name-$project.version", '-m', "$project.name-$project.version"
+}
+task pushTag(type: Exec) {
+    commandLine 'git', 'push', 'origin', "$project.name-$project.version"
+}
+
+pushTag.dependsOn addTag
+pushTag.mustRunAfter publish

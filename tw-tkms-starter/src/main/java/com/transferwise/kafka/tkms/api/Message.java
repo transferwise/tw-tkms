@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Positive;
+import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
 import lombok.Data;
 import lombok.Singular;
@@ -18,7 +18,7 @@ public class Message {
   @NotBlank
   private String topic;
   private Instant timestamp;
-  @Positive
+  @PositiveOrZero
   private Integer partition;
   @Size(min = 1)
   private String key;
@@ -27,6 +27,7 @@ public class Message {
   @Singular
   private List<Header> headers;
 
+  @PositiveOrZero
   private Integer shard;
 
   @Data
