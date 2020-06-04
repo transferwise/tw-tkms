@@ -2,7 +2,7 @@ package com.transferwise.kafka.tkms.demoapp.complextest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,7 +29,7 @@ public class ComplexTestController {
   @SneakyThrows
   public Long addMessage(@RequestParam String topic, @RequestParam long entityId, @RequestParam long entitySeq) {
     ComplexTestMessage complexTestMessage = new ComplexTestMessage().setTopic(topic).setEntityId(entityId).setEntitySeq(entitySeq);
-    return tkms.sendMessage(new Message().setTopic(topic).setKey(String.valueOf(entityId))
+    return tkms.sendMessage(new TkmsMessage().setTopic(topic).setKey(String.valueOf(entityId))
         .setValue(objectMapper.writeValueAsBytes(complexTestMessage)));
   }
 

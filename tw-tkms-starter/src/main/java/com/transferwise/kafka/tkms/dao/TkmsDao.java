@@ -8,7 +8,7 @@ import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.ShardPartition;
 import com.transferwise.kafka.tkms.TkmsAutoConfiguration.TkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.TkmsProperties;
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
@@ -97,14 +97,14 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public InsertMessageResult insertMessage(Message message) {
+  public InsertMessageResult insertMessage(TkmsMessage message) {
     final ShardPartition shardPartition = getShardPartition(message);
     final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
 
     StoredMessage.Headers headers = null;
     if (message.getHeaders() != null && !message.getHeaders().isEmpty()) {
       Builder builder = Headers.newBuilder();
-      for (Message.Header header : message.getHeaders()) {
+      for (TkmsMessage.Header header : message.getHeaders()) {
         builder.addHeaders(StoredMessage.Header.newBuilder().setKey(header.getKey()).setValue(ByteString.copyFrom(header.getValue())).build());
       }
       headers = builder.build();
@@ -190,11 +190,11 @@ public class TkmsDao implements ITkmsDao {
   }
 
 
-  private ShardPartition getShardPartition(Message message) {
+  private ShardPartition getShardPartition(TkmsMessage message) {
     return ShardPartition.of(getShard(message), getPartition(message));
   }
 
-  private int getShard(Message message) {
+  private int getShard(TkmsMessage message) {
     if (message.getShard() == null) {
       return properties.getDefaultShard();
     }
@@ -205,7 +205,7 @@ public class TkmsDao implements ITkmsDao {
     return message.getShard();
   }
 
-  private int getPartition(Message message) {
+  private int getPartition(TkmsMessage message) {
     int tablesCount = properties.getPartitionsCount();
     if (tablesCount == 1) {
       return 0;

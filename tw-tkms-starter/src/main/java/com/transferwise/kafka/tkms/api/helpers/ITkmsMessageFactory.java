@@ -1,6 +1,6 @@
 package com.transferwise.kafka.tkms.api.helpers;
 
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import lombok.NonNull;
 
 /**
@@ -8,9 +8,9 @@ import lombok.NonNull;
  * 
  * <p>However it is expected from any serious and large application to have it's own ways to convert various payloads to bytes.
  */
-public interface IMessageFactory {
+public interface ITkmsMessageFactory {
 
-  Message createJsonMessage(@NonNull Object value);
+  TkmsMessage createJsonMessage(@NonNull Object value);
   
-  Message createTextMessage(@NonNull String value);
+  TkmsMessage createTextMessage(@NonNull String value);
 }

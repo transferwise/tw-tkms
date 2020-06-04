@@ -13,7 +13,7 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class Message {
+public class TkmsMessage {
 
   @NotBlank
   private String topic;

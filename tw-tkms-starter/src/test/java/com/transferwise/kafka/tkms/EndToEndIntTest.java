@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
@@ -56,7 +56,7 @@ public class EndToEndIntTest {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
       transactionalKafkaMessageSender
-          .sendMessage(new Message().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -102,7 +102,7 @@ public class EndToEndIntTest {
                 long id = finalT * threadsCount * batchesCount + finalB * batchesCount + i;
                 TestEvent testEvent = new TestEvent().setId(id).setMessage(message);
                 transactionalKafkaMessageSender
-                    .sendMessage(new Message().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+                    .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
               }
               return null;
             });
@@ -159,7 +159,7 @@ public class EndToEndIntTest {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
         transactionalKafkaMessageSender
-            .sendMessage(new Message().setKey(key).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+            .sendMessage(new TkmsMessage().setKey(key).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -191,7 +191,8 @@ public class EndToEndIntTest {
 
         transactionalKafkaMessageSender
             .sendMessage(
-                new Message().setPartition(partition).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+                new TkmsMessage().setPartition(partition).setTopic(testProperties.getTestTopic())
+                    .setValue(objectMapper.writeValueAsBytes(testEvent)));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -231,7 +232,7 @@ public class EndToEndIntTest {
             TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalE).setMessage(message);
             ExceptionUtils.doUnchecked(() -> {
               transactionalKafkaMessageSender
-                  .sendMessage(new Message().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
+                  .sendMessage(new TkmsMessage().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
                       .setValue(objectMapper.writeValueAsBytes(testEvent)));
             });
           }

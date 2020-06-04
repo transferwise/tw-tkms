@@ -4,7 +4,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
@@ -39,7 +39,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   @Transactional
-  public long sendMessage(Message message) {
+  public long sendMessage(TkmsMessage message) {
     validateMessage(message);
 
     InsertMessageResult insertMessageResult = null;
@@ -59,8 +59,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   /**
    * Can not trust the @Valid annotation.
    */
-  protected void validateMessage(Message message) {
-    Set<ConstraintViolation<Message>> violations = validator.validate(message);
+  protected void validateMessage(TkmsMessage message) {
+    Set<ConstraintViolation<TkmsMessage>> violations = validator.validate(message);
     if (!violations.isEmpty()) {
       throw new ConstraintViolationException(violations);
     }
@@ -70,7 +70,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
-  protected void fireMessageRegisteredEvent(Long id, Message message) {
+  protected void fireMessageRegisteredEvent(Long id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     if (tkmsEventsListeners.isEmpty()) {
       return;

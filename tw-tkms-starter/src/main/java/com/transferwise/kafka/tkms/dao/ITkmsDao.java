@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms.dao;
 
 import com.transferwise.kafka.tkms.ShardPartition;
-import com.transferwise.kafka.tkms.api.Message;
+import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.util.List;
 import lombok.Data;
@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 
 public interface ITkmsDao {
 
-  InsertMessageResult insertMessage(Message message);
+  InsertMessageResult insertMessage(TkmsMessage message);
 
   @Data
   @Accessors(chain = true)

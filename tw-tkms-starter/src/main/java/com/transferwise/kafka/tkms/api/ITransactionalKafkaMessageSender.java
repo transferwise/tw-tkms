@@ -5,7 +5,7 @@ import lombok.experimental.Accessors;
 
 public interface ITransactionalKafkaMessageSender {
 
-  long sendMessage(Message message);
+  long sendMessage(TkmsMessage message);
 
   @Data
   @Accessors(chain = true)

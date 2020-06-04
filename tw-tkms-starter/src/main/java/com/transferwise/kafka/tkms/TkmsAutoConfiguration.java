@@ -5,8 +5,8 @@ import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.kafka.tkms.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
-import com.transferwise.kafka.tkms.api.helpers.IMessageFactory;
-import com.transferwise.kafka.tkms.api.helpers.MessageFactory;
+import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
+import com.transferwise.kafka.tkms.api.helpers.TkmsMessageFactory;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
@@ -28,8 +28,8 @@ public class TkmsAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public IMessageFactory tkmsMessageFactory() {
-    return new MessageFactory();
+  public ITkmsMessageFactory tkmsMessageFactory() {
+    return new TkmsMessageFactory();
   }
 
   @Bean

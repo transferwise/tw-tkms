@@ -28,7 +28,7 @@ public interface ITkmsEventsListener {
   class MessageRegisteredEvent {
 
     private Long id;
-    private Message message;
+    private TkmsMessage message;
   }
 
 }
