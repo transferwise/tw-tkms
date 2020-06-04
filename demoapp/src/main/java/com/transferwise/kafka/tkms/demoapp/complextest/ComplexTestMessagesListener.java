@@ -23,14 +23,16 @@ public class ComplexTestMessagesListener {
   @Autowired
   private ObjectMapper objectMapper;
 
-  @KafkaListener(topics = {"ComplexTest0", "ComplexTest1", "ComplexTest2", "ComplexTest3", "ComplexTest4"})
+  @KafkaListener(topics = {"ComplexTest0", "ComplexTest1", "ComplexTest2", "ComplexTest3", "ComplexTest4"},
+      containerFactory = "kafkaListenerContainerFactory")
   @SneakyThrows
   public void listen1(List<ConsumerRecord<String, byte[]>> consumerRecords) {
     jdbcTemplate.batchUpdate("INSERT INTO complex_test_messages (topic, entity_id, entity_seq) values (?,?,?)", new BatchPreparedStatementSetter() {
       @Override
       public void setValues(PreparedStatement ps, int i) throws SQLException {
         ConsumerRecord<String, byte[]> consumerRecord = consumerRecords.get(i);
-        ComplexTestMessage complexTestMessage = ExceptionUtils.doUnchecked(()->objectMapper.readValue(consumerRecord.value(), ComplexTestMessage.class));
+        ComplexTestMessage complexTestMessage =
+            ExceptionUtils.doUnchecked(() -> objectMapper.readValue(consumerRecord.value(), ComplexTestMessage.class));
         ps.setString(1, consumerRecord.topic());
         ps.setLong(2, complexTestMessage.getEntityId());
         ps.setLong(3, complexTestMessage.getEntitySeq());

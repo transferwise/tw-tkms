@@ -20,8 +20,8 @@ import org.springframework.http.RequestEntity;
 import org.springframework.web.client.RestTemplate;
 
 @Slf4j
-//@Disabled("Not meant to be automatically run.")
-public class DemoAppTest {
+@Disabled("Not meant to be automatically run.")
+public class ComplexRealTest {
 
   private final RestTemplate restTemplate = new RestTemplate();
 
@@ -29,13 +29,13 @@ public class DemoAppTest {
   @SneakyThrows
   void complexTest() {
     ExecutorService executorService = Executors.newFixedThreadPool(10);
-    int topicsCount = 5;
-    int entitiesCount = 10000;
-    int eventsCount = 5;
+    long topicsCount = 5;
+    long entitiesCount = 10000;
+    long eventsCount = 5;
 
     rpc("/complexTest/reset");
 
-    long start = System.currentTimeMillis();
+    final long start = System.currentTimeMillis();
 
     for (long t = 0; t < topicsCount; t++) {
       for (long e = 0; e < entitiesCount; e++) {
@@ -59,20 +59,38 @@ public class DemoAppTest {
     }
 
     await().atMost(Duration.ofHours(1)).pollInterval(Duration.ofSeconds(5)).until(() ->
-        Long.valueOf(rpc("/complexTest/getRecordedMessagesCount")) >= topicsCount * entitiesCount * eventsCount);
+        Long.parseLong(rpc("/complexTest/getRecordedMessagesCount")) >= topicsCount * entitiesCount * eventsCount);
 
     log.info("Done in " + (System.currentTimeMillis() - start) + " ms.");
   }
 
   private String rpc(String url) {
-    int port = (ThreadLocalRandom.current().nextInt(2) == 0) ? 8080 : 8081;
+    int[] ports = new int[]{8080, 8081};
+    int portIdx = ThreadLocalRandom.current().nextInt(ports.length);
 
-    HttpHeaders headers = new HttpHeaders();
-    headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
+    int tries = 0;
+    while (tries < ports.length) {
+      try {
+        int port = ports[portIdx];
 
-    URI uri = ExceptionUtils.doUnchecked(() -> new URI("http://localhost:" + port + url));
-    RequestEntity<String> requestEntity = new RequestEntity<>(headers, HttpMethod.POST, uri);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
 
-    return restTemplate.exchange(requestEntity, String.class).getBody();
+        URI uri = ExceptionUtils.doUnchecked(() -> new URI("http://localhost:" + port + url));
+        RequestEntity<String> requestEntity = new RequestEntity<>(headers, HttpMethod.POST, uri);
+
+        return restTemplate.exchange(requestEntity, String.class).getBody();
+      } catch (Exception e) {
+        if (tries++ >= ports.length) {
+          throw e;
+        }
+        log.error(e.getMessage());
+        portIdx++;
+        if (portIdx >= ports.length) {
+          portIdx = 0;
+        }
+      }
+    }
+    throw new IllegalStateException("Can not reach here.");
   }
 }
