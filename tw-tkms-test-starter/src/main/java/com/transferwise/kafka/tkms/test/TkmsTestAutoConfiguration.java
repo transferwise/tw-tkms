@@ -10,14 +10,14 @@ public class TkmsTestAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public ISentMessagesCollector tkmsTestSentMessagesCollector() {
-    return new SentMessagesCollector();
+  public ITkmsSentMessagesCollector tkmsTestSentMessagesCollector() {
+    return new TkmsSentMessagesCollector();
   }
 
   @Bean
   @ConditionalOnMissingBean
-  public IRegisteredMessagesCollector tkmsTestRegisteredMessagesCollector() {
-    return new RegisteredMessagesCollector();
+  public ITkmsRegisteredMessagesCollector tkmsTestRegisteredMessagesCollector() {
+    return new TkmsRegisteredMessagesCollector();
   }
   
   @Bean

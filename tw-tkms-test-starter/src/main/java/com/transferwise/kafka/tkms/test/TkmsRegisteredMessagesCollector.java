@@ -13,26 +13,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class SentMessagesCollector implements ISentMessagesCollector, ITkmsEventsListener {
+public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesCollector, ITkmsEventsListener {
 
   @Autowired
   private ObjectMapper objectMapper;
   @Autowired
   private TkmsTestProperties tkmsTestProperties;
 
-  private Map<String, Map<Long, SentMessage>> messages = new ConcurrentHashMap<>();
+  private Map<String, Map<Long, RegisteredMessage>> messages = new ConcurrentHashMap<>();
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
   @Override
-  public void messageAcknowledged(MessageAcknowledgedEvent event) {
+  public void messageRegistered(MessageRegisteredEvent event) {
     if (messagesCount.get() >= tkmsTestProperties.getMaxCollectedMessages()) {
       throw new IllegalStateException(
-          "Full. Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
+          "Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
     }
     messagesCount.incrementAndGet();
-    messages.computeIfAbsent(event.getProducerRecord().topic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
-        .put(event.getId(), new SentMessage().setId(event.getId()).setProducerRecord(event.getProducerRecord()));
+    messages.computeIfAbsent(event.getMessage().getTopic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
+        .put(event.getId(), new RegisteredMessage().setId(event.getId()).setMessage(event.getMessage()));
   }
 
   // Not fully atomic, but we don't care for high precision here.
@@ -43,14 +43,14 @@ public class SentMessagesCollector implements ISentMessagesCollector, ITkmsEvent
   }
 
   @Override
-  public <T> List<T> getSentJsonMessages(String topic, Class<T> clazz) {
-    return getSentMessages(topic).stream().map(sm -> ExceptionUtils.doUnchecked(() -> objectMapper.readValue(sm.getProducerRecord().value(),
+  public <T> List<T> getRegisteredJsonMessages(String topic, Class<T> clazz) {
+    return getRegisteredMessages(topic).stream().map(sm -> ExceptionUtils.doUnchecked(() -> objectMapper.readValue(sm.getMessage().getValue(),
         clazz))).collect(Collectors.toList());
   }
 
   @Override
-  public List<SentMessage> getSentMessages(String topic) {
-    Map<Long, SentMessage> messagesInTopic = messages.get(topic);
+  public List<RegisteredMessage> getRegisteredMessages(String topic) {
+    Map<Long, RegisteredMessage> messagesInTopic = messages.get(topic);
 
     if (messagesInTopic == null) {
       return new ArrayList<>();
@@ -58,4 +58,5 @@ public class SentMessagesCollector implements ISentMessagesCollector, ITkmsEvent
 
     return new ArrayList<>(messagesInTopic.values());
   }
+
 }

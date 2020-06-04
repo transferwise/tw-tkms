@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-public interface ISentMessagesCollector {
+public interface ITkmsSentMessagesCollector {
 
   void clear();
 

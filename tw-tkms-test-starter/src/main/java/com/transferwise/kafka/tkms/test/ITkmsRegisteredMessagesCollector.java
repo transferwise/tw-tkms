@@ -5,7 +5,7 @@ import java.util.List;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
-public interface IRegisteredMessagesCollector {
+public interface ITkmsRegisteredMessagesCollector {
 
   void clear();
 
