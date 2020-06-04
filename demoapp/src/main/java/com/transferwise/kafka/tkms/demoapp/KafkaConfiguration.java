@@ -23,21 +23,29 @@ public class KafkaConfiguration {
 
   @PostConstruct
   public void inits() {
-    String topic = "MyTopic";
     try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig())) {
-      try {
-        CreateTopicsResult result = adminClient.createTopics(Collections.singletonList(new NewTopic(topic, 10, (short) 1)));
-        result.all().get();
-      } catch (InterruptedException | ExecutionException e) {
-        increasePartitions(adminClient, topic);
-      }
+      createTopic(adminClient, new NewTopic("MyTopic", 10, (short) 1));
+      createTopic(adminClient, new NewTopic("ComplexTest0", 10, (short) 1));
+      createTopic(adminClient, new NewTopic("ComplexTest1", 10, (short) 1));
+      createTopic(adminClient, new NewTopic("ComplexTest2", 10, (short) 1));
+      createTopic(adminClient, new NewTopic("ComplexTest3", 10, (short) 1));
+      createTopic(adminClient, new NewTopic("ComplexTest4", 10, (short) 1));
     }
   }
 
-  protected void increasePartitions(AdminClient adminClient, String topic) {
+  protected void createTopic(AdminClient adminClient, NewTopic newTopic) {
+    try {
+      CreateTopicsResult result = adminClient.createTopics(Collections.singletonList(newTopic));
+      result.all().get();
+    } catch (InterruptedException | ExecutionException e) {
+      increasePartitions(adminClient, newTopic.name(), newTopic.numPartitions());
+    }
+  }
+
+  protected void increasePartitions(AdminClient adminClient, String topic, int numPartitions) {
     try {
       Map<String, NewPartitions> map = new HashMap<>();
-      map.put("MyTopic", NewPartitions.increaseTo(10));
+      map.put(topic, NewPartitions.increaseTo(numPartitions));
       adminClient.createPartitions(map).all().get();
     } catch (Throwable ignored) {
       // ignored

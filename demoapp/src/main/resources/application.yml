@@ -18,13 +18,16 @@ spring:
     consumer:
       group-id: ${spring.application.name}
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
     producer:
       value-serializer: org.springframework.kafka.support.serializer.StringOrBytesSerializer
   flyway:
     locations: "classpath:db/migration/mysql"
 tw-tmks:
   desired-latency: 5ms
-  shards-count: 10
+  shards-count: 5
+  partitions-count: 10
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 10000

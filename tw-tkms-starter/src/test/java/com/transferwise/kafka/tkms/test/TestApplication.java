@@ -1,4 +1,4 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.test;
 
 import com.transferwise.common.baseutils.transactionsmanagement.TransactionsConfiguration;
 import javax.annotation.PostConstruct;

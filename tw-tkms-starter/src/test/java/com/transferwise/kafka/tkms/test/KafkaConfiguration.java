@@ -1,5 +1,6 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.test;
 
+import com.transferwise.kafka.tkms.test.TestProperties;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

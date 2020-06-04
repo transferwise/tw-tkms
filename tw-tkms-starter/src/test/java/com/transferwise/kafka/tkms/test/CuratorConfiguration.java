@@ -1,4 +1,4 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.test;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;

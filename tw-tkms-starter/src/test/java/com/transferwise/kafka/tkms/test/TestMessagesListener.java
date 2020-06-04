@@ -1,4 +1,4 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;

@@ -22,4 +22,5 @@ public class MessagesListener {
   public void listen(ConsumerRecord<String, byte[]> consumerRecord) {
     meterRegistry.timer("tw.tkms.demoapp.messages.received").record(Instant.now().toEpochMilli() - consumerRecord.timestamp(), TimeUnit.MILLISECONDS);
   }
+
 }

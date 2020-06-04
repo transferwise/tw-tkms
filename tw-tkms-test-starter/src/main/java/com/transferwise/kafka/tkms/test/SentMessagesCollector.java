@@ -28,7 +28,7 @@ public class SentMessagesCollector implements ISentMessagesCollector, ITkmsEvent
   public void messageAcknowledged(MessageAcknowledgedEvent event) {
     if (messagesCount.get() >= tkmsTestProperties.getMaxCollectedMessages()) {
       throw new IllegalStateException(
-          "Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
+          "Full. Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
     }
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getProducerRecord().topic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))

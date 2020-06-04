@@ -19,6 +19,7 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.apache.curator:curator-framework:4.3.0'
     implementation 'com.transferwise.common:tw-base-utils:1.2.8'
+    implementation 'org.flywaydb:flyway-core'
 
     implementation 'com.google.protobuf:protobuf-java:3.11.4'
 

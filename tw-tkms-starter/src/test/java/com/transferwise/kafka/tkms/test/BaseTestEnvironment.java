@@ -1,5 +1,6 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.test;
 
+import com.transferwise.kafka.tkms.test.TestApplication;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
