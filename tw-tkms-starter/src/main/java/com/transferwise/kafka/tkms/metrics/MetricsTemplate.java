@@ -45,13 +45,15 @@ public class MetricsTemplate implements IMetricsTemplate {
 
   @Override
   public void registerProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
-    meterRegistry.timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
+    meterRegistry
+        .timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
         .record(ClockHolder.getClock().hashCode() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void registerProxyMessageSent(ShardPartition shardPartition, String topic, boolean success) {
-    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(success))).increment();
+    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(success)))
+        .increment();
   }
 
   @Override
@@ -66,9 +68,12 @@ public class MetricsTemplate implements IMetricsTemplate {
 
   /**
    * The batchSize cardinality will be low.
+   *
+   * <p>batchSize tag allows to verify algorithmic correctness for deletions.
    */
   @Override
   public void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize) {
     meterRegistry.counter(DAO_MESSAGES_DELETION, shardPartitionTags(shardPartition).and("batchSize", String.valueOf(batchSize)));
   }
+  
 }
