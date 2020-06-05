@@ -32,6 +32,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
+@Transactional(rollbackFor = Exception.class)
 public class TkmsDao implements ITkmsDao {
 
   private static final int[] batchSizes = {256, 64, 16, 4, 1};
@@ -163,9 +164,7 @@ public class TkmsDao implements ITkmsDao {
     }));
   }
 
-
   @Override
-  @Transactional
   public void deleteMessage(ShardPartition shardPartition, List<Long> ids) {
     MutableInt idIdx = new MutableInt();
     while (idIdx.getValue() < ids.size()) {
@@ -229,7 +228,7 @@ public class TkmsDao implements ITkmsDao {
 
   /**
    * String manipulation is one of the most expensive operations, but we don't do caching here.
-   * 
+   *
    * <p>A Method calling this method should cache the result itself.
    */
   protected String getTableName(ShardPartition shardPartition) {

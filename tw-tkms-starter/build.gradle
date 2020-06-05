@@ -30,9 +30,9 @@ dependencies {
     implementation 'jakarta.validation:jakarta.validation-api'
     implementation 'org.apache.commons:commons-lang3'
     implementation 'io.micrometer:micrometer-core'
-    implementation 'com.transferwise.common:tw-context:0.2.0'
+    implementation 'com.transferwise.common:tw-context:0.3.1'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
-    implementation 'com.transferwise.common:tw-context-starter:0.2.0'
+    implementation 'com.transferwise.common:tw-context-starter:0.3.1'
 
     runtimeOnly 'com.transferwise.common:tw-graceful-shutdown:1.2.4'
 
@@ -41,7 +41,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-actuator'
     testImplementation 'org.springframework.boot:spring-boot-starter-jdbc'
     testImplementation 'org.projectlombok:lombok'
-    testImplementation 'org.awaitility:awaitility:4.0.2'
+    testImplementation 'org.awaitility:awaitility:4.0.3'
     testImplementation 'org.flywaydb:flyway-core'
 
     testRuntimeOnly 'org.mariadb.jdbc:mariadb-java-client'

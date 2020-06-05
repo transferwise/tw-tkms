@@ -74,12 +74,12 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
               () -> {
-                log.info("Starting to poll {}.", shardPartition);
+                log.info("Starting to proxy {}.", shardPartition);
                 poll(control, shardPartition);
                 return true;
               })),
               () -> {
-                log.info("Stopping polling of .", shardPartition);
+                log.info("Stopping proxying for {}.", shardPartition);
 
                 Future<Boolean> future = futureReference.get();
                 if (future != null) {
@@ -100,59 +100,67 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
   private void poll(Control control, ShardPartition shardPartition) {
     while (!control.shouldStop()) {
-      unitOfWorkManager.createEntryPoint("TKMS", "poll").toContext().execute(() -> {
-        try {
-          long startTime = ClockHolder.getClock().millis();
-          List<MessageRecord> records = dao.getMessages(shardPartition, properties.getPollerBatchSize());
-          if (records.size() == 0) {
-            metricsTemplate.registerProxyPoll(shardPartition, 0, startTime);
-            tkmsPaceMaker.doSmallPause();
-            return;
-          }
-          metricsTemplate.registerProxyPoll(shardPartition, records.size(), startTime);
+      unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
+          .execute(() -> {
+            try {
+              long startTime = ClockHolder.getClock().millis();
+              List<MessageRecord> records = dao.getMessages(shardPartition, properties.getPollerBatchSize());
+              if (records.size() == 0) {
+                metricsTemplate.registerProxyPoll(shardPartition, 0, startTime);
+                tkmsPaceMaker.doSmallPause();
+                return;
+              }
+              metricsTemplate.registerProxyPoll(shardPartition, records.size(), startTime);
 
-          byte[] acks = new byte[records.size()];
+              byte[] acks = new byte[records.size()];
 
-          CountDownLatch latch = new CountDownLatch(records.size());
-          for (int i = 0; i < records.size(); i++) {
-            MessageRecord messageRecord = records.get(i);
-            ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
+              CountDownLatch latch = new CountDownLatch(records.size());
+              for (int i = 0; i < records.size(); i++) {
+                MessageRecord messageRecord = records.get(i);
+                ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
 
-            int finalI = i;
-            kafkaTemplate.send(producerRecord).addCallback(
-                result -> {
-                  acks[finalI] = 1;
-                  fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
-                  metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), true);
-                  latch.countDown();
-                },
-                ex -> {
-                  log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", ex);
-                  metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
-                  latch.countDown();
-                });
-          }
-          latch.await();
+                int finalI = i;
+                kafkaTemplate.send(producerRecord).addCallback(
+                    result -> {
+                      acks[finalI] = 1;
+                      fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
+                      metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), true);
+                      latch.countDown();
+                    },
+                    ex -> {
+                      //TODO: This can halt the whole system, if it's not a recoverable error. For example when the topic does not exist and
+                      //      can not be auto created.
+                      //      We can do 2 things here.
+                      //      1. Allow an interception point for application, through some kind of filter/interceptor bean.
+                      //      This filter can get the tries count and return an indication what to do: discard, move to dlq table, try again.
+                      //      2. Implement a DLQ table.
+                      
+                      log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", ex);
+                      metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
+                      latch.countDown();
+                    });
+              }
+              latch.await();
 
-          List<Long> successIds = new ArrayList<>();
-          for (int i = 0; i < records.size(); i++) {
-            if (acks[i] == 1) {
-              successIds.add(records.get(i).getId());
+              List<Long> successIds = new ArrayList<>();
+              for (int i = 0; i < records.size(); i++) {
+                if (acks[i] == 1) {
+                  successIds.add(records.get(i).getId());
+                }
+              }
+              //TODO: In current implementation this can create latency (but not reduce total throughput).
+              // In the future we want to probably offload deleting into a separate thread(s)
+              // Obviously a select then needs "where not id in(?,?,...)" and slowness from it has to be tested.
+              dao.deleteMessage(shardPartition, successIds);
+
+              if (successIds.size() != records.size()) {
+                tkmsPaceMaker.pauseOnError();
+              }
+            } catch (Throwable t) {
+              log.error(t.getMessage(), t);
+              tkmsPaceMaker.pauseOnError();
             }
-          }
-          //TODO: In current implementation this can create latency (but not reduce total throughput).
-          // In the future we want to probably offload deleting into a separate thread(s)
-          // Obviously a select then needs "where not id in(?,?,...)" and slowness from it has to be tested.
-          dao.deleteMessage(shardPartition, successIds);
-
-          if (successIds.size() != records.size()) {
-            tkmsPaceMaker.pauseOnError();
-          }
-        } catch (Throwable t) {
-          log.error(t.getMessage(), t);
-          tkmsPaceMaker.pauseOnError();
-        }
-      });
+          });
     }
   }
 

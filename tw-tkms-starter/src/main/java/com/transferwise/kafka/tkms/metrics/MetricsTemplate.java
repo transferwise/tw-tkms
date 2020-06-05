@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.common.baseutils.clock.ClockHolder;
+import com.transferwise.common.context.TwContext;
 import com.transferwise.kafka.tkms.ShardPartition;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
@@ -17,12 +18,58 @@ public class MetricsTemplate implements IMetricsTemplate {
   private static final String PREFIX_DAO = ".dao";
 
   private static final String PROXY_POLL = PREFIX_PROXY + ".poll";
-  private static final String PROXY_MESSAGE_SEND = PREFIX_PROXY + ".message.send";
+  private static final String PROXY_MESSAGE_SEND = PREFIX_PROXY + ".message.sent";
   private static final String INTERFACE_MESSAGE_REGISTERED = PREFIX_INTERFACE + ".message.registered";
   private static final String DAO_MESSAGE_INSERT = PREFIX_DAO + ".message.inserted";
   private static final String DAO_MESSAGES_DELETION = PREFIX_DAO + ".messages.deleted";
 
+  public static final String TAG_EP_NAME = "epName";
+  public static final String TAG_EP_GROUP = "epGroup";
+  public static final String TAG_EP_OWNER = "epOwner";
+
   private final MeterRegistry meterRegistry;
+
+  @Override
+  public void registerProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
+    meterRegistry
+        .timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
+        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+  }
+
+  @Override
+  public void registerProxyMessageSent(ShardPartition shardPartition, String topic, boolean success) {
+    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(success)))
+        .increment();
+  }
+
+  @Override
+  public void recordMessageRegistering(String topic, ShardPartition shardPartition, boolean success) {
+    meterRegistry
+        .counter(INTERFACE_MESSAGE_REGISTERED, entryPointTags().and(shardPartitionTags(shardPartition)).and(successTag(success)).and(topicTag(topic)))
+        .increment();
+  }
+
+  @Override
+  public void registerDaoMessageInsert(ShardPartition shardPartition) {
+    meterRegistry.counter(DAO_MESSAGE_INSERT, entryPointTags().and(shardPartitionTags(shardPartition)))
+        .increment();
+  }
+
+  /**
+   * The batchSize cardinality will be low.
+   *
+   * <p>batchSize tag allows to verify algorithmic correctness for deletions.
+   */
+  @Override
+  public void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize) {
+    meterRegistry.counter(DAO_MESSAGES_DELETION, shardPartitionTags(shardPartition).and("batchSize", String.valueOf(batchSize)))
+        .increment();
+  }
+
+  protected Tags entryPointTags() {
+    TwContext twContext = TwContext.current();
+    return Tags.of(TAG_EP_GROUP, twContext.getGroup(), TAG_EP_NAME, twContext.getName(), TAG_EP_OWNER, twContext.getOwner());
+  }
 
   protected Tags shardPartitionTags(ShardPartition shardPartition) {
     if (shardPartition == null) {
@@ -42,38 +89,4 @@ public class MetricsTemplate implements IMetricsTemplate {
   protected Tags successTag(boolean success) {
     return Tags.of("success", Boolean.toString(success));
   }
-
-  @Override
-  public void registerProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
-    meterRegistry
-        .timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
-        .record(ClockHolder.getClock().hashCode() - startTimeMs, TimeUnit.MILLISECONDS);
-  }
-
-  @Override
-  public void registerProxyMessageSent(ShardPartition shardPartition, String topic, boolean success) {
-    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(success)))
-        .increment();
-  }
-
-  @Override
-  public void recordMessageRegistering(String topic, ShardPartition shardPartition, boolean success) {
-    meterRegistry.counter(INTERFACE_MESSAGE_REGISTERED, shardPartitionTags(shardPartition).and(successTag(success)).and(topicTag(topic)));
-  }
-
-  @Override
-  public void registerDaoMessageInsert(ShardPartition shardPartition) {
-    meterRegistry.counter(DAO_MESSAGE_INSERT, shardPartitionTags(shardPartition));
-  }
-
-  /**
-   * The batchSize cardinality will be low.
-   *
-   * <p>batchSize tag allows to verify algorithmic correctness for deletions.
-   */
-  @Override
-  public void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize) {
-    meterRegistry.counter(DAO_MESSAGES_DELETION, shardPartitionTags(shardPartition).and("batchSize", String.valueOf(batchSize)));
-  }
-  
 }
