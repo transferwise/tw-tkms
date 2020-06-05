@@ -10,18 +10,19 @@ public class TkmsTestAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public ITkmsSentMessagesCollector tkmsTestSentMessagesCollector() {
+  public TkmsSentMessagesCollector tkmsTestSentMessagesCollector() {
     return new TkmsSentMessagesCollector();
   }
 
   @Bean
   @ConditionalOnMissingBean
-  public ITkmsRegisteredMessagesCollector tkmsTestRegisteredMessagesCollector() {
+  public TkmsRegisteredMessagesCollector tkmsTestRegisteredMessagesCollector() {
     return new TkmsRegisteredMessagesCollector();
   }
   
   @Bean
   @ConfigurationProperties(value = "tw-tkms.test", ignoreInvalidFields = true)
+  @ConditionalOnMissingBean
   public TkmsTestProperties tkmsTestProperties() {
     return new TkmsTestProperties();
   }

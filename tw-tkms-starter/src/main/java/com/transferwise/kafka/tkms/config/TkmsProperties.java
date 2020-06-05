@@ -1,4 +1,4 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.config;
 
 import java.time.Duration;
 import javax.validation.constraints.NotBlank;

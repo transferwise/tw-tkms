@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.kafka.tkms.config.TkmsProperties;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.PostConstruct;

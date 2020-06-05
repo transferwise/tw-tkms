@@ -1,12 +1,17 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.config;
 
-import com.transferwise.common.baseutils.concurrency.DefaultExecutorServicesProvider;
-import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
-import com.transferwise.kafka.tkms.TkmsProperties.DatabaseDialect;
+import com.transferwise.kafka.tkms.IStorageToKafkaProxy;
+import com.transferwise.kafka.tkms.ITkmsPaceMaker;
+import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
+import com.transferwise.kafka.tkms.StorageToKafkaProxy;
+import com.transferwise.kafka.tkms.TkmsPaceMaker;
+import com.transferwise.kafka.tkms.TkmsZookeeperOperations;
+import com.transferwise.kafka.tkms.TransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
 import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
 import com.transferwise.kafka.tkms.api.helpers.TkmsMessageFactory;
+import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
@@ -26,29 +31,29 @@ import org.springframework.core.env.Environment;
 
 @Configuration
 @Slf4j
-public class TkmsAutoConfiguration {
+public class TkmsConfiguration {
 
   @Bean
-  @ConditionalOnMissingBean
-  public ITkmsMessageFactory tkmsMessageFactory() {
+  @ConditionalOnMissingBean(ITkmsMessageFactory.class)
+  public TkmsMessageFactory tkmsMessageFactory() {
     return new TkmsMessageFactory();
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public IMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
+  @ConditionalOnMissingBean(IMetricsTemplate.class)
+  public MetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
     return new MetricsTemplate(meterRegistry);
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public ITransactionalKafkaMessageSender tkmsTransactionalKafkaMessageSender() {
+  @ConditionalOnMissingBean(ITransactionalKafkaMessageSender.class)
+  public TransactionalKafkaMessageSender tkmsTransactionalKafkaMessageSender() {
     return new TransactionalKafkaMessageSender();
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public ITkmsDao tkmsDao(TkmsProperties tkmsProperties) {
+  @ConditionalOnMissingBean(ITkmsDao.class)
+  public TkmsDao tkmsDao(TkmsProperties tkmsProperties) {
     if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.POSTGRES) {
       return new TkmsPostgresDao();
     }
@@ -56,15 +61,9 @@ public class TkmsAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public IStorageToKafkaProxy tkmsStorageToKafkaProxy() {
+  @ConditionalOnMissingBean(IStorageToKafkaProxy.class)
+  public StorageToKafkaProxy tkmsStorageToKafkaProxy() {
     return new StorageToKafkaProxy();
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  public IExecutorServicesProvider tkmsExecutorServicesProvider() {
-    return new DefaultExecutorServicesProvider();
   }
 
   @Bean
@@ -77,14 +76,14 @@ public class TkmsAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public ITkmsPaceMaker tkmsPaceMaker() {
+  @ConditionalOnMissingBean(ITkmsPaceMaker.class)
+  public TkmsPaceMaker tkmsPaceMaker() {
     return new TkmsPaceMaker();
   }
 
   @Bean
-  @ConditionalOnMissingBean
-  public ITkmsZookeeperOperations tkmsZookeeperOperations() {
+  @ConditionalOnMissingBean(ITkmsZookeeperOperations.class)
+  public TkmsZookeeperOperations tkmsZookeeperOperations() {
     return new TkmsZookeeperOperations();
   }
 
@@ -116,16 +115,4 @@ public class TkmsAutoConfiguration {
     return new TkmsDataSourceProvider(dataSource);
   }
 
-  public static class TkmsDataSourceProvider {
-
-    private final DataSource dataSource;
-
-    public TkmsDataSourceProvider(DataSource dataSource) {
-      this.dataSource = dataSource;
-    }
-
-    public DataSource getDataSource() {
-      return dataSource;
-    }
-  }
 }

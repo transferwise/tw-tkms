@@ -5,6 +5,7 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;

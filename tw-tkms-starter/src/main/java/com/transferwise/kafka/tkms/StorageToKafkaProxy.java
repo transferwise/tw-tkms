@@ -10,8 +10,9 @@ import com.transferwise.common.leaderselector.Leader.Control;
 import com.transferwise.common.leaderselector.LeaderSelector;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
+import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
-import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   @Autowired
   private TkmsProperties properties;
   @Autowired
-  private TkmsDao dao;
+  private ITkmsDao dao;
   @Autowired
   private ITkmsPaceMaker tkmsPaceMaker;
   @Autowired
@@ -134,7 +135,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                       //      1. Allow an interception point for application, through some kind of filter/interceptor bean.
                       //      This filter can get the tries count and return an indication what to do: discard, move to dlq table, try again.
                       //      2. Implement a DLQ table.
-                      
+
                       log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", ex);
                       metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
                       latch.countDown();
@@ -193,7 +194,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
       }
     }
 
-    //TODO: Should we support emtpy string keys?
+    //TODO: Should we support empty string keys?
 
     return new ProducerRecord<>(
         storedMessage.getTopic(), storedMessage.hasPartition() ? storedMessage.getPartition().getValue() : null,
