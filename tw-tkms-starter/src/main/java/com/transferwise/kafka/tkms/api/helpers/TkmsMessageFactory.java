@@ -4,25 +4,29 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import java.nio.charset.StandardCharsets;
-import javax.annotation.PostConstruct;
+import java.util.Set;
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
+import javax.validation.Validator;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class TkmsMessageFactory implements ITkmsMessageFactory {
 
-  @Autowired(required = false)
+  @Autowired
   private ObjectMapper objectMapper;
 
-  @PostConstruct
-  public void init() {
-    // Older Spring ecosystems may not have it created as global bean.
-    if (objectMapper == null) {
-      objectMapper = new ObjectMapper();
-    }
-  }
+  @Autowired
+  private Validator validator;
 
   @Override
-  public TkmsMessage createJsonMessage(@NonNull Object value) {
+  public <T> TkmsMessage createJsonMessage(@NonNull T value) {
+    // It's important to fail fast on producer side, so we will enforce validation in default implementation.
+    Set<ConstraintViolation<T>> violations = validator.validate(value);
+    if (!violations.isEmpty()) {
+      throw new ConstraintViolationException(violations);
+    }
+
     return ExceptionUtils.doUnchecked(() -> new TkmsMessage().setValue(objectMapper.writeValueAsBytes(value)));
   }
 

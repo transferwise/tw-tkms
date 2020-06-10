@@ -7,8 +7,17 @@
   <Match>
     <Class name="com.transferwise.kafka.tkms.stored_message.StoredMessage$Header$Builder"/>
   </Match>
-  
+
   <Match>
     <Class name="com.transferwise.kafka.tkms.stored_message.StoredMessage$Message$Builder"/>
   </Match>
+
+  <Match>
+    <Class name="db.migration.mysql.V1__Init"/>
+  </Match>
+
+  <Match>
+    <Class name="db.migration.postgres.V1__Init"/>
+  </Match>
+
 </FindBugsFilter>

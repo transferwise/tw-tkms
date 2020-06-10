@@ -10,7 +10,7 @@ import lombok.NonNull;
  */
 public interface ITkmsMessageFactory {
 
-  TkmsMessage createJsonMessage(@NonNull Object value);
+  <T> TkmsMessage createJsonMessage(@NonNull T value);
 
   TkmsMessage createTextMessage(@NonNull String value);
 }
