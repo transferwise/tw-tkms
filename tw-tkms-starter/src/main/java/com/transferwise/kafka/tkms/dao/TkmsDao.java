@@ -60,7 +60,7 @@ public class TkmsDao implements ITkmsDao {
 
     Map<ShardPartition, String> map = new HashMap<>();
     for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         ShardPartition sp = ShardPartition.of(s, p);
         map.put(sp, getInsertSql(sp));
       }
@@ -69,7 +69,7 @@ public class TkmsDao implements ITkmsDao {
 
     map.clear();
     for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         ShardPartition sp = ShardPartition.of(s, p);
         map.put(sp, getSelectSql(sp));
       }
@@ -79,7 +79,7 @@ public class TkmsDao implements ITkmsDao {
     deleteSqlsMap = new HashMap<>();
 
     for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         ShardPartition sp = ShardPartition.of(s, p);
         for (int batchSize : batchSizes) {
           Pair<ShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
@@ -98,8 +98,8 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public InsertMessageResult insertMessage(TkmsMessage message) {
-    final ShardPartition shardPartition = getShardPartition(message);
+  public InsertMessageResult insertMessage(int shard, TkmsMessage message) {
+    final ShardPartition shardPartition = getShardPartition(shard, message);
     final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
 
     StoredMessage.Headers headers = null;
@@ -188,24 +188,12 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
-
-  private ShardPartition getShardPartition(TkmsMessage message) {
-    return ShardPartition.of(getShard(message), getPartition(message));
+  private ShardPartition getShardPartition(int shard, TkmsMessage message) {
+    return ShardPartition.of(shard, getPartition(shard, message));
   }
-
-  private int getShard(TkmsMessage message) {
-    if (message.getShard() == null) {
-      return properties.getDefaultShard();
-    }
-    if (message.getShard() >= properties.getShardsCount()) {
-      throw new IllegalArgumentException("Given shard " + message.getShard() + " is out of bounds.");
-    }
-
-    return message.getShard();
-  }
-
-  private int getPartition(TkmsMessage message) {
-    int tablesCount = properties.getPartitionsCount();
+  
+  private int getPartition(int shard, TkmsMessage message) {
+    int tablesCount = properties.getPartitionsCount(shard);
     if (tablesCount == 1) {
       return 0;
     }

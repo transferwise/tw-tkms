@@ -30,7 +30,7 @@ public class ComplexRealTest {
   void complexTest() {
     ExecutorService executorService = Executors.newFixedThreadPool(10);
     long topicsCount = 5;
-    long entitiesCount = 10000;
+    long entitiesCount = 10_000;
     long eventsCount = 5;
 
     rpc("/complexTest/reset");

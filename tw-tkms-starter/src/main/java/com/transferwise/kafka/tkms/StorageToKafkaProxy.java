@@ -6,10 +6,16 @@ import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.concurrency.ThreadNamingExecutorServiceWrapper;
 import com.transferwise.common.context.UnitOfWorkManager;
 import com.transferwise.common.gracefulshutdown.GracefulShutdownStrategy;
+import com.transferwise.common.leaderselector.ILock;
 import com.transferwise.common.leaderselector.Leader.Control;
-import com.transferwise.common.leaderselector.LeaderSelector;
+import com.transferwise.common.leaderselector.LeaderSelectorV2;
+import com.transferwise.common.leaderselector.SharedReentrantLockBuilderFactory;
+import com.transferwise.kafka.tkms.api.IMessageInterceptors;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
+import com.transferwise.kafka.tkms.api.ProxyDecision;
+import com.transferwise.kafka.tkms.api.ProxyDecision.Result;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
@@ -17,31 +23,29 @@ import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.curator.framework.CuratorFramework;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.kafka.core.KafkaTemplate;
 
 @Slf4j
 public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageToKafkaProxy {
 
   @Autowired
-  private KafkaTemplate<String, byte[]> kafkaTemplate;
+  private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
   @Autowired
   private IExecutorServicesProvider executorServicesProvider;
-  @Autowired
-  private CuratorFramework curatorFramework;
   @Autowired
   private TkmsProperties properties;
   @Autowired
@@ -56,36 +60,50 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   private IMetricsTemplate metricsTemplate;
   @Autowired
   private ApplicationContext applicationContext;
+  @Autowired
+  private IMessageInterceptors messageIntereceptors;
+  @Autowired
+  private SharedReentrantLockBuilderFactory lockBuilderFactory;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
-  private final List<LeaderSelector> leaderSelectors = new ArrayList<>();
+  private final List<LeaderSelectorV2> leaderSelectors = new ArrayList<>();
   private RateLimiter exceptionRateLimiter = RateLimiter.create(2);
+
 
   @PostConstruct
   public void init() {
     for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         ShardPartition shardPartition = ShardPartition.of(s, p);
 
         ExecutorService executorService =
             new ThreadNamingExecutorServiceWrapper("tw-tkms-poller-" + s + "_" + p, executorServicesProvider.getGlobalExecutorService());
 
-        leaderSelectors.add(new LeaderSelector(curatorFramework, zkOperations.getLockNodePath(shardPartition), executorService, control -> {
+        ILock lock = lockBuilderFactory.createBuilder(zkOperations.getLockNodePath(shardPartition)).build();
+
+        leaderSelectors.add(new LeaderSelectorV2.Builder().setLock(lock).setExecutorService(executorService).setLeader(control -> {
           AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
 
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
               () -> {
-                log.info("Starting to proxy {}.", shardPartition);
-                poll(control, shardPartition);
-                return true;
+                try {
+                  log.info("Starting to proxy {}.", shardPartition);
+                  poll(control, shardPartition);
+                  return true;
+                } catch (Throwable t) {
+                  log.error(t.getMessage(), t);
+                  return false;
+                }
               })),
               () -> {
                 log.info("Stopping proxying for {}.", shardPartition);
 
+                // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
+                
                 Future<Boolean> future = futureReference.get();
                 if (future != null) {
                   try {
-                    Boolean result = future.get(tkmsPaceMaker.getLongWaitTime().toMillis(), TimeUnit.MILLISECONDS);
+                    Boolean result = future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
                     if (result == null) {
                       throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".");
                     }
@@ -94,54 +112,82 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                   }
                 }
               });
-        }));
+        }).build());
       }
     }
   }
 
   private void poll(Control control, ShardPartition shardPartition) {
+    int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
+    long startTimeMs = ClockHolder.getClock().millis();
+
+    long timeToLiveMs = TimeUnit.MINUTES.toMillis(5) + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
+
     while (!control.shouldStop()) {
+      if (ClockHolder.getClock().millis() - startTimeMs > timeToLiveMs) {
+        // Poor man's balancer. Allow other nodes a chance to get a leader as well.
+        control.yield();
+        return;
+      }
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
           .execute(() -> {
             try {
               long startTime = ClockHolder.getClock().millis();
-              List<MessageRecord> records = dao.getMessages(shardPartition, properties.getPollerBatchSize());
+              List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
               if (records.size() == 0) {
                 metricsTemplate.registerProxyPoll(shardPartition, 0, startTime);
-                tkmsPaceMaker.doSmallPause();
+                tkmsPaceMaker.doSmallPause(shardPartition.getShard());
                 return;
               }
               metricsTemplate.registerProxyPoll(shardPartition, records.size(), startTime);
 
               byte[] acks = new byte[records.size()];
 
-              CountDownLatch latch = new CountDownLatch(records.size());
+              List<Future<RecordMetadata>> futures = new ArrayList<>();
+
+              KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
+
               for (int i = 0; i < records.size(); i++) {
+                int finalI = i;
+
                 MessageRecord messageRecord = records.get(i);
                 ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
 
-                int finalI = i;
-                kafkaTemplate.send(producerRecord).addCallback(
-                    result -> {
+                ProxyDecision proxyDecision = messageIntereceptors.beforeProxy(producerRecord);
+                if (proxyDecision != null && proxyDecision.getResult() == Result.DISCARD) {
+                  acks[finalI] = 1;
+                  continue;
+                }
+
+                try {
+                  Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
+                    if (exception == null) {
                       acks[finalI] = 1;
                       fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
                       metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), true);
-                      latch.countDown();
-                    },
-                    ex -> {
-                      //TODO: This can halt the whole system, if it's not a recoverable error. For example when the topic does not exist and
-                      //      can not be auto created.
-                      //      We can do 2 things here.
-                      //      1. Allow an interception point for application, through some kind of filter/interceptor bean.
-                      //      This filter can get the tries count and return an indication what to do: discard, move to dlq table, try again.
-                      //      2. Implement a DLQ table.
-
-                      log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", ex);
+                    } else {
+                      log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
                       metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
-                      latch.countDown();
-                    });
+                    }
+                  });
+
+                  futures.add(future);
+                } catch (Throwable t) {
+                  log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t);
+                }
               }
-              latch.await();
+
+              if (!futures.isEmpty()) {
+                kafkaProducer.flush();
+              }
+
+              for (Future<RecordMetadata> future : futures) {
+                try {
+                  future.get();
+                } catch (Throwable t) {
+                  log.error("Sending message failed.", t);
+                }
+              }
 
               List<Long> successIds = new ArrayList<>();
               for (int i = 0; i < records.size(); i++) {
@@ -150,16 +196,17 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                 }
               }
               //TODO: In current implementation this can create latency (but not reduce total throughput).
-              // In the future we want to probably offload deleting into a separate thread(s)
-              // Obviously a select then needs "where not id in(?,?,...)" and slowness from it has to be tested.
+              // In the future we may provide more algorithms here.
+              //   For example we want to probably offload deleting into a separate thread(s)
+              //   Select would need id>X, which probably would not be too bad.
               dao.deleteMessage(shardPartition, successIds);
 
               if (successIds.size() != records.size()) {
-                tkmsPaceMaker.pauseOnError();
+                tkmsPaceMaker.pauseOnError(shardPartition.getShard());
               }
             } catch (Throwable t) {
               log.error(t.getMessage(), t);
-              tkmsPaceMaker.pauseOnError();
+              tkmsPaceMaker.pauseOnError(shardPartition.getShard());
             }
           });
     }
@@ -204,21 +251,21 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
   @Override
   public void applicationStarted() {
-    for (LeaderSelector leaderSelector : leaderSelectors) {
+    for (LeaderSelectorV2 leaderSelector : leaderSelectors) {
       leaderSelector.start();
     }
   }
 
   @Override
   public void prepareForShutdown() {
-    for (LeaderSelector leaderSelector : leaderSelectors) {
+    for (LeaderSelectorV2 leaderSelector : leaderSelectors) {
       leaderSelector.stop();
     }
   }
 
   @Override
   public boolean canShutdown() {
-    for (LeaderSelector leaderSelector : leaderSelectors) {
+    for (LeaderSelectorV2 leaderSelector : leaderSelectors) {
       if (!leaderSelector.hasStopped()) {
         return false;
       }
@@ -228,7 +275,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
   @Override
   public void applicationTerminating() {
-    for (LeaderSelector leaderSelector : leaderSelectors) {
+    for (LeaderSelectorV2 leaderSelector : leaderSelectors) {
       if (!leaderSelector.hasStopped()) {
         IllegalStateException e = new IllegalStateException("All leader selectors were not terminated properly.");
         log.error(e.getMessage(), e);

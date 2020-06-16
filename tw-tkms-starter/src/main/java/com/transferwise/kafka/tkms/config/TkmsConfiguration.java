@@ -3,10 +3,12 @@ package com.transferwise.kafka.tkms.config;
 import com.transferwise.kafka.tkms.IStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
+import com.transferwise.kafka.tkms.MessageInterceptors;
 import com.transferwise.kafka.tkms.StorageToKafkaProxy;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
 import com.transferwise.kafka.tkms.TkmsZookeeperOperations;
 import com.transferwise.kafka.tkms.TransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.IMessageInterceptors;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
 import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
@@ -29,6 +31,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
+/**
+ * Separated things here, which can be included in non spring-boot application without modification.
+ */
 @Configuration
 @Slf4j
 public class TkmsConfiguration {
@@ -88,7 +93,7 @@ public class TkmsConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(TkmsDataSourceProvider.class)
+  @ConditionalOnMissingBean(ITkmsDataSourceProvider.class)
   public TkmsDataSourceProvider tkmsDataSourceProvider(
       @Autowired(required = false) @Tkms DataSource dataSource, ConfigurableListableBeanFactory beanFactory) {
     if (dataSource == null) {
@@ -113,6 +118,18 @@ public class TkmsConfiguration {
       }
     }
     return new TkmsDataSourceProvider(dataSource);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsKafkaProducerProvider.class)
+  public TkmsKafkaProducerProvider tkmsKafkaProducerProvider() {
+    return new TkmsKafkaProducerProvider();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(IMessageInterceptors.class)
+  public IMessageInterceptors tkmsMessageInterceptors() {
+    return new MessageInterceptors();
   }
 
 }

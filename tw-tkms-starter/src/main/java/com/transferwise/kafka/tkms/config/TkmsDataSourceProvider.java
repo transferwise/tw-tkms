@@ -2,7 +2,7 @@ package com.transferwise.kafka.tkms.config;
 
 import javax.sql.DataSource;
 
-public class TkmsDataSourceProvider {
+public class TkmsDataSourceProvider implements ITkmsDataSourceProvider {
 
   private final DataSource dataSource;
 

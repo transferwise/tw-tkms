@@ -15,6 +15,6 @@ public class ShardPartition {
   }
 
   public String toString() {
-    return "shard" + shard + ", partition " + partition;
+    return "shard " + shard + ", partition " + partition;
   }
 }

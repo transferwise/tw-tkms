@@ -20,14 +20,16 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
       enable-auto-commit: false
       auto-offset-reset: earliest
-    producer:
-      value-serializer: org.springframework.kafka.support.serializer.StringOrBytesSerializer
   flyway:
     locations: "classpath:db/migration/mysql"
-tw-tmks:
+tw-tkms:
   desired-latency: 5ms
-  shards-count: 5
-  partitions-count: 10
+  shards-count: 1
+  partitions-count: 1
+  topics:
+    - ComplexTest
+  kafka:
+    bootstrap.servers: "localhost:9092"
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 10000
@@ -47,6 +49,9 @@ management:
     - liveness
     - prometheus
     - info
+
+tw-curator:
+  zookeeper-connect-string: "localhost:2181"
 
 ---
 

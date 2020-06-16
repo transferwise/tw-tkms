@@ -1,6 +1,10 @@
 package com.transferwise.kafka.tkms.config;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
@@ -27,7 +31,6 @@ public class TkmsProperties {
    */
   @NotBlank
   private String tableBaseName = "outgoing_message";
-  @NotBlank
   private String groupId;
   @Positive
   private int pollerBatchSize = 1000;
@@ -37,6 +40,63 @@ public class TkmsProperties {
   private Duration pauseTimeOnErrors = Duration.ofSeconds(5);
   @NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
+
+  /**
+   * List topics used by the lib.
+   * 
+   * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
+   * 
+   * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
+   */
+  private List<String> topics = new ArrayList<>();
+  
+  private Map<String, String> kafka = new HashMap<>();
+
+  private Map<Integer, ShardProperties> shards = new HashMap<>();
+
+  @Data
+  @Accessors(chain = true)
+  public static class ShardProperties {
+
+    private Integer partitionsCount;
+    private Integer pollerBatchSize;
+    private Duration desiredLatency;
+    private Duration pauseTimeOnErrors;
+
+    private Map<String, String> kafka = new HashMap<>();
+  }
+
+  public int getPartitionsCount(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getPartitionsCount() != null) {
+      return shardProperties.getPartitionsCount();
+    }
+    return partitionsCount;
+  }
+
+  public int getPollerBatchSize(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getPollerBatchSize() != null) {
+      return shardProperties.getPollerBatchSize();
+    }
+    return pollerBatchSize;
+  }
+
+  public Duration getDesiredLatency(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getDesiredLatency() != null) {
+      return shardProperties.getDesiredLatency();
+    }
+    return desiredLatency;
+  }
+
+  public Duration getPauseTimeOnErrors(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getPauseTimeOnErrors() != null) {
+      return shardProperties.getPauseTimeOnErrors();
+    }
+    return pauseTimeOnErrors;
+  }
 
   public enum DatabaseDialect {
     POSTGRES,

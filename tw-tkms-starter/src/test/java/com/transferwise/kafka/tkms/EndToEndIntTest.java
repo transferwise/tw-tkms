@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,11 +13,13 @@ import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
@@ -64,6 +67,7 @@ public class EndToEndIntTest {
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
+
   }
 
   @Test
@@ -263,4 +267,12 @@ public class EndToEndIntTest {
     }
   }
 
+  @Test
+  @SneakyThrows
+  public void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
+    assertThatThrownBy(() -> {
+      transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)));
+    }).hasMessageContaining("Topic NotExistingTopic not present in metadata");
+  }
 }

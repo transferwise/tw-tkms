@@ -73,13 +73,6 @@ jar {
     }
 }
 
-compileJava {
-    options.encoding = 'utf-8'
-    options.compilerArgs << '-parameters'
-    options.compilerArgs << '-Xlint'
-    options.compilerArgs << '-Xlint:-processing'
-}
-
 test {
     useJUnitPlatform()
     testLogging {

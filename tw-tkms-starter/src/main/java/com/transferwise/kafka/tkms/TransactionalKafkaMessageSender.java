@@ -5,6 +5,7 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
@@ -12,6 +13,7 @@ import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import javax.validation.Validator;
@@ -33,28 +35,48 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private TkmsProperties properties;
   @Autowired
   private ApplicationContext applicationContext;
+  @Autowired
+  private ITkmsKafkaProducerProvider kafkaProducerProvider;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
-
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
+
+  @PostConstruct
+  public void init() {
+    for (String topic : properties.getTopics()) {
+      validateTopic(properties.getDefaultShard(), topic);
+    }
+  }
 
   @Override
   @Transactional
   public long sendMessage(TkmsMessage message) {
     validateMessage(message);
 
+    int shard = getShard(message);
+
+    String topic = message.getTopic();
+    validateTopic(shard, topic);
+
     InsertMessageResult insertMessageResult = null;
     try {
-      insertMessageResult = transactionalKafkaMessageSenderDao.insertMessage(message);
+      insertMessageResult = transactionalKafkaMessageSenderDao.insertMessage(shard, message);
       fireMessageRegisteredEvent(insertMessageResult.getId(), message);
       return insertMessageResult.getId();
     } finally {
       if (insertMessageResult == null) {
-        metricsTemplate.recordMessageRegistering(message.getTopic(), null, false);
+        metricsTemplate.recordMessageRegistering(topic, null, false);
       } else {
-        metricsTemplate.recordMessageRegistering(message.getTopic(), insertMessageResult.getShardPartition(), true);
+        metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), true);
       }
     }
+  }
+
+  /**
+   * Every call to normal KafkaProducer.send() uses metadata for a topic as well, so should be very fast.
+   */
+  protected void validateTopic(int shard, String topic) {
+    kafkaProducerProvider.getKafkaProducer(shard).partitionsFor(topic);
   }
 
   /**
@@ -100,6 +122,17 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       }
     }
     return tkmsEventsListeners;
+  }
+
+  protected int getShard(TkmsMessage message) {
+    if (message.getShard() == null) {
+      return properties.getDefaultShard();
+    }
+    if (message.getShard() >= properties.getShardsCount()) {
+      throw new IllegalArgumentException("Given shard " + message.getShard() + " is out of bounds.");
+    }
+
+    return message.getShard();
   }
 
 }

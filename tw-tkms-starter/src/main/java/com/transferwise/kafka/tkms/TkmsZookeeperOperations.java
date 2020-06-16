@@ -7,6 +7,8 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
@@ -16,8 +18,19 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
   @Autowired
   private TkmsProperties properties;
 
+  @Value("${spring.application.name:}")
+  private String applicationName;
+
   @PostConstruct
   public void init() {
+
+    String groupId = properties.getGroupId();
+    if (StringUtils.isEmpty(groupId)) {
+      groupId = applicationName;
+    }
+    if (StringUtils.isEmpty(groupId)) {
+      throw new IllegalStateException("`tw-tkms.group-id` nor `spring.application.name` is specified.");
+    }
     ExceptionUtils.doUnchecked(() -> {
       String prefix = "/tw/tkms/" + properties.getGroupId() + "/";
       String pollerLockPrefix = prefix + "poller/lock/";
@@ -25,7 +38,7 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
       log.info("Using lock pattern of '{}'.", pollerLockPrefix + "{shard}/{partition}");
 
       for (int s = 0; s < properties.getShardsCount(); s++) {
-        for (int p = 0; p < properties.getPartitionsCount(); p++) {
+        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
           lockNodePathMap.put(ShardPartition.of(s, p), pollerLockPrefix + s + "/" + p);
         }
       }

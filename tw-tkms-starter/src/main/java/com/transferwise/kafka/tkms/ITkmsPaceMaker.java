@@ -4,9 +4,9 @@ import java.time.Duration;
 
 public interface ITkmsPaceMaker {
 
-  void doSmallPause();
+  void doSmallPause(int shard);
 
-  void pauseOnError();
+  void pauseOnError(int shard);
 
-  Duration getLongWaitTime();
+  Duration getLongWaitTime(int shard);
 }

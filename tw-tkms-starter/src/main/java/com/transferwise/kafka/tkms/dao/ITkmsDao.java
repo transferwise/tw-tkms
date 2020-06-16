@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 
 public interface ITkmsDao {
 
-  InsertMessageResult insertMessage(TkmsMessage message);
+  InsertMessageResult insertMessage(int shard, TkmsMessage message);
 
   @Data
   @Accessors(chain = true)

@@ -19,20 +19,23 @@ spring:
       group-id: ${spring.application.name}
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
-    producer:
-      value-serializer: org.springframework.kafka.support.serializer.StringOrBytesSerializer
     listener:
       missing-topics-fatal: true
 
   flyway:
     locations: "classpath:db/migration/mysql"
 
-zookeeper:
-  connect-string: "localhost:${ZOOKEEPER_TCP_2181}"
+tw-curator:
+  zookeeper-connect-string: "localhost:${ZOOKEEPER_TCP_2181}"
 
-tw-tmks:
+tw-tkms:
   desired-latency: 5ms
-  shards-count: 10
+  shards-count: 2
+  kafka:
+    bootstrap.servers: "localhost:${KAFKA_TCP_9092}"
+  shards:
+    1:
+      desired-latency: 6ms
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
