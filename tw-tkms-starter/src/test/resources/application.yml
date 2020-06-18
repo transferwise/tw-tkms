@@ -20,7 +20,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
     listener:
-      missing-topics-fatal: true
+      missing-topics-fatal: false
 
   flyway:
     locations: "classpath:db/migration/mysql"
@@ -31,6 +31,7 @@ tw-curator:
 tw-tkms:
   desired-latency: 5ms
   shards-count: 2
+  insert-batch-size: 2
   kafka:
     bootstrap.servers: "localhost:${KAFKA_TCP_9092}"
   shards:

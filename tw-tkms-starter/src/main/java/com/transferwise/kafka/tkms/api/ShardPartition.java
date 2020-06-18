@@ -1,4 +1,4 @@
-package com.transferwise.kafka.tkms;
+package com.transferwise.kafka.tkms.api;
 
 import lombok.Data;
 import lombok.experimental.Accessors;

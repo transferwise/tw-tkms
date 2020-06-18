@@ -34,22 +34,24 @@ public class TkmsProperties {
   private String groupId;
   @Positive
   private int pollerBatchSize = 1000;
+  @Positive
+  private int insertBatchSize = 1000;
   @NotNull
   private Duration desiredLatency = Duration.ofMillis(5);
   @NotNull
-  private Duration pauseTimeOnErrors = Duration.ofSeconds(5);
+  private Duration pauseTimeOnErrors = Duration.ofSeconds(2);
   @NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
 
   /**
    * List topics used by the lib.
-   * 
+   *
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
-   * 
+   *
    * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
    */
   private List<String> topics = new ArrayList<>();
-  
+
   private Map<String, String> kafka = new HashMap<>();
 
   private Map<Integer, ShardProperties> shards = new HashMap<>();
@@ -62,6 +64,7 @@ public class TkmsProperties {
     private Integer pollerBatchSize;
     private Duration desiredLatency;
     private Duration pauseTimeOnErrors;
+    private Integer insertBatchSize;
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -96,6 +99,14 @@ public class TkmsProperties {
       return shardProperties.getPauseTimeOnErrors();
     }
     return pauseTimeOnErrors;
+  }
+
+  public int getInsertBatchSize(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getInsertBatchSize() != null) {
+      return shardProperties.getInsertBatchSize();
+    }
+    return insertBatchSize;
   }
 
   public enum DatabaseDialect {

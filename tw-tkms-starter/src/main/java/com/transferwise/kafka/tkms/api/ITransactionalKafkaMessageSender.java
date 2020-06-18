@@ -1,18 +1,46 @@
 package com.transferwise.kafka.tkms.api;
 
+import java.util.ArrayList;
+import java.util.List;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 public interface ITransactionalKafkaMessageSender {
 
-  long sendMessage(TkmsMessage message);
+  SendMessageResult sendMessage(TkmsMessage message);
 
   @Data
   @Accessors(chain = true)
   class SendMessageResult {
 
-    private Long id;
-    private int shard;
-    private int partition;
+    private Long storageId;
+    private ShardPartition shardPartition;
+  }
+
+  SendMessagesResult sendMessages(SendMessagesRequest request);
+
+  @Data
+  @Accessors(chain = true)
+  class SendMessagesRequest {
+
+    @NotNull
+    @NotEmpty
+    private List<TkmsMessage> tkmsMessages = new ArrayList<>();
+
+    public SendMessagesRequest addTkmsMessage(TkmsMessage tkmsMessage) {
+      tkmsMessages.add(tkmsMessage);
+      return this;
+    }
+  }
+
+  @Data
+  @Accessors(chain = true)
+  class SendMessagesResult {
+
+    @NotNull
+    @NotEmpty
+    private List<SendMessageResult> results = new ArrayList<>();
   }
 }

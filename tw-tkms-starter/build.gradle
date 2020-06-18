@@ -66,8 +66,8 @@ dockerCompose {
     // waitForTcpPorts = false
 
     // Set to true if you have anomalies
-    stopContainers = true
-    removeContainers = true
+    stopContainers = false
+    removeContainers = false
 
     environment.put "KAFKA_RANDOM_PORT", "${freePort}"
 }
