@@ -129,7 +129,7 @@ public class TkmsDao implements ITkmsDao {
               while (rs.next()) {
                 Long id = rs.getLong(1);
                 results.get(idx.intValue() + i++).setStorageId(id);
-                metricsTemplate.registerDaoMessageInsert(shardPartition);
+                metricsTemplate.recordDaoMessageInsert(shardPartition);
               }
             }
             idx.add(batchSize);
@@ -160,7 +160,7 @@ public class TkmsDao implements ITkmsDao {
       }
     }, keyHolder);
 
-    metricsTemplate.registerDaoMessageInsert(shardPartition);
+    metricsTemplate.recordDaoMessageInsert(shardPartition);
 
     result.setStorageId(keyToLong(keyHolder));
     return result;
@@ -201,19 +201,40 @@ public class TkmsDao implements ITkmsDao {
 
   @Override
   public List<MessageRecord> getMessages(ShardPartition shardPartition, int maxCount) {
-    long startTimeMs = ClockHolder.getClock().millis();
-    try {
-      return jdbcTemplate.query(getMessagesSqls.get(shardPartition), ps -> ps.setLong(1, maxCount), (rs, rowNum) -> ExceptionUtils.doUnchecked(() -> {
-        metricsTemplate.recordDaoPollFirstResult(shardPartition, startTimeMs);
-        MessageRecord messageRecord = new MessageRecord();
-        messageRecord.setId(rs.getLong(1));
-        messageRecord.setMessage(StoredMessage.Message.parseFrom(rs.getBytes(2)));
+    return ExceptionUtils.doUnchecked(() -> {
+      long startTimeMs = ClockHolder.getClock().millis();
 
-        return messageRecord;
-      }));
-    } finally {
-      metricsTemplate.recordDaoPoll(shardPartition, startTimeMs);
-    }
+      Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
+      try {
+        metricsTemplate.recordDaoPollGetConnection(shardPartition, startTimeMs);
+        startTimeMs = ClockHolder.getClock().millis();
+        try (PreparedStatement ps = con.prepareStatement(getMessagesSqls.get(shardPartition))) {
+          ps.setLong(1, maxCount);
+
+          List<MessageRecord> records = new ArrayList<>();
+          int i = 0;
+          try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+              if (i++ == 0) {
+                metricsTemplate.recordDaoPollFirstResult(shardPartition, startTimeMs);
+              }
+
+              MessageRecord messageRecord = new MessageRecord();
+              messageRecord.setId(rs.getLong(1));
+              messageRecord.setMessage(StoredMessage.Message.parseFrom(rs.getBytes(2)));
+
+              records.add(messageRecord);
+            }
+          }
+
+          return records;
+        } finally {
+          metricsTemplate.recordDaoPoll(shardPartition, startTimeMs);
+        }
+      } finally {
+        DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());
+      }
+    });
   }
 
   @Override

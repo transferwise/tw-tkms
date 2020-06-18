@@ -100,7 +100,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                 log.info("Stopping proxying for {}.", shardPartition);
 
                 // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
-                
+
                 Future<Boolean> future = futureReference.get();
                 if (future != null) {
                   try {
@@ -132,20 +132,21 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
       }
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
           .execute(() -> {
+            long cycleStartTimeMs = ClockHolder.getClock().millis();
             try {
-              long pollStartTimeMs = ClockHolder.getClock().millis();
               List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
               if (records.size() == 0) {
-                metricsTemplate.registerProxyPoll(shardPartition, 0, pollStartTimeMs);
+                metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartTimeMs);
                 tkmsPaceMaker.doSmallPause(shardPartition.getShard());
                 return;
               }
-              metricsTemplate.registerProxyPoll(shardPartition, records.size(), pollStartTimeMs);
+              metricsTemplate.recordProxyPoll(shardPartition, records.size(), cycleStartTimeMs);
 
               byte[] acks = new byte[records.size()];
 
               List<Future<RecordMetadata>> futures = new ArrayList<>();
 
+              final long kafkaSendStartTimeMs = ClockHolder.getClock().millis();
               KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
 
               for (int i = 0; i < records.size(); i++) {
@@ -165,10 +166,10 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                     if (exception == null) {
                       acks[finalI] = 1;
                       fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
-                      metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), true);
+                      metricsTemplate.recordProxyMessageSend(shardPartition, producerRecord.topic(), true);
                     } else {
                       log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
-                      metricsTemplate.registerProxyMessageSent(shardPartition, producerRecord.topic(), false);
+                      metricsTemplate.recordProxyMessageSend(shardPartition, producerRecord.topic(), false);
                     }
                   });
 
@@ -190,6 +191,8 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                 }
               }
 
+              metricsTemplate.recordProxyKafkaMessagesSend(shardPartition, kafkaSendStartTimeMs);
+
               List<Long> successIds = new ArrayList<>();
               for (int i = 0; i < records.size(); i++) {
                 if (acks[i] == 1) {
@@ -200,7 +203,9 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
               // In the future we may provide more algorithms here.
               //   For example we want to probably offload deleting into a separate thread(s)
               //   Select would need id>X, which probably would not be too bad.
+              long deleteStartTimeMs = ClockHolder.getClock().millis();
               dao.deleteMessage(shardPartition, successIds);
+              metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartTimeMs);
 
               if (successIds.size() != records.size()) {
                 tkmsPaceMaker.pauseOnError(shardPartition.getShard());
@@ -208,6 +213,8 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
             } catch (Throwable t) {
               log.error(t.getMessage(), t);
               tkmsPaceMaker.pauseOnError(shardPartition.getShard());
+            } finally {
+              metricsTemplate.recordProxyCycle(shardPartition, cycleStartTimeMs);
             }
           });
     }

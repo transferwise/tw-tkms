@@ -39,7 +39,7 @@ public class TkmsProperties {
   @NotNull
   private Duration desiredLatency = Duration.ofMillis(5);
   @NotNull
-  private Duration pauseTimeOnErrors = Duration.ofSeconds(5);
+  private Duration pauseTimeOnErrors = Duration.ofSeconds(2);
   @NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
 
