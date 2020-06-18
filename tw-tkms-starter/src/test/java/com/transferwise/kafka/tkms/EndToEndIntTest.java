@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
+import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesResult;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
@@ -274,5 +276,37 @@ public class EndToEndIntTest {
       transactionalKafkaMessageSender
           .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)));
     }).hasMessageContaining("Topic NotExistingTopic not present in metadata");
+  }
+
+  @Test
+  public void sendingMultipleMessagesWorks() {
+    byte[] value = "{\"message\" : \"Hello World!\"}".getBytes(StandardCharsets.UTF_8);
+
+    AtomicInteger receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      receivedCount.incrementAndGet();
+    });
+
+    testMessagesListener.registerConsumer(messageCounter);
+
+    SendMessagesResult sendMessagesResult = transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value))
+        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(1))
+        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(0).setPartition(0))
+        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(0).setPartition(1))
+    );
+
+    assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
+    assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
+    assertThat(sendMessagesResult.getResults().get(1).getShardPartition().getShard()).isEqualTo(1);
+    assertThat(sendMessagesResult.getResults().get(2).getShardPartition().getShard()).isEqualTo(0);
+
+    try {
+      await().until(() -> receivedCount.get() == 4);
+
+      log.info("Messages received: " + receivedCount.get());
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
   }
 }

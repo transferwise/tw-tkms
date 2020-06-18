@@ -20,7 +20,7 @@ dependencies {
     implementation project(":tw-tkms-starter")
 
     implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.transferwise.common:tw-base-utils:1.2.8'
+    implementation 'org.apache.kafka:kafka-clients'
 }

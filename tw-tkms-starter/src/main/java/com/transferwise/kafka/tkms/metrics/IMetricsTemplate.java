@@ -1,6 +1,6 @@
 package com.transferwise.kafka.tkms.metrics;
 
-import com.transferwise.kafka.tkms.ShardPartition;
+import com.transferwise.kafka.tkms.api.ShardPartition;
 
 public interface IMetricsTemplate {
 
@@ -13,4 +13,8 @@ public interface IMetricsTemplate {
   void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize);
 
   void registerProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs);
+
+  void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs);
+
+  void recordDaoPoll(ShardPartition shardPartition, long startTimeMs);
 }

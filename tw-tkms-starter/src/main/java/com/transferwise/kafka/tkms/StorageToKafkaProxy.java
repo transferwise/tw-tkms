@@ -15,6 +15,7 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
 import com.transferwise.kafka.tkms.api.ProxyDecision;
 import com.transferwise.kafka.tkms.api.ProxyDecision.Result;
+import com.transferwise.kafka.tkms.api.ShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
@@ -132,14 +133,14 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
           .execute(() -> {
             try {
-              long startTime = ClockHolder.getClock().millis();
+              long pollStartTimeMs = ClockHolder.getClock().millis();
               List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
               if (records.size() == 0) {
-                metricsTemplate.registerProxyPoll(shardPartition, 0, startTime);
+                metricsTemplate.registerProxyPoll(shardPartition, 0, pollStartTimeMs);
                 tkmsPaceMaker.doSmallPause(shardPartition.getShard());
                 return;
               }
-              metricsTemplate.registerProxyPoll(shardPartition, records.size(), startTime);
+              metricsTemplate.registerProxyPoll(shardPartition, records.size(), pollStartTimeMs);
 
               byte[] acks = new byte[records.size()];
 

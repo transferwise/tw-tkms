@@ -20,7 +20,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
     listener:
-      missing-topics-fatal: true
+      missing-topics-fatal: false
 
   flyway:
     locations: "classpath:db/migration/mysql"

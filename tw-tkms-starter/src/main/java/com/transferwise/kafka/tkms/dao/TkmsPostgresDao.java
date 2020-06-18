@@ -1,6 +1,6 @@
 package com.transferwise.kafka.tkms.dao;
 
-import com.transferwise.kafka.tkms.ShardPartition;
+import com.transferwise.kafka.tkms.api.ShardPartition;
 
 public class TkmsPostgresDao extends TkmsDao {
 

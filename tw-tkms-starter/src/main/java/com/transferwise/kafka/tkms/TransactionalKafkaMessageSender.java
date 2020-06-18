@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.ShardPartition;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -11,8 +12,13 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
@@ -23,10 +29,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
+@Transactional(rollbackFor = Exception.class)
 public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessageSender {
 
   @Autowired
-  private ITkmsDao transactionalKafkaMessageSenderDao;
+  private ITkmsDao tkmsDao;
   @Autowired
   private Validator validator;
   @Autowired
@@ -49,20 +56,58 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   @Override
-  @Transactional
-  public long sendMessage(TkmsMessage message) {
+  public SendMessagesResult sendMessages(SendMessagesRequest request) {
+    validateInput(request);
+
+    Set<String> validatedTopics = new HashSet<>();
+
+    int seq = 0;
+
+    SendMessageResult[] responses = new SendMessageResult[request.getTkmsMessages().size()];
+
+    Map<ShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
+
+    for (TkmsMessage tkmsMessage : request.getTkmsMessages()) {
+      ShardPartition shardPartition = getShardPartition(tkmsMessage);
+
+      String topic = tkmsMessage.getTopic();
+      if (!validatedTopics.contains(topic)) {
+        validateTopic(shardPartition.getShard(), topic);
+        validatedTopics.add(topic);
+      }
+
+      shardPartitionsMap.computeIfAbsent(shardPartition, k -> new ArrayList<>())
+          .add(new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage));
+    }
+
+    shardPartitionsMap.forEach((shardPartition, list) -> {
+      List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, list);
+      for (int i = 0; i < insertMessageResults.size(); i++) {
+        TkmsMessageWithSequence tkmsMessageWithSequence = list.get(i);
+        InsertMessageResult insertMessageResult = insertMessageResults.get(i);
+
+        responses[tkmsMessageWithSequence.getSequence()] =
+            new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+      }
+    });
+
+    return new SendMessagesResult().setResults(Arrays.asList(responses));
+  }
+
+  @Override
+  public SendMessageResult sendMessage(TkmsMessage message) {
     validateMessage(message);
 
-    int shard = getShard(message);
+    ShardPartition shardPartition = getShardPartition(message);
 
     String topic = message.getTopic();
-    validateTopic(shard, topic);
+    validateTopic(shardPartition.getShard(), topic);
 
     InsertMessageResult insertMessageResult = null;
     try {
-      insertMessageResult = transactionalKafkaMessageSenderDao.insertMessage(shard, message);
-      fireMessageRegisteredEvent(insertMessageResult.getId(), message);
-      return insertMessageResult.getId();
+      insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
+      fireMessageRegisteredEvent(insertMessageResult.getStorageId(), message);
+      return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
     } finally {
       if (insertMessageResult == null) {
         metricsTemplate.recordMessageRegistering(topic, null, false);
@@ -90,6 +135,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     if (message.getShard() != null && message.getShard() >= properties.getShardsCount()) {
       throw new IllegalArgumentException("Shard " + message.getShard() + " is out of bounds. Shards count is " + properties.getShardsCount());
+    }
+  }
+
+  protected <T> void validateInput(T input) {
+    Set<ConstraintViolation<T>> violations = validator.validate(input);
+    if (!violations.isEmpty()) {
+      throw new ConstraintViolationException(violations);
     }
   }
 
@@ -124,15 +176,32 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     return tkmsEventsListeners;
   }
 
-  protected int getShard(TkmsMessage message) {
-    if (message.getShard() == null) {
-      return properties.getDefaultShard();
+  protected ShardPartition getShardPartition(TkmsMessage message) {
+    int shard = properties.getDefaultShard();
+    if (message.getShard() != null) {
+      shard = message.getShard();
     }
-    if (message.getShard() >= properties.getShardsCount()) {
+    if (shard >= properties.getShardsCount()) {
       throw new IllegalArgumentException("Given shard " + message.getShard() + " is out of bounds.");
     }
 
-    return message.getShard();
+    int partition = getPartition(shard, message);
+
+    return ShardPartition.of(shard, partition);
+  }
+
+  protected int getPartition(int shard, TkmsMessage message) {
+    int tablesCount = properties.getPartitionsCount(shard);
+    if (tablesCount == 1) {
+      return 0;
+    }
+    if (message.getPartition() != null) {
+      return Math.abs(message.getPartition()) % tablesCount;
+    }
+    if (message.getKey() != null) {
+      return Math.abs(message.getKey().hashCode() % tablesCount);
+    }
+    return ThreadLocalRandom.current().nextInt(tablesCount);
   }
 
 }
