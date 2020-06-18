@@ -105,13 +105,14 @@ public class TkmsDao implements ITkmsDao {
   @Override
   public List<InsertMessageResult> insertMessages(ShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages) {
     return ExceptionUtils.doUnchecked(() -> {
+
       List<InsertMessageResult> results = new ArrayList<>();
       MutableInt idx = new MutableInt();
       while (idx.getValue() < tkmsMessages.size()) {
         Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
         try {
           try (PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS)) {
-            int batchSize = Math.min(1000, tkmsMessages.size() - idx.intValue());
+            int batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
 
             for (int i = 0; i < batchSize; i++) {
               TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
@@ -128,6 +129,7 @@ public class TkmsDao implements ITkmsDao {
               while (rs.next()) {
                 Long id = rs.getLong(1);
                 results.get(idx.intValue() + i++).setStorageId(id);
+                metricsTemplate.registerDaoMessageInsert(shardPartition);
               }
             }
             idx.add(batchSize);

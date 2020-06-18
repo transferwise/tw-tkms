@@ -31,6 +31,7 @@ tw-curator:
 tw-tkms:
   desired-latency: 5ms
   shards-count: 2
+  insert-batch-size: 2
   kafka:
     bootstrap.servers: "localhost:${KAFKA_TCP_9092}"
   shards:

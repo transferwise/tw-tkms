@@ -5,7 +5,6 @@ import java.util.List;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.Singular;
 import lombok.experimental.Accessors;
 
 public interface ITransactionalKafkaMessageSender {
@@ -40,7 +39,6 @@ public interface ITransactionalKafkaMessageSender {
   @Accessors(chain = true)
   class SendMessagesResult {
 
-    @Singular
     @NotNull
     @NotEmpty
     private List<SendMessageResult> results = new ArrayList<>();

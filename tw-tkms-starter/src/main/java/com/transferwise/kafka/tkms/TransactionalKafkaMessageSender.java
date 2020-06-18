@@ -80,13 +80,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
           .add(new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage));
     }
 
-    shardPartitionsMap.forEach((shardPartition, list) -> {
-      List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, list);
-      for (int i = 0; i < insertMessageResults.size(); i++) {
-        TkmsMessageWithSequence tkmsMessageWithSequence = list.get(i);
-        InsertMessageResult insertMessageResult = insertMessageResults.get(i);
-
-        responses[tkmsMessageWithSequence.getSequence()] =
+    shardPartitionsMap.forEach((shardPartition, tkmsMessageWithSequences) -> {
+      List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
+      for (InsertMessageResult insertMessageResult : insertMessageResults) {
+        responses[insertMessageResult.getSequence()] =
             new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
       }
     });
