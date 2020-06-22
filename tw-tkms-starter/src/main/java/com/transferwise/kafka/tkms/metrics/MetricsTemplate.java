@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms.metrics;
 import com.transferwise.common.baseutils.clock.ClockHolder;
 import com.transferwise.common.context.TwContext;
 import com.transferwise.kafka.tkms.api.ShardPartition;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.util.concurrent.TimeUnit;
@@ -11,23 +12,24 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MetricsTemplate implements IMetricsTemplate {
 
-  private static final String PREFIX = "tw.tkms";
+  public static final String PREFIX = "tw.tkms";
 
-  private static final String PREFIX_PROXY = PREFIX + ".proxy";
-  private static final String PREFIX_INTERFACE = PREFIX + ".interface";
-  private static final String PREFIX_DAO = ".dao";
+  public static final String PREFIX_PROXY = PREFIX + ".proxy";
+  public static final String PREFIX_INTERFACE = PREFIX + ".interface";
+  public static final String PREFIX_DAO = PREFIX + ".dao";
 
-  private static final String PROXY_POLL = PREFIX_PROXY + ".poll";
-  private static final String PROXY_CYCLE = PREFIX_PROXY + ".cycle";
-  private static final String PROXY_MESSAGE_SEND = PREFIX_PROXY + ".message.send";
-  private static final String PROXY_KAFKA_MESSAGES_SEND = PREFIX_PROXY + ".kafka.messages.send";
-  private static final String PROXY_MESSAGES_DELETION = PREFIX_PROXY + ".messages.delete";
-  private static final String INTERFACE_MESSAGE_REGISTERED = PREFIX_INTERFACE + ".message.registration";
-  private static final String DAO_MESSAGE_INSERT = PREFIX_DAO + ".message.insert";
-  private static final String DAO_MESSAGES_DELETION = PREFIX_DAO + ".messages.delete";
-  private static final String DAO_POLL_FIRST_RESULT = PREFIX_DAO + ".poll.first.result";
-  private static final String DAO_POLL_GET_CONNECTION = PREFIX_DAO + ".poll.get.connection";
-  private static final String DAO_POLL = PREFIX_DAO + ".poll";
+  public static final String METRIC_LIBRARY_INFO = "tw.library.info";
+  public static final String PROXY_POLL = PREFIX_PROXY + ".poll";
+  public static final String PROXY_CYCLE = PREFIX_PROXY + ".cycle";
+  public static final String PROXY_MESSAGE_SEND = PREFIX_PROXY + ".message.send";
+  public static final String PROXY_KAFKA_MESSAGES_SEND = PREFIX_PROXY + ".kafka.messages.send";
+  public static final String PROXY_MESSAGES_DELETION = PREFIX_PROXY + ".messages.delete";
+  public static final String INTERFACE_MESSAGE_REGISTERED = PREFIX_INTERFACE + ".message.registration";
+  public static final String DAO_MESSAGE_INSERT = PREFIX_DAO + ".message.insert";
+  public static final String DAO_MESSAGES_DELETION = PREFIX_DAO + ".messages.delete";
+  public static final String DAO_POLL_FIRST_RESULT = PREFIX_DAO + ".poll.first.result";
+  public static final String DAO_POLL_GET_CONNECTION = PREFIX_DAO + ".poll.get.connection";
+  public static final String DAO_POLL = PREFIX_DAO + ".poll";
 
   public static final String TAG_EP_NAME = "epName";
   public static final String TAG_EP_GROUP = "epGroup";
@@ -49,9 +51,9 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordMessageRegistering(String topic, ShardPartition shardPartition, boolean success) {
+  public void recordMessageRegistering(String topic, ShardPartition shardPartition) {
     meterRegistry
-        .counter(INTERFACE_MESSAGE_REGISTERED, entryPointTags().and(shardPartitionTags(shardPartition)).and(successTag(success)).and(topicTag(topic)))
+        .counter(INTERFACE_MESSAGE_REGISTERED, entryPointTags().and(shardPartitionTags(shardPartition)).and(topicTag(topic)))
         .increment();
   }
 
@@ -62,38 +64,38 @@ public class MetricsTemplate implements IMetricsTemplate {
 
   @Override
   public void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(DAO_POLL_FIRST_RESULT, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(DAO_POLL_FIRST_RESULT, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordDaoPollGetConnection(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(DAO_POLL_GET_CONNECTION, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(DAO_POLL_GET_CONNECTION, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyCycle(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(PROXY_CYCLE, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(PROXY_KAFKA_MESSAGES_SEND, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(PROXY_KAFKA_MESSAGES_SEND, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(PROXY_MESSAGES_DELETION, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(PROXY_MESSAGES_DELETION, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
 
   @Override
   public void recordDaoPoll(ShardPartition shardPartition, long startTimeMs) {
-    meterRegistry.timer(DAO_POLL, entryPointTags().and(shardPartitionTags(shardPartition)))
+    meterRegistry.timer(DAO_POLL, shardPartitionTags(shardPartition))
         .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
@@ -108,6 +110,19 @@ public class MetricsTemplate implements IMetricsTemplate {
     meterRegistry.counter(DAO_MESSAGES_DELETION, shardPartitionTags(shardPartition).and("batchSize", String.valueOf(batchSize)))
         .increment();
   }
+
+  @Override
+  public void registerLibrary() {
+    String version = this.getClass().getPackage().getImplementationVersion();
+    if (version == null) {
+      version = "Unknown";
+    }
+
+    Gauge.builder(METRIC_LIBRARY_INFO, () -> 1d).tags("version", version, "library", "tw-tkms")
+        .description("Provides metadata about the library, for example the version.")
+        .register(meterRegistry);
+  }
+
 
   protected Tags entryPointTags() {
     TwContext twContext = TwContext.current();

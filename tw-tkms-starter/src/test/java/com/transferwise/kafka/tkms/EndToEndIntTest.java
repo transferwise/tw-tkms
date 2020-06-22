@@ -11,6 +11,8 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesResult;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.metrics.MetricsTemplate;
+import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
@@ -29,7 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
 @Slf4j
-public class EndToEndIntTest {
+public class EndToEndIntTest extends BaseIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -70,6 +72,7 @@ public class EndToEndIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
 
   @Test
@@ -289,11 +292,12 @@ public class EndToEndIntTest {
 
     testMessagesListener.registerConsumer(messageCounter);
 
+    String topic = testProperties.getTestTopic();
     SendMessagesResult sendMessagesResult = transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value))
-        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(1))
-        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(0).setPartition(0))
-        .addTkmsMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(value).setShard(0).setPartition(1))
+        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
+        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
     );
 
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
@@ -308,5 +312,10 @@ public class EndToEndIntTest {
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
+
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(topic).size()).isEqualTo(4);
+
+    assertThat(meterRegistry.find(MetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.find(MetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
   }
 }

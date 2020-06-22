@@ -27,7 +27,10 @@ public interface ITkmsEventsListener {
   @Accessors(chain = true)
   class MessageRegisteredEvent {
 
-    private Long id;
+    private Long storageId;
+
+    private ShardPartition shardPartition;
+
     private TkmsMessage message;
   }
 

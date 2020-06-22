@@ -6,7 +6,7 @@ public interface IMetricsTemplate {
 
   void recordProxyMessageSend(ShardPartition shardPartition, String topic, boolean success);
 
-  void recordMessageRegistering(String topic, ShardPartition shardPartition, boolean success);
+  void recordMessageRegistering(String topic, ShardPartition shardPartition);
 
   void recordDaoMessageInsert(ShardPartition shardPartition);
 
@@ -25,4 +25,6 @@ public interface IMetricsTemplate {
   void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startTimeMs);
 
   void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs);
+
+  void registerLibrary();
 }

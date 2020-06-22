@@ -50,6 +50,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @PostConstruct
   public void init() {
+    metricsTemplate.registerLibrary();
     for (String topic : properties.getTopics()) {
       validateTopic(properties.getDefaultShard(), topic);
     }
@@ -76,13 +77,21 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         validatedTopics.add(topic);
       }
 
+      TkmsMessageWithSequence tkmsMessageWithSequence = new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage);
       shardPartitionsMap.computeIfAbsent(shardPartition, k -> new ArrayList<>())
-          .add(new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage));
+          .add(tkmsMessageWithSequence);
     }
 
     shardPartitionsMap.forEach((shardPartition, tkmsMessageWithSequences) -> {
       List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
-      for (InsertMessageResult insertMessageResult : insertMessageResults) {
+      for (int i = 0; i < tkmsMessageWithSequences.size(); i++) {
+        TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
+        InsertMessageResult insertMessageResult = insertMessageResults.get(i);
+
+        fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+
+        metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition);
+
         responses[insertMessageResult.getSequence()] =
             new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
       }
@@ -101,17 +110,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     validateTopic(shardPartition.getShard(), topic);
 
     InsertMessageResult insertMessageResult = null;
-    try {
-      insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
-      fireMessageRegisteredEvent(insertMessageResult.getStorageId(), message);
-      return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
-    } finally {
-      if (insertMessageResult == null) {
-        metricsTemplate.recordMessageRegistering(topic, null, false);
-      } else {
-        metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), true);
-      }
-    }
+    insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
+    fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
+    metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition());
+    return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
   }
 
   /**
@@ -142,13 +144,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
-  protected void fireMessageRegisteredEvent(Long id, TkmsMessage message) {
+  protected void fireMessageRegisteredEvent(ShardPartition shardPartition, Long id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     if (tkmsEventsListeners.isEmpty()) {
       return;
     }
 
-    MessageRegisteredEvent event = new MessageRegisteredEvent().setId(id).setMessage(message);
+    MessageRegisteredEvent event = new MessageRegisteredEvent().setStorageId(id).setMessage(message).setShardPartition(shardPartition);
 
     listeners.forEach(listener -> {
       try {

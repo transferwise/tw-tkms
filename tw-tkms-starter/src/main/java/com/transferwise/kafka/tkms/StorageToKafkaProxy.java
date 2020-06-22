@@ -122,7 +122,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
     long startTimeMs = ClockHolder.getClock().millis();
 
-    long timeToLiveMs = TimeUnit.MINUTES.toMillis(5) + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
+    long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
 
     while (!control.shouldStop()) {
       if (ClockHolder.getClock().millis() - startTimeMs > timeToLiveMs) {

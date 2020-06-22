@@ -32,7 +32,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
     }
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getMessage().getTopic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
-        .put(event.getId(), new RegisteredMessage().setId(event.getId()).setMessage(event.getMessage()));
+        .put(event.getStorageId(), new RegisteredMessage().setStorageId(event.getStorageId()).setMessage(event.getMessage()));
   }
 
   // Not fully atomic, but we don't care for high precision here.

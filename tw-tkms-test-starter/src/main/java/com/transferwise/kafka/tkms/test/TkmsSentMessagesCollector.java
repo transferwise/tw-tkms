@@ -32,7 +32,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
     }
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getProducerRecord().topic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
-        .put(event.getId(), new SentMessage().setId(event.getId()).setProducerRecord(event.getProducerRecord()));
+        .put(event.getId(), new SentMessage().setStorageId(event.getId()).setProducerRecord(event.getProducerRecord()));
   }
 
   // Not fully atomic, but we don't care for high precision here.

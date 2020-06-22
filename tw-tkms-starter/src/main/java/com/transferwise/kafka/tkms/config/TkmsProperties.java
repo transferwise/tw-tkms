@@ -42,6 +42,8 @@ public class TkmsProperties {
   private Duration pauseTimeOnErrors = Duration.ofSeconds(2);
   @NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
+  @NotNull
+  private Duration proxyTimeToLive = Duration.ofMinutes(10);
 
   /**
    * List topics used by the lib.

@@ -17,7 +17,7 @@ public interface ITkmsRegisteredMessagesCollector {
   @Accessors(chain = true)
   class RegisteredMessage {
 
-    private Long id;
+    private Long storageId;
     private TkmsMessage message;
   }
 }

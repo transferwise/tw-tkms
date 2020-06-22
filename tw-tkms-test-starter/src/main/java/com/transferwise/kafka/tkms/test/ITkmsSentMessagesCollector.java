@@ -17,7 +17,7 @@ public interface ITkmsSentMessagesCollector {
   @Accessors(chain = true)
   class SentMessage {
 
-    private Long id;
+    private Long storageId;
     private ProducerRecord<String, byte[]> producerRecord;
   }
 }
