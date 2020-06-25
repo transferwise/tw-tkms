@@ -37,13 +37,16 @@ public class TkmsProperties {
   @Positive
   private int insertBatchSize = 1000;
   @NotNull
-  private Duration desiredLatency = Duration.ofMillis(5);
+  private Duration desiredLatency = Duration.ofMillis(10);
   @NotNull
   private Duration pauseTimeOnErrors = Duration.ofSeconds(2);
   @NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
   @NotNull
   private Duration proxyTimeToLive = Duration.ofMinutes(10);
+  
+  // TODO: Implement. On larger messages can be very useful, as we are optimizing on iops not CPU.
+  private boolean useCompression = true;
 
   /**
    * List topics used by the lib.
@@ -67,6 +70,8 @@ public class TkmsProperties {
     private Duration desiredLatency;
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
+    // TODO: Implement. On larger messages can be very useful, as we are optimizing on iops not CPU.
+    private Boolean useCompression = true;
 
     private Map<String, String> kafka = new HashMap<>();
   }

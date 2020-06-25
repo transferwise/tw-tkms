@@ -17,7 +17,7 @@ public class V1__Init extends BaseJavaMigration {
           stmt.execute("CREATE TABLE " + tableName + " (\n"
               + "  id BIGINT AUTO_INCREMENT PRIMARY KEY,\n"
               + "  message MEDIUMBLOB NOT NULL\n"
-              + ");");
+              + ")  ENGINE=InnoDB PAGE_COMPRESSED=1");
           log.info("Create table `" + tableName + "'.");
         }
       }

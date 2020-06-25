@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms.test;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.PostConstruct;
@@ -25,6 +26,7 @@ public class KafkaConfiguration {
   private TestProperties tkmsProperties;
 
   @PostConstruct
+  @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE")
   public void init() {
     try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig())) {
       deleteTopic(adminClient, tkmsProperties.getTestTopic());
@@ -48,6 +50,7 @@ public class KafkaConfiguration {
   }
 
   protected void createTopic(final AdminClient adminClient, final String topicName, final int partitions) {
+    // It sometimes takes time for delete to actually apply and finalize.
     for (int i = 0; i < 50; i++) {
       try {
         final NewTopic newTopic = new NewTopic(topicName, partitions, (short) 1);

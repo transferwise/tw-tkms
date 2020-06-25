@@ -12,6 +12,7 @@ spring:
       transaction-isolation: 2
       data-source-properties:
         useServerPrepStmts: true
+        useCompression: true
 
   kafka:
     bootstrap-servers: localhost:9092

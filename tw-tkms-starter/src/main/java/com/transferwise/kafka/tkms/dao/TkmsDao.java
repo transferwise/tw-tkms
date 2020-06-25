@@ -15,6 +15,7 @@ import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
+import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -111,7 +112,8 @@ public class TkmsDao implements ITkmsDao {
       while (idx.getValue() < tkmsMessages.size()) {
         Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
         try {
-          try (PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS)) {
+          PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS);
+          try {
             int batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
 
             for (int i = 0; i < batchSize; i++) {
@@ -124,15 +126,20 @@ public class TkmsDao implements ITkmsDao {
 
             ps.executeBatch();
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
+            ResultSet rs = ps.getGeneratedKeys();
+            try {
               int i = 0;
               while (rs.next()) {
                 Long id = rs.getLong(1);
                 results.get(idx.intValue() + i++).setStorageId(id);
                 metricsTemplate.recordDaoMessageInsert(shardPartition);
               }
+            } finally {
+              rs.close();
             }
             idx.add(batchSize);
+          } finally {
+            ps.close();
           }
         } finally {
           DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());
@@ -208,11 +215,11 @@ public class TkmsDao implements ITkmsDao {
       try {
         metricsTemplate.recordDaoPollGetConnection(shardPartition, startTimeMs);
         startTimeMs = ClockHolder.getClock().millis();
+        int i = 0;
         try (PreparedStatement ps = con.prepareStatement(getMessagesSqls.get(shardPartition))) {
           ps.setLong(1, maxCount);
 
           List<MessageRecord> records = new ArrayList<>();
-          int i = 0;
           try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
               if (i++ == 0) {
@@ -221,7 +228,12 @@ public class TkmsDao implements ITkmsDao {
 
               MessageRecord messageRecord = new MessageRecord();
               messageRecord.setId(rs.getLong(1));
-              messageRecord.setMessage(StoredMessage.Message.parseFrom(rs.getBytes(2)));
+
+              byte[] data = rs.getBytes(2);
+              long messageParsingStartTimeMs = System.currentTimeMillis();
+              Message message = Message.parseFrom(rs.getBytes(2));
+              metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartTimeMs);
+              messageRecord.setMessage(message);
 
               records.add(messageRecord);
             }
@@ -229,7 +241,7 @@ public class TkmsDao implements ITkmsDao {
 
           return records;
         } finally {
-          metricsTemplate.recordDaoPoll(shardPartition, startTimeMs);
+          metricsTemplate.recordDaoPollAllResults(shardPartition, i, startTimeMs);
         }
       } finally {
         DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());

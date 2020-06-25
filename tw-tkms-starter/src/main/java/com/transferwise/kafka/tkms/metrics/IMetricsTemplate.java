@@ -16,7 +16,7 @@ public interface IMetricsTemplate {
 
   void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs);
 
-  void recordDaoPoll(ShardPartition shardPartition, long startTimeMs);
+  void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startTimeMs);
 
   void recordDaoPollGetConnection(ShardPartition shardPartition, long startTimeMs);
 
@@ -27,4 +27,6 @@ public interface IMetricsTemplate {
   void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs);
 
   void registerLibrary();
+
+  void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartTimeMs);
 }

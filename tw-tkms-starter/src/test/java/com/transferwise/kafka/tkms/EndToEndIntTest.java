@@ -181,7 +181,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatMessagesWithSameParititonEndUpInOnePartition() throws Exception {
+  public void testThatMessagesWithSamePartitionEndUpInOnePartition() throws Exception {
     String message = "Hello World!";
     int partition = 3;
     int n = 20;

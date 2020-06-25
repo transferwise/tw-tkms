@@ -1,12 +1,10 @@
 package com.transferwise.kafka.tkms.demoapp;
 
-import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,17 +21,20 @@ public class MessagesProducer {
   @Autowired
   private TransactionTemplate transactionTemplate;
 
+  @Autowired
+  private PaceTracker paceTracker;
+
   @SneakyThrows
   public void produce(long threadCount, long batchCount, long batchSize) {
-    long startTimeMs = System.currentTimeMillis();
-    AtomicLong processedCount = new AtomicLong();
+    paceTracker.startTracking();
 
-    @SuppressWarnings("StringBufferReplaceableByString") StringBuilder sb = new StringBuilder("Hello World!");
+    StringBuilder sb = new StringBuilder("Hello World!");
 
-    /*
-    for (int i = 0; i < 2048; i++) {
-      sb.append((char)('a' + ThreadLocalRandom.current().nextInt(26)));
-    }*/
+    int additionalMessageBytes = 200_000;
+    for (int i = 0; i < additionalMessageBytes; i++) {
+      sb.append((char) ('a' + ThreadLocalRandom.current().nextInt(26)));
+    }
+
     String textMessage = sb.toString();
 
     Thread[] threads = new Thread[(int) threadCount];
@@ -53,7 +54,7 @@ public class MessagesProducer {
                     .setKey(key).setValue(textMessage.getBytes(StandardCharsets.UTF_8));
 
                 tkms.sendMessage(message);
-                processedCount.incrementAndGet();
+                paceTracker.messagesInserted(1);
               }
             });
           }
@@ -63,23 +64,6 @@ public class MessagesProducer {
       });
     }
 
-    AtomicBoolean stopTracking = new AtomicBoolean();
-    Thread trackerThread = new Thread(() -> {
-      int i = 0;
-      while (!stopTracking.get()) {
-        if (i++ % 100 == 0) {
-          long cnt = processedCount.get();
-          if (cnt > 0) {
-            long endTimeMs = System.currentTimeMillis();
-            log.info("Time taken for " + cnt + " messages: " + (endTimeMs - startTimeMs) + " ms.");
-            log.info("Pace: " + (cnt * 1000 / (endTimeMs - startTimeMs)) + " messages/s");
-          }
-        }
-        ExceptionUtils.doUnchecked(() -> Thread.sleep(100));
-      }
-    });
-    trackerThread.start();
-
     for (int t = 0; t < threadCount; t++) {
       threads[t].start();
     }
@@ -87,7 +71,5 @@ public class MessagesProducer {
     for (int t = 0; t < threadCount; t++) {
       threads[t].join();
     }
-
-    stopTracking.set(true);
   }
 }
