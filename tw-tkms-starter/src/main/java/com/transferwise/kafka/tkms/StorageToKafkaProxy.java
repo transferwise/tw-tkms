@@ -22,6 +22,7 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -127,6 +128,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     while (!control.shouldStop()) {
       if (ClockHolder.getClock().millis() - startTimeMs > timeToLiveMs) {
         // Poor man's balancer. Allow other nodes a chance to get a leader as well.
+        // TODO: investigate how Kafka client does it and replicate.
         control.yield();
         return;
       }
@@ -166,10 +168,12 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                     if (exception == null) {
                       acks[finalI] = 1;
                       fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
-                      metricsTemplate.recordProxyMessageSend(shardPartition, producerRecord.topic(), true);
+                      Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
+                          ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
+                      metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
                     } else {
                       log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
-                      metricsTemplate.recordProxyMessageSend(shardPartition, producerRecord.topic(), false);
+                      metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
                     }
                   });
 

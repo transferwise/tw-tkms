@@ -23,4 +23,5 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'com.transferwise.common:tw-base-utils:1.2.8'
     implementation 'org.apache.kafka:kafka-clients'
+    implementation 'org.apache.commons:commons-lang3'
 }

@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms.test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
+import com.transferwise.kafka.tkms.api.ShardPartition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesCollector, ITkmsEventsListener {
@@ -20,7 +22,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
   @Autowired
   private TkmsTestProperties tkmsTestProperties;
 
-  private Map<String, Map<Long, RegisteredMessage>> messages = new ConcurrentHashMap<>();
+  private Map<String, Map<Pair<ShardPartition, Long>, RegisteredMessage>> messages = new ConcurrentHashMap<>();
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
@@ -32,7 +34,8 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
     }
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getMessage().getTopic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
-        .put(event.getStorageId(), new RegisteredMessage().setStorageId(event.getStorageId()).setMessage(event.getMessage()));
+        .put(Pair.of(event.getShardPartition(), event.getStorageId()),
+            new RegisteredMessage().setStorageId(event.getStorageId()).setMessage(event.getMessage()));
   }
 
   // Not fully atomic, but we don't care for high precision here.
@@ -50,7 +53,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
 
   @Override
   public List<RegisteredMessage> getRegisteredMessages(String topic) {
-    Map<Long, RegisteredMessage> messagesInTopic = messages.get(topic);
+    Map<Pair<ShardPartition, Long>, RegisteredMessage> messagesInTopic = messages.get(topic);
 
     if (messagesInTopic == null) {
       return new ArrayList<>();

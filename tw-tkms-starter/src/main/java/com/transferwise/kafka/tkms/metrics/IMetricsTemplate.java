@@ -1,10 +1,13 @@
 package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.kafka.tkms.api.ShardPartition;
+import java.time.Instant;
 
 public interface IMetricsTemplate {
 
-  void recordProxyMessageSend(ShardPartition shardPartition, String topic, boolean success);
+  void recordProxyMessageSendSuccess(ShardPartition shardPartition, String topic, Instant insertTime);
+
+  void recordProxyMessageSendFailure(ShardPartition shardPartition, String topic);
 
   void recordMessageRegistering(String topic, ShardPartition shardPartition);
 

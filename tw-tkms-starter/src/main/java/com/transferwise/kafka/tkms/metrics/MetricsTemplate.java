@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class MetricsTemplate implements IMetricsTemplate {
   public static final String DAO_POLL_ALL_RESULTS = PREFIX_DAO + ".poll.all.results";
   public static final String DAO_POLL_ALL_RESULTS_COUNT = PREFIX_DAO + ".poll.all.results.count";
   public static final String STORED_MESSAGE_PARSING = PREFIX + ".stored.message.parsing";
+  public static final String MESSAGE_INSERT_TO_ACK = PREFIX + ".message.insert.to.ack";
 
   public static final String TAG_EP_NAME = "epName";
   public static final String TAG_EP_GROUP = "epGroup";
@@ -49,13 +51,17 @@ public class MetricsTemplate implements IMetricsTemplate {
   @PostConstruct
   public void init() {
     Map<String, long[]> slas = new HashMap<>();
-    slas.put(PROXY_POLL, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(DAO_POLL_FIRST_RESULT, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(DAO_POLL_ALL_RESULTS, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(DAO_POLL_GET_CONNECTION, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(PROXY_KAFKA_MESSAGES_SEND, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(PROXY_MESSAGES_DELETION, new long[]{1, 5, 25, 125, 625, 3125});
-    slas.put(STORED_MESSAGE_PARSING, new long[]{1, 5, 25, 125, 625, 3125});
+    long[] defaultSlas = new long[]{1, 5, 25, 125, 625, 3125};
+    slas.put(PROXY_POLL, defaultSlas);
+    slas.put(PROXY_CYCLE, defaultSlas);
+    slas.put(DAO_POLL_FIRST_RESULT, defaultSlas);
+    slas.put(DAO_POLL_ALL_RESULTS, defaultSlas);
+    slas.put(DAO_POLL_GET_CONNECTION, defaultSlas);
+    slas.put(PROXY_KAFKA_MESSAGES_SEND, defaultSlas);
+    slas.put(PROXY_MESSAGES_DELETION, defaultSlas);
+    slas.put(STORED_MESSAGE_PARSING, defaultSlas);
+
+    slas.put(MESSAGE_INSERT_TO_ACK, new long[]{1, 5, 25, 125, 625, 3125 * 5});
 
     meterRegistry.config().meterFilter(new MeterFilter() {
       @Override
@@ -84,9 +90,20 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordProxyMessageSend(ShardPartition shardPartition, String topic, boolean success) {
-    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(success))).increment();
+  public void recordProxyMessageSendSuccess(ShardPartition shardPartition, String topic, Instant insertTime) {
+    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(true))).increment();
+
+    if (insertTime != null) {
+      meterRegistry.timer(MESSAGE_INSERT_TO_ACK, shardPartitionTags(shardPartition).and(topicTag(topic)))
+          .record(ClockHolder.getClock().millis() - insertTime.toEpochMilli(), TimeUnit.MILLISECONDS);
+    }
   }
+
+  @Override
+  public void recordProxyMessageSendFailure(ShardPartition shardPartition, String topic) {
+    meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(false))).increment();
+  }
+
 
   @Override
   public void recordMessageRegistering(String topic, ShardPartition shardPartition) {

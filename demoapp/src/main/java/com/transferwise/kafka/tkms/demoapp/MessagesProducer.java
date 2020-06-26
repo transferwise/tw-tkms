@@ -30,7 +30,7 @@ public class MessagesProducer {
 
     StringBuilder sb = new StringBuilder("Hello World!");
 
-    int additionalMessageBytes = 200_000;
+    int additionalMessageBytes = 1000;
     for (int i = 0; i < additionalMessageBytes; i++) {
       sb.append((char) ('a' + ThreadLocalRandom.current().nextInt(26)));
     }

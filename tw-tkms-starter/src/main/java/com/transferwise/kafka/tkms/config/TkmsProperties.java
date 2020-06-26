@@ -44,8 +44,7 @@ public class TkmsProperties {
   private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
   @NotNull
   private Duration proxyTimeToLive = Duration.ofMinutes(10);
-  
-  // TODO: Implement. On larger messages can be very useful, as we are optimizing on iops not CPU.
+
   private boolean useCompression = true;
 
   /**
@@ -70,8 +69,7 @@ public class TkmsProperties {
     private Duration desiredLatency;
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
-    // TODO: Implement. On larger messages can be very useful, as we are optimizing on iops not CPU.
-    private Boolean useCompression = true;
+    private Boolean useCompression;
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -114,6 +112,14 @@ public class TkmsProperties {
       return shardProperties.getInsertBatchSize();
     }
     return insertBatchSize;
+  }
+
+  public boolean useCompression(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getUseCompression() != null) {
+      return shardProperties.getUseCompression();
+    }
+    return useCompression;
   }
 
   public enum DatabaseDialect {
