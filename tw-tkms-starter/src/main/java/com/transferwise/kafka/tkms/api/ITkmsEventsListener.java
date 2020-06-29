@@ -13,7 +13,10 @@ public interface ITkmsEventsListener {
   @Accessors(chain = true)
   class MessageAcknowledgedEvent {
 
-    private Long id;
+    private Long storageId;
+
+    private ShardPartition shardPartition;
+
     private ProducerRecord<String, byte[]> producerRecord;
   }
 

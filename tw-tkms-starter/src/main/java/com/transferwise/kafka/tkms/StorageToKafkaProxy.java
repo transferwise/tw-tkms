@@ -167,7 +167,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                   Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
                     if (exception == null) {
                       acks[finalI] = 1;
-                      fireMessageAcknowledgedEvent(messageRecord.getId(), producerRecord);
+                      fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
                       Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
                           ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
                       metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
@@ -224,7 +224,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     }
   }
 
-  protected void fireMessageAcknowledgedEvent(Long id, ProducerRecord<String, byte[]> producerRecord) {
+  protected void fireMessageAcknowledgedEvent(ShardPartition shardPartiton, Long id, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
 
     if (listeners.isEmpty()) {
@@ -232,7 +232,8 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     }
     listeners.forEach(tkmsEventsListener -> {
       try {
-        tkmsEventsListener.messageAcknowledged(new MessageAcknowledgedEvent().setId(id).setProducerRecord(producerRecord));
+        tkmsEventsListener.messageAcknowledged(new MessageAcknowledgedEvent()
+            .setShardPartition(shardPartiton).setStorageId(id).setProducerRecord(producerRecord));
       } catch (Throwable t) {
         if (exceptionRateLimiter.tryAcquire()) {
           log.error(t.getMessage(), t);
