@@ -1,6 +1,5 @@
 package com.transferwise.kafka.tkms.metrics;
 
-import com.transferwise.common.baseutils.clock.ClockHolder;
 import com.transferwise.common.context.TwContext;
 import com.transferwise.kafka.tkms.api.ShardPartition;
 import io.micrometer.core.instrument.Gauge;
@@ -86,7 +85,7 @@ public class MetricsTemplate implements IMetricsTemplate {
   @Override
   public void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
     meterRegistry.timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -95,7 +94,7 @@ public class MetricsTemplate implements IMetricsTemplate {
 
     if (insertTime != null) {
       meterRegistry.timer(MESSAGE_INSERT_TO_ACK, shardPartitionTags(shardPartition).and(topicTag(topic)))
-          .record(ClockHolder.getClock().millis() - insertTime.toEpochMilli(), TimeUnit.MILLISECONDS);
+          .record(System.currentTimeMillis() - insertTime.toEpochMilli(), TimeUnit.MILLISECONDS);
     }
   }
 
@@ -120,38 +119,38 @@ public class MetricsTemplate implements IMetricsTemplate {
   @Override
   public void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs) {
     meterRegistry.timer(DAO_POLL_FIRST_RESULT, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
     meterRegistry.timer(DAO_POLL_ALL_RESULTS, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
     meterRegistry.summary(DAO_POLL_ALL_RESULTS_COUNT, shardPartitionTags(shardPartition)).record(recordsCount);
   }
 
   @Override
   public void recordDaoPollGetConnection(ShardPartition shardPartition, long startTimeMs) {
     meterRegistry.timer(DAO_POLL_GET_CONNECTION, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyCycle(ShardPartition shardPartition, long startTimeMs) {
     meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startTimeMs) {
     meterRegistry.timer(PROXY_KAFKA_MESSAGES_SEND, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs) {
     meterRegistry.timer(PROXY_MESSAGES_DELETION, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
   }
 
   /**
@@ -168,7 +167,7 @@ public class MetricsTemplate implements IMetricsTemplate {
   @Override
   public void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartTimeMs) {
     meterRegistry.timer(STORED_MESSAGE_PARSING, shardPartitionTags(shardPartition))
-        .record(ClockHolder.getClock().millis() - messageParsingStartTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.currentTimeMillis() - messageParsingStartTimeMs, TimeUnit.MILLISECONDS);
   }
 
   @Override

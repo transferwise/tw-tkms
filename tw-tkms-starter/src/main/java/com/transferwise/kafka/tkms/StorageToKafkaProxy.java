@@ -1,7 +1,6 @@
 package com.transferwise.kafka.tkms;
 
 import com.google.common.util.concurrent.RateLimiter;
-import com.transferwise.common.baseutils.clock.ClockHolder;
 import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.concurrency.ThreadNamingExecutorServiceWrapper;
 import com.transferwise.common.context.UnitOfWorkManager;
@@ -121,21 +120,21 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
   private void poll(Control control, ShardPartition shardPartition) {
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
-    long startTimeMs = ClockHolder.getClock().millis();
+    long startTimeMs = System.currentTimeMillis();
 
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
 
     while (!control.shouldStop()) {
-      if (ClockHolder.getClock().millis() - startTimeMs > timeToLiveMs) {
+      if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
         // Poor man's balancer. Allow other nodes a chance to get a leader as well.
         // TODO: investigate how Kafka client does it and replicate.
-        log.debug("Yielding control for " + shardPartition + ". " + (ClockHolder.getClock().millis() - startTimeMs) + " has passed.");
+        log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
         control.yield();
         return;
       }
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
           .execute(() -> {
-            long cycleStartTimeMs = ClockHolder.getClock().millis();
+            long cycleStartTimeMs = System.currentTimeMillis();
             try {
               List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
               if (records.size() == 0) {
@@ -149,7 +148,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
 
               List<Future<RecordMetadata>> futures = new ArrayList<>();
 
-              final long kafkaSendStartTimeMs = ClockHolder.getClock().millis();
+              final long kafkaSendStartTimeMs = System.currentTimeMillis();
               KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
 
               for (int i = 0; i < records.size(); i++) {
@@ -208,7 +207,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
               // In the future we may provide more algorithms here.
               //   For example we want to probably offload deleting into a separate thread(s)
               //   Select would need id>X, which probably would not be too bad.
-              long deleteStartTimeMs = ClockHolder.getClock().millis();
+              long deleteStartTimeMs = System.currentTimeMillis();
               dao.deleteMessage(shardPartition, successIds);
               metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartTimeMs);
 

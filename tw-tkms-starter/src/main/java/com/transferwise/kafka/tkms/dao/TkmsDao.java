@@ -5,7 +5,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.common.baseutils.clock.ClockHolder;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.ShardPartition;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -227,7 +226,7 @@ public class TkmsDao implements ITkmsDao {
       storedMessageBuilder.setKey(message.getKey());
     }
 
-    storedMessageBuilder.setInsertTimestamp(UInt64Value.of(ClockHolder.getClock().millis()));
+    storedMessageBuilder.setInsertTimestamp(UInt64Value.of(System.currentTimeMillis()));
 
     return storedMessageBuilder.setTopic(message.getTopic()).build();
   }
@@ -240,12 +239,12 @@ public class TkmsDao implements ITkmsDao {
   @Override
   public List<MessageRecord> getMessages(ShardPartition shardPartition, int maxCount) {
     return ExceptionUtils.doUnchecked(() -> {
-      long startTimeMs = ClockHolder.getClock().millis();
+      long startTimeMs = System.currentTimeMillis();
 
       Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
       try {
         metricsTemplate.recordDaoPollGetConnection(shardPartition, startTimeMs);
-        startTimeMs = ClockHolder.getClock().millis();
+        startTimeMs = System.currentTimeMillis();
         int i = 0;
         try (PreparedStatement ps = con.prepareStatement(getMessagesSqls.get(shardPartition))) {
           ps.setLong(1, maxCount);
