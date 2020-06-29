@@ -35,7 +35,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getMessage().getTopic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
         .put(Pair.of(event.getShardPartition(), event.getStorageId()),
-            new RegisteredMessage().setStorageId(event.getStorageId()).setMessage(event.getMessage()));
+            new RegisteredMessage().setShardPartition(event.getShardPartition()).setStorageId(event.getStorageId()).setMessage(event.getMessage()));
   }
 
   // Not fully atomic, but we don't care for high precision here.

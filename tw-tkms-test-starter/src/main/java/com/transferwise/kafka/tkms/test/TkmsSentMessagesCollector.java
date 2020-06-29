@@ -35,7 +35,8 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
     messagesCount.incrementAndGet();
     messages.computeIfAbsent(event.getProducerRecord().topic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
         .put(Pair.of(event.getShardPartition(), event.getStorageId()),
-            new SentMessage().setStorageId(event.getStorageId()).setProducerRecord(event.getProducerRecord()));
+            new SentMessage().setShardPartition(event.getShardPartition()).setStorageId(event.getStorageId())
+                .setProducerRecord(event.getProducerRecord()));
   }
 
   // Not fully atomic, but we don't care for high precision here.
