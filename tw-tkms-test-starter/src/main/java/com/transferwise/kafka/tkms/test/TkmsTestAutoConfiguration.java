@@ -19,11 +19,17 @@ public class TkmsTestAutoConfiguration {
   public TkmsRegisteredMessagesCollector tkmsTestRegisteredMessagesCollector() {
     return new TkmsRegisteredMessagesCollector();
   }
-  
+
   @Bean
   @ConfigurationProperties(value = "tw-tkms.test", ignoreInvalidFields = true)
   @ConditionalOnMissingBean
   public TkmsTestProperties tkmsTestProperties() {
     return new TkmsTestProperties();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsTestDao.class)
+  public TkmsTestDao tkmsTestDao() {
+    return new TkmsTestDao();
   }
 }
