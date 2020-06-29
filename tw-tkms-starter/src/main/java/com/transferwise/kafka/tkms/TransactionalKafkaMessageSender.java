@@ -146,6 +146,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   protected void fireMessageRegisteredEvent(ShardPartition shardPartition, Long id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
+    log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+
     if (tkmsEventsListeners.isEmpty()) {
       return;
     }

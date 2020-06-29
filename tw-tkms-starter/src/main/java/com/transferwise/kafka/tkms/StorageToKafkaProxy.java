@@ -129,6 +129,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
       if (ClockHolder.getClock().millis() - startTimeMs > timeToLiveMs) {
         // Poor man's balancer. Allow other nodes a chance to get a leader as well.
         // TODO: investigate how Kafka client does it and replicate.
+        log.debug("Yielding control for " + shardPartition + ". " + (ClockHolder.getClock().millis() - startTimeMs) + " has passed.");
         control.yield();
         return;
       }
@@ -224,16 +225,18 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     }
   }
 
-  protected void fireMessageAcknowledgedEvent(ShardPartition shardPartiton, Long id, ProducerRecord<String, byte[]> producerRecord) {
+  protected void fireMessageAcknowledgedEvent(ShardPartition shardPartition, Long id, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
+    log.debug("Message was acknowledged for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
 
     if (listeners.isEmpty()) {
       return;
     }
+
     listeners.forEach(tkmsEventsListener -> {
       try {
         tkmsEventsListener.messageAcknowledged(new MessageAcknowledgedEvent()
-            .setShardPartition(shardPartiton).setStorageId(id).setProducerRecord(producerRecord));
+            .setShardPartition(shardPartition).setStorageId(id).setProducerRecord(producerRecord));
       } catch (Throwable t) {
         if (exceptionRateLimiter.tryAcquire()) {
           log.error(t.getMessage(), t);
