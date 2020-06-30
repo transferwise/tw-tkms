@@ -46,6 +46,9 @@ public class TkmsProperties {
   private Duration proxyTimeToLive = Duration.ofMinutes(10);
 
   private boolean useCompression = true;
+  
+  // We temporary need this property for 2 step roll out of header.
+  private boolean useHeader = false;
 
   /**
    * List topics used by the lib.

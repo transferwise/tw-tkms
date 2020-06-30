@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TkmsDao implements ITkmsDao {
 
   protected static final int FLAG_COMPRESS = 1;
+  protected static final int HEADER_SIZE_BYTES = 3;
 
   private static final int[] batchSizes = {256, 64, 16, 4, 1};
 
@@ -182,17 +183,21 @@ public class TkmsDao implements ITkmsDao {
 
       boolean useCompression = properties.useCompression(shardPartition.getShard());
 
-      ByteArrayOutputStream os = new ByteArrayOutputStream(messageBytes.length / (useCompression ? 4 : 1) + 3);
+      ByteArrayOutputStream os = new ByteArrayOutputStream(messageBytes.length / (useCompression ? 4 : 1) + HEADER_SIZE_BYTES);
 
-      // 3 byte header for future use
-      os.write(0);
-      os.write(0);
-
-      if (properties.useCompression(shardPartition.getShard())) {
-        os.write(FLAG_COMPRESS);
-        compress(messageBytes, os);
-      } else {
+      if (properties.isUseHeader()) {
+        // 3 byte header for future use
         os.write(0);
+        os.write(0);
+
+        if (properties.useCompression(shardPartition.getShard())) {
+          os.write(FLAG_COMPRESS);
+          compress(messageBytes, os);
+        } else {
+          os.write(0);
+          os.write(messageBytes);
+        }
+      } else {
         os.write(messageBytes);
       }
       os.close();
