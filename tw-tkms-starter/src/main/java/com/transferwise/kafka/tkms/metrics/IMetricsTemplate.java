@@ -15,21 +15,21 @@ public interface IMetricsTemplate {
 
   void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize);
 
-  void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs);
+  void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startNanotTime);
 
-  void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs);
+  void recordDaoPollFirstResult(ShardPartition shardPartition, long startNanoTime);
 
-  void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startTimeMs);
+  void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startNanoTime);
 
-  void recordDaoPollGetConnection(ShardPartition shardPartition, long startTimeMs);
+  void recordDaoPollGetConnection(ShardPartition shardPartition, long startNanoTime);
 
-  void recordProxyCycle(ShardPartition shardPartition, long cycleStartTimeMs);
+  void recordProxyCycle(ShardPartition shardPartition, long cycleStartNanoTime);
 
-  void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startTimeMs);
+  void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startNanoTime);
 
-  void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs);
+  void recordProxyMessagesDeletion(ShardPartition shardPartition, long startNanoTime);
 
   void registerLibrary();
 
-  void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartTimeMs);
+  void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartNanoTime);
 }

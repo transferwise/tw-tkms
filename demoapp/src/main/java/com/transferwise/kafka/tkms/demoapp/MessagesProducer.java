@@ -1,5 +1,6 @@
 package com.transferwise.kafka.tkms.demoapp;
 
+import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import java.nio.charset.StandardCharsets;
@@ -55,6 +56,10 @@ public class MessagesProducer {
 
                 tkms.sendMessage(message);
                 paceTracker.messagesInserted(1);
+                ExceptionUtils.doUnchecked(() -> {
+                  // Can be used to check if keeping transactions open is creating any long locks somewhere.
+                  // Thread.sleep(10000);
+                });
               }
             });
           }

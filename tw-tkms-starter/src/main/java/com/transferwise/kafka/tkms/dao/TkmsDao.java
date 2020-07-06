@@ -244,12 +244,12 @@ public class TkmsDao implements ITkmsDao {
   @Override
   public List<MessageRecord> getMessages(ShardPartition shardPartition, int maxCount) {
     return ExceptionUtils.doUnchecked(() -> {
-      long startTimeMs = System.currentTimeMillis();
+      long startNanoTime = System.nanoTime();
 
       Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
       try {
-        metricsTemplate.recordDaoPollGetConnection(shardPartition, startTimeMs);
-        startTimeMs = System.currentTimeMillis();
+        metricsTemplate.recordDaoPollGetConnection(shardPartition, startNanoTime);
+        startNanoTime = System.nanoTime();
         int i = 0;
         try (PreparedStatement ps = con.prepareStatement(getMessagesSqls.get(shardPartition))) {
           ps.setLong(1, maxCount);
@@ -258,7 +258,7 @@ public class TkmsDao implements ITkmsDao {
           try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
               if (i++ == 0) {
-                metricsTemplate.recordDaoPollFirstResult(shardPartition, startTimeMs);
+                metricsTemplate.recordDaoPollFirstResult(shardPartition, startNanoTime);
               }
 
               MessageRecord messageRecord = new MessageRecord();
@@ -277,9 +277,9 @@ public class TkmsDao implements ITkmsDao {
                 }
               }
 
-              long messageParsingStartTimeMs = System.currentTimeMillis();
+              long messageParsingStartNanoTime = System.nanoTime();
               Message message = Message.parseFrom(messageBytes);
-              metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartTimeMs);
+              metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartNanoTime);
               messageRecord.setMessage(message);
 
               records.add(messageRecord);
@@ -288,7 +288,7 @@ public class TkmsDao implements ITkmsDao {
 
           return records;
         } finally {
-          metricsTemplate.recordDaoPollAllResults(shardPartition, i, startTimeMs);
+          metricsTemplate.recordDaoPollAllResults(shardPartition, i, startNanoTime);
         }
       } finally {
         DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());

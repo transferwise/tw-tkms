@@ -83,9 +83,9 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
+  public void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startNanoTime) {
     meterRegistry.timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
@@ -117,40 +117,40 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordDaoPollFirstResult(ShardPartition shardPartition, long startTimeMs) {
+  public void recordDaoPollFirstResult(ShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_FIRST_RESULT, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startTimeMs) {
+  public void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_ALL_RESULTS, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
     meterRegistry.summary(DAO_POLL_ALL_RESULTS_COUNT, shardPartitionTags(shardPartition)).record(recordsCount);
   }
 
   @Override
-  public void recordDaoPollGetConnection(ShardPartition shardPartition, long startTimeMs) {
+  public void recordDaoPollGetConnection(ShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_GET_CONNECTION, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyCycle(ShardPartition shardPartition, long startTimeMs) {
+  public void recordProxyCycle(ShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startTimeMs) {
+  public void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_KAFKA_MESSAGES_SEND, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyMessagesDeletion(ShardPartition shardPartition, long startTimeMs) {
+  public void recordProxyMessagesDeletion(ShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_MESSAGES_DELETION, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - startTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   /**
@@ -165,9 +165,9 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartTimeMs) {
+  public void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartNanoTime) {
     meterRegistry.timer(STORED_MESSAGE_PARSING, shardPartitionTags(shardPartition))
-        .record(System.currentTimeMillis() - messageParsingStartTimeMs, TimeUnit.MILLISECONDS);
+        .record(System.nanoTime() - messageParsingStartNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override

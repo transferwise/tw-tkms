@@ -11,7 +11,7 @@ public class ManagementController {
   @Autowired
   private MessagesProducer producer;
 
-  // curl -X POST "localhost:8080/produce?threadCount=20&batchCount=1000&batchSize=100"
+  // curl -s -X POST "localhost:8080/produce?threadCount=20&batchCount=1000&batchSize=100"
 
   @PostMapping("/produce")
   public void produce(@RequestParam long threadCount, @RequestParam long batchCount, @RequestParam long batchSize) {
