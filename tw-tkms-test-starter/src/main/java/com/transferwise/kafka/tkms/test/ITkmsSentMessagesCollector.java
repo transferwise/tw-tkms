@@ -1,6 +1,6 @@
 package com.transferwise.kafka.tkms.test;
 
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.util.List;
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -19,7 +19,7 @@ public interface ITkmsSentMessagesCollector {
   class SentMessage {
 
     private Long storageId;
-    private ShardPartition shardPartition;
+    private TkmsShardPartition shardPartition;
     private ProducerRecord<String, byte[]> producerRecord;
   }
 }

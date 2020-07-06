@@ -29,14 +29,14 @@ tw-curator:
   zookeeper-connect-string: "localhost:${ZOOKEEPER_TCP_2181}"
 
 tw-tkms:
-  desired-latency: 5ms
+  polling-interval: 5ms
   shards-count: 2
   insert-batch-size: 2
   kafka:
     bootstrap.servers: "localhost:${KAFKA_TCP_9092}"
   shards:
     1:
-      desired-latency: 6ms
+      polling-interval: 6ms
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000

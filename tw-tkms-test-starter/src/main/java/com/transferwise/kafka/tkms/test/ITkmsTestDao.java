@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms.test;
 
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 
 public interface ITkmsTestDao {
-  int getMessagesCount(ShardPartition shardPartition);
+  int getMessagesCount(TkmsShardPartition shardPartition);
 }

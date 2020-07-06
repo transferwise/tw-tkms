@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +14,7 @@ import org.springframework.util.StringUtils;
 @Slf4j
 public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
 
-  private final Map<ShardPartition, String> lockNodePathMap = new HashMap<>();
+  private final Map<TkmsShardPartition, String> lockNodePathMap = new HashMap<>();
 
   @Autowired
   private TkmsProperties properties;
@@ -40,14 +40,14 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
 
       for (int s = 0; s < properties.getShardsCount(); s++) {
         for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-          lockNodePathMap.put(ShardPartition.of(s, p), pollerLockPrefix + s + "/" + p);
+          lockNodePathMap.put(TkmsShardPartition.of(s, p), pollerLockPrefix + s + "/" + p);
         }
       }
     });
   }
 
   @Override
-  public String getLockNodePath(ShardPartition shardPartition) {
+  public String getLockNodePath(TkmsShardPartition shardPartition) {
     return lockNodePathMap.get(shardPartition);
   }
 }

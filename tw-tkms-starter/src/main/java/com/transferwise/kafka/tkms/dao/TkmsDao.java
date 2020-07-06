@@ -6,11 +6,11 @@ import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
-import com.transferwise.kafka.tkms.api.ShardPartition;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
-import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
@@ -49,11 +49,11 @@ public class TkmsDao implements ITkmsDao {
 
   private static final int[] batchSizes = {256, 64, 16, 4, 1};
 
-  protected Map<ShardPartition, String> insertMessageSqls;
+  protected Map<TkmsShardPartition, String> insertMessageSqls;
 
-  protected Map<ShardPartition, String> getMessagesSqls;
+  protected Map<TkmsShardPartition, String> getMessagesSqls;
 
-  private Map<Pair<ShardPartition, Integer>, String> deleteSqlsMap;
+  private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap;
 
   @Autowired
   protected TkmsDataSourceProvider dataSourceProvider;
@@ -62,7 +62,7 @@ public class TkmsDao implements ITkmsDao {
   protected TkmsProperties properties;
 
   @Autowired
-  protected IMetricsTemplate metricsTemplate;
+  protected ITkmsMetricsTemplate metricsTemplate;
 
   protected JdbcTemplate jdbcTemplate;
 
@@ -70,10 +70,10 @@ public class TkmsDao implements ITkmsDao {
   public void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
-    Map<ShardPartition, String> map = new HashMap<>();
+    Map<TkmsShardPartition, String> map = new HashMap<>();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        ShardPartition sp = ShardPartition.of(s, p);
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
         map.put(sp, getInsertSql(sp));
       }
     }
@@ -82,7 +82,7 @@ public class TkmsDao implements ITkmsDao {
     map.clear();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        ShardPartition sp = ShardPartition.of(s, p);
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
         map.put(sp, getSelectSql(sp));
       }
     }
@@ -92,9 +92,9 @@ public class TkmsDao implements ITkmsDao {
 
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        ShardPartition sp = ShardPartition.of(s, p);
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
         for (int batchSize : batchSizes) {
-          Pair<ShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
+          Pair<TkmsShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
           StringBuilder sb = new StringBuilder("delete from " + getTableName(sp) + " where id in (");
           for (int j = 0; j < batchSize; j++) {
             sb.append("?");
@@ -110,7 +110,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public List<InsertMessageResult> insertMessages(ShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages) {
+  public List<InsertMessageResult> insertMessages(TkmsShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages) {
     return ExceptionUtils.doUnchecked(() -> {
 
       List<InsertMessageResult> results = new ArrayList<>();
@@ -156,7 +156,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public InsertMessageResult insertMessage(ShardPartition shardPartition, TkmsMessage message) {
+  public InsertMessageResult insertMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
     final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
 
     final KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -177,7 +177,7 @@ public class TkmsDao implements ITkmsDao {
     return result;
   }
 
-  protected byte[] messageToContent(ShardPartition shardPartition, TkmsMessage message) {
+  protected byte[] messageToContent(TkmsShardPartition shardPartition, TkmsMessage message) {
     return ExceptionUtils.doUnchecked(() -> {
       byte[] messageBytes = convert(message).toByteArray();
 
@@ -238,7 +238,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public List<MessageRecord> getMessages(ShardPartition shardPartition, int maxCount) {
+  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, int maxCount) {
     return ExceptionUtils.doUnchecked(() -> {
       long startNanoTime = System.nanoTime();
 
@@ -293,7 +293,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public void deleteMessage(ShardPartition shardPartition, List<Long> ids) {
+  public void deleteMessage(TkmsShardPartition shardPartition, List<Long> ids) {
     MutableInt idIdx = new MutableInt();
     while (idIdx.getValue() < ids.size()) {
       for (int batchSize : batchSizes) {
@@ -301,7 +301,7 @@ public class TkmsDao implements ITkmsDao {
           continue;
         }
 
-        Pair<ShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
+        Pair<TkmsShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
         String sql = deleteSqlsMap.get(p);
 
         jdbcTemplate.update(sql, ps -> {
@@ -316,11 +316,11 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
-  protected String getInsertSql(ShardPartition shardPartition) {
+  protected String getInsertSql(TkmsShardPartition shardPartition) {
     return "insert into " + getTableName(shardPartition) + " (message) values (?)";
   }
 
-  protected String getSelectSql(ShardPartition shardPartition) {
+  protected String getSelectSql(TkmsShardPartition shardPartition) {
     return "select id, message from " + getTableName(shardPartition) + " order by id limit ?";
   }
 
@@ -329,7 +329,7 @@ public class TkmsDao implements ITkmsDao {
    *
    * <p>A Method calling this method should cache the result itself.
    */
-  protected String getTableName(ShardPartition shardPartition) {
+  protected String getTableName(TkmsShardPartition shardPartition) {
     return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
 

@@ -3,7 +3,7 @@ package com.transferwise.kafka.tkms.test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -22,7 +22,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
   @Autowired
   private TkmsTestProperties tkmsTestProperties;
 
-  private Map<String, Map<Pair<ShardPartition, Long>, SentMessage>> messages = new ConcurrentHashMap<>();
+  private Map<String, Map<Pair<TkmsShardPartition, Long>, SentMessage>> messages = new ConcurrentHashMap<>();
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
@@ -54,7 +54,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
 
   @Override
   public List<SentMessage> getSentMessages(String topic) {
-    Map<Pair<ShardPartition, Long>, SentMessage> messagesInTopic = messages.get(topic);
+    Map<Pair<TkmsShardPartition, Long>, SentMessage> messagesInTopic = messages.get(topic);
 
     if (messagesInTopic == null) {
       return new ArrayList<>();

@@ -9,16 +9,33 @@ import lombok.experimental.Accessors;
 
 public interface ITransactionalKafkaMessageSender {
 
+  /**
+   * Registers a message to be sent out.
+   */
   SendMessageResult sendMessage(TkmsMessage message);
 
   @Data
   @Accessors(chain = true)
   class SendMessageResult {
 
+    /**
+     * The id in the database table.
+     */
     private Long storageId;
-    private ShardPartition shardPartition;
+    /**
+     * Shard-partition message was put into.
+     *
+     * <p>You can determine the table's name by that.
+     */
+    private TkmsShardPartition shardPartition;
   }
 
+  /**
+   * Batch variant for {@link ITransactionalKafkaMessageSender#sendMessage(com.transferwise.kafka.tkms.api.TkmsMessage)}
+   * 
+   * <p>Can be useful, when you have latency concerns from sequential processes.
+   * For example when importing 50,000 bank transactions.
+   */
   SendMessagesResult sendMessages(SendMessagesRequest request);
 
   @Data

@@ -1,6 +1,6 @@
 package com.transferwise.kafka.tkms.test;
 
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import javax.annotation.PostConstruct;
@@ -23,7 +23,7 @@ public class TkmsTestDao implements ITkmsTestDao {
   }
 
   @Override
-  public int getMessagesCount(ShardPartition shardPartition) {
+  public int getMessagesCount(TkmsShardPartition shardPartition) {
     Integer messagesCount = jdbcTemplate.queryForObject("select count(*) from " + getTableName(shardPartition), Integer.class);
     if (messagesCount == null) {
       throw new IllegalStateException("Messages count can not be null.");
@@ -32,7 +32,7 @@ public class TkmsTestDao implements ITkmsTestDao {
   }
 
 
-  protected String getTableName(ShardPartition shardPartition) {
+  protected String getTableName(TkmsShardPartition shardPartition) {
     return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
 }

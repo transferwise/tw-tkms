@@ -5,13 +5,13 @@ import lombok.experimental.Accessors;
 
 @Data
 @Accessors(chain = true)
-public class ShardPartition {
-
+public class TkmsShardPartition {
+  
   private int shard;
   private int partition;
 
-  public static ShardPartition of(int shard, int partition) {
-    return new ShardPartition().setShard(shard).setPartition(partition);
+  public static TkmsShardPartition of(int shard, int partition) {
+    return new TkmsShardPartition().setShard(shard).setPartition(partition);
   }
 
   public String toString() {

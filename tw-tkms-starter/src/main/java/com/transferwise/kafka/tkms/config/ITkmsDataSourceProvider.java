@@ -4,5 +4,8 @@ import javax.sql.DataSource;
 
 public interface ITkmsDataSourceProvider {
 
+  /**
+   * Provides the datasource for tw-tkms to use.
+   */
   DataSource getDataSource();
 }

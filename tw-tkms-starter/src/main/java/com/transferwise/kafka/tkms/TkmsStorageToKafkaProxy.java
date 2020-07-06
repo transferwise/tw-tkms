@@ -9,17 +9,17 @@ import com.transferwise.common.leaderselector.ILock;
 import com.transferwise.common.leaderselector.Leader.Control;
 import com.transferwise.common.leaderselector.LeaderSelectorV2;
 import com.transferwise.common.leaderselector.SharedReentrantLockBuilderFactory;
-import com.transferwise.kafka.tkms.api.IMessageInterceptors;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
-import com.transferwise.kafka.tkms.api.ProxyDecision;
-import com.transferwise.kafka.tkms.api.ProxyDecision.Result;
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
+import com.transferwise.kafka.tkms.api.TkmsProxyDecision;
+import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
-import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
 @Slf4j
-public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageToKafkaProxy {
+public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsStorageToKafkaProxy {
 
   @Autowired
   private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
@@ -58,11 +58,11 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   @Autowired
   private UnitOfWorkManager unitOfWorkManager;
   @Autowired
-  private IMetricsTemplate metricsTemplate;
+  private ITkmsMetricsTemplate metricsTemplate;
   @Autowired
   private ApplicationContext applicationContext;
   @Autowired
-  private IMessageInterceptors messageIntereceptors;
+  private ITkmsMessageInterceptors messageIntereceptors;
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
 
@@ -75,7 +75,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
   public void init() {
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        ShardPartition shardPartition = ShardPartition.of(s, p);
+        TkmsShardPartition shardPartition = TkmsShardPartition.of(s, p);
 
         ExecutorService executorService =
             new ThreadNamingExecutorServiceWrapper("tw-tkms-poller-" + s + "_" + p, executorServicesProvider.getGlobalExecutorService());
@@ -118,7 +118,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     }
   }
 
-  private void poll(Control control, ShardPartition shardPartition) {
+  private void poll(Control control, TkmsShardPartition shardPartition) {
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
     long startTimeMs = System.currentTimeMillis();
 
@@ -157,7 +157,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
                 MessageRecord messageRecord = records.get(i);
                 ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
 
-                ProxyDecision proxyDecision = messageIntereceptors.beforeProxy(producerRecord);
+                TkmsProxyDecision proxyDecision = messageIntereceptors.beforeProxy(producerRecord);
                 if (proxyDecision != null && proxyDecision.getResult() == Result.DISCARD) {
                   acks[finalI] = 1;
                   continue;
@@ -224,7 +224,7 @@ public class StorageToKafkaProxy implements GracefulShutdownStrategy, IStorageTo
     }
   }
 
-  protected void fireMessageAcknowledgedEvent(ShardPartition shardPartition, Long id, ProducerRecord<String, byte[]> producerRecord) {
+  protected void fireMessageAcknowledgedEvent(TkmsShardPartition shardPartition, Long id, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     log.debug("Message was acknowledged for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
 

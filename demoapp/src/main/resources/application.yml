@@ -24,7 +24,7 @@ spring:
   flyway:
     locations: "classpath:db/migration/mysql"
 tw-tkms:
-  desired-latency: 5ms
+  polling-interval: 5ms
   shards-count: 1
   partitions-count: 1
   topics:

@@ -12,7 +12,7 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
 
   @Override
   public void doSmallPause(int shard) {
-    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getDesiredLatency(shard).toMillis()));
+    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getPollingInterval(shard).toMillis()));
   }
 
   @Override

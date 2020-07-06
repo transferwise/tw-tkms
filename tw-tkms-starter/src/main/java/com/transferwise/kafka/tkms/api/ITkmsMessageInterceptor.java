@@ -1,9 +1,9 @@
 package com.transferwise.kafka.tkms.api;
 
-import com.transferwise.kafka.tkms.api.ProxyDecision.Result;
+import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-public interface IMessageInterceptor {
+public interface ITkmsMessageInterceptor {
 
   /**
    * For emergency reasons.
@@ -15,8 +15,8 @@ public interface IMessageInterceptor {
    * <p>2. Engineer can find a DBA to delete the messages, but he can also implement this method and tell the engine to discard those,
    * optionally saving those records by himself to a some kind of DLQ or a separate shard.
    */
-  default ProxyDecision beforeProxy(ProducerRecord<String, byte[]> producerRecord) {
-    return new ProxyDecision().setResult(Result.NEUTRAL);
+  default TkmsProxyDecision beforeProxy(ProducerRecord<String, byte[]> producerRecord) {
+    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
   }
 
 }

@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.common.context.TwContext;
-import com.transferwise.kafka.tkms.api.ShardPartition;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -17,7 +17,7 @@ import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class MetricsTemplate implements IMetricsTemplate {
+public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   public static final String PREFIX = "tw.tkms";
 
@@ -83,13 +83,13 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordProxyPoll(ShardPartition shardPartition, int recordsCount, long startNanoTime) {
+  public void recordProxyPoll(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
     meterRegistry.timer(PROXY_POLL, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyMessageSendSuccess(ShardPartition shardPartition, String topic, Instant insertTime) {
+  public void recordProxyMessageSendSuccess(TkmsShardPartition shardPartition, String topic, Instant insertTime) {
     meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(true))).increment();
 
     if (insertTime != null) {
@@ -99,56 +99,56 @@ public class MetricsTemplate implements IMetricsTemplate {
   }
 
   @Override
-  public void recordProxyMessageSendFailure(ShardPartition shardPartition, String topic) {
+  public void recordProxyMessageSendFailure(TkmsShardPartition shardPartition, String topic) {
     meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(false))).increment();
   }
 
 
   @Override
-  public void recordMessageRegistering(String topic, ShardPartition shardPartition) {
+  public void recordMessageRegistering(String topic, TkmsShardPartition shardPartition) {
     meterRegistry
         .counter(INTERFACE_MESSAGE_REGISTERED, entryPointTags().and(shardPartitionTags(shardPartition)).and(topicTag(topic)))
         .increment();
   }
 
   @Override
-  public void recordDaoMessageInsert(ShardPartition shardPartition) {
+  public void recordDaoMessageInsert(TkmsShardPartition shardPartition) {
     meterRegistry.counter(DAO_MESSAGE_INSERT, entryPointTags().and(shardPartitionTags(shardPartition))).increment();
   }
 
   @Override
-  public void recordDaoPollFirstResult(ShardPartition shardPartition, long startNanoTime) {
+  public void recordDaoPollFirstResult(TkmsShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_FIRST_RESULT, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordDaoPollAllResults(ShardPartition shardPartition, int recordsCount, long startNanoTime) {
+  public void recordDaoPollAllResults(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_ALL_RESULTS, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
     meterRegistry.summary(DAO_POLL_ALL_RESULTS_COUNT, shardPartitionTags(shardPartition)).record(recordsCount);
   }
 
   @Override
-  public void recordDaoPollGetConnection(ShardPartition shardPartition, long startNanoTime) {
+  public void recordDaoPollGetConnection(TkmsShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(DAO_POLL_GET_CONNECTION, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyCycle(ShardPartition shardPartition, long startNanoTime) {
+  public void recordProxyCycle(TkmsShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyKafkaMessagesSend(ShardPartition shardPartition, long startNanoTime) {
+  public void recordProxyKafkaMessagesSend(TkmsShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_KAFKA_MESSAGES_SEND, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 
   @Override
-  public void recordProxyMessagesDeletion(ShardPartition shardPartition, long startNanoTime) {
+  public void recordProxyMessagesDeletion(TkmsShardPartition shardPartition, long startNanoTime) {
     meterRegistry.timer(PROXY_MESSAGES_DELETION, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
@@ -159,13 +159,13 @@ public class MetricsTemplate implements IMetricsTemplate {
    * <p>batchSize tag allows to verify algorithmic correctness for deletions.
    */
   @Override
-  public void recordDaoMessagesDeletion(ShardPartition shardPartition, int batchSize) {
+  public void recordDaoMessagesDeletion(TkmsShardPartition shardPartition, int batchSize) {
     meterRegistry.counter(DAO_MESSAGES_DELETION, shardPartitionTags(shardPartition).and("batchSize", String.valueOf(batchSize)))
         .increment();
   }
 
   @Override
-  public void recordStoredMessageParsing(ShardPartition shardPartition, long messageParsingStartNanoTime) {
+  public void recordStoredMessageParsing(TkmsShardPartition shardPartition, long messageParsingStartNanoTime) {
     meterRegistry.timer(STORED_MESSAGE_PARSING, shardPartitionTags(shardPartition))
         .record(System.nanoTime() - messageParsingStartNanoTime, TimeUnit.NANOSECONDS);
   }
@@ -188,7 +188,7 @@ public class MetricsTemplate implements IMetricsTemplate {
     return Tags.of(TAG_EP_GROUP, twContext.getGroup(), TAG_EP_NAME, twContext.getName(), TAG_EP_OWNER, twContext.getOwner());
   }
 
-  protected Tags shardPartitionTags(ShardPartition shardPartition) {
+  protected Tags shardPartitionTags(TkmsShardPartition shardPartition) {
     if (shardPartition == null) {
       return Tags.of("shard", "N/A", "partition", "N/A");
     }

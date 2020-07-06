@@ -4,13 +4,13 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
-import com.transferwise.kafka.tkms.api.ShardPartition;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
-import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,7 +37,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Autowired
   private Validator validator;
   @Autowired
-  private IMetricsTemplate metricsTemplate;
+  private ITkmsMetricsTemplate metricsTemplate;
   @Autowired
   private TkmsProperties properties;
   @Autowired
@@ -66,10 +66,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     SendMessageResult[] responses = new SendMessageResult[request.getTkmsMessages().size()];
 
-    Map<ShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
+    Map<TkmsShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
 
     for (TkmsMessage tkmsMessage : request.getTkmsMessages()) {
-      ShardPartition shardPartition = getShardPartition(tkmsMessage);
+      TkmsShardPartition shardPartition = getShardPartition(tkmsMessage);
 
       String topic = tkmsMessage.getTopic();
       if (!validatedTopics.contains(topic)) {
@@ -104,7 +104,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   public SendMessageResult sendMessage(TkmsMessage message) {
     validateMessage(message);
 
-    ShardPartition shardPartition = getShardPartition(message);
+    TkmsShardPartition shardPartition = getShardPartition(message);
 
     String topic = message.getTopic();
     validateTopic(shardPartition.getShard(), topic);
@@ -144,7 +144,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
-  protected void fireMessageRegisteredEvent(ShardPartition shardPartition, Long id, TkmsMessage message) {
+  protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
 
@@ -177,7 +177,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     return tkmsEventsListeners;
   }
 
-  protected ShardPartition getShardPartition(TkmsMessage message) {
+  protected TkmsShardPartition getShardPartition(TkmsMessage message) {
     int shard = properties.getDefaultShard();
     if (message.getShard() != null) {
       shard = message.getShard();
@@ -188,7 +188,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     int partition = getPartition(shard, message);
 
-    return ShardPartition.of(shard, partition);
+    return TkmsShardPartition.of(shard, partition);
   }
 
   protected int getPartition(int shard, TkmsMessage message) {

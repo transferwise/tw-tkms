@@ -1,14 +1,14 @@
 package com.transferwise.kafka.tkms.config;
 
-import com.transferwise.kafka.tkms.IStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
+import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
-import com.transferwise.kafka.tkms.MessageInterceptors;
-import com.transferwise.kafka.tkms.StorageToKafkaProxy;
+import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
+import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.TkmsZookeeperOperations;
 import com.transferwise.kafka.tkms.TransactionalKafkaMessageSender;
-import com.transferwise.kafka.tkms.api.IMessageInterceptors;
+import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
 import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
@@ -17,8 +17,8 @@ import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
-import com.transferwise.kafka.tkms.metrics.IMetricsTemplate;
-import com.transferwise.kafka.tkms.metrics.MetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
@@ -45,9 +45,9 @@ public class TkmsConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(IMetricsTemplate.class)
-  public MetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
-    return new MetricsTemplate(meterRegistry);
+  @ConditionalOnMissingBean(ITkmsMetricsTemplate.class)
+  public TkmsMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
+    return new TkmsMetricsTemplate(meterRegistry);
   }
 
   @Bean
@@ -66,9 +66,9 @@ public class TkmsConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(IStorageToKafkaProxy.class)
-  public StorageToKafkaProxy tkmsStorageToKafkaProxy() {
-    return new StorageToKafkaProxy();
+  @ConditionalOnMissingBean(ITkmsStorageToKafkaProxy.class)
+  public TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy() {
+    return new TkmsStorageToKafkaProxy();
   }
 
   @Bean
@@ -127,9 +127,9 @@ public class TkmsConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(IMessageInterceptors.class)
-  public IMessageInterceptors tkmsMessageInterceptors() {
-    return new MessageInterceptors();
+  @ConditionalOnMissingBean(ITkmsMessageInterceptors.class)
+  public ITkmsMessageInterceptors tkmsMessageInterceptors() {
+    return new TkmsMessageInterceptors();
   }
 
 }

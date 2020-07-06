@@ -15,16 +15,40 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class TkmsMessage {
 
+  /**
+   * Kafka topic.
+   */
   @NotBlank
   private String topic;
+  /**
+   * Kafka message timestamp.
+   *
+   * <p>The one you would put into ProducerRecord.
+   */
   private Instant timestamp;
+  /**
+   * Kafka topic's partition.
+   *
+   * <p>Has higher priority than the key.
+   */
   @PositiveOrZero
   private Integer partition;
+  /**
+   * Kafka message's key.
+   *
+   * <p>Will be used to determine the partition.
+   */
   @Size(min = 1)
   private String key;
+  /**
+   * Kafka message's content/payload.
+   */
   @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
   private byte[] value;
 
+  /**
+   * Kafka message's headers.
+   */
   private List<Header> headers;
 
   public TkmsMessage addHeader(Header header) {
@@ -35,6 +59,9 @@ public class TkmsMessage {
     return this;
   }
 
+  /**
+   * Tkms shard.
+   */
   @PositiveOrZero
   private Integer shard;
 
@@ -42,8 +69,14 @@ public class TkmsMessage {
   @Accessors(chain = true)
   public static class Header {
 
+    /**
+     * Kafka message header's key.
+     */
     @NotBlank
     public String key;
+    /**
+     * Kafka message header's value.
+     */
     @NotNull
     public byte[] value;
   }
