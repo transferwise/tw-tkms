@@ -185,19 +185,15 @@ public class TkmsDao implements ITkmsDao {
 
       ByteArrayOutputStream os = new ByteArrayOutputStream(messageBytes.length / (useCompression ? 4 : 1) + HEADER_SIZE_BYTES);
 
-      if (properties.isUseHeader()) {
-        // 3 byte header for future use
-        os.write(0);
-        os.write(0);
+      // 3 byte header for future use
+      os.write(0);
+      os.write(0);
 
-        if (properties.useCompression(shardPartition.getShard())) {
-          os.write(FLAG_COMPRESS);
-          compress(messageBytes, os);
-        } else {
-          os.write(0);
-          os.write(messageBytes);
-        }
+      if (properties.useCompression(shardPartition.getShard())) {
+        os.write(FLAG_COMPRESS);
+        compress(messageBytes, os);
       } else {
+        os.write(0);
         os.write(messageBytes);
       }
       os.close();
