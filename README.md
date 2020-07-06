@@ -54,7 +54,7 @@ CREATE TABLE outgoing_message_0_0(
               stats_persistent=1, stats_auto_recalc=0 ENGINE=InnoDB;
 
 update mysql.innodb_index_stats set stat_value=1000000 where table_name = "outgoing_message_0_0" and stat_description="id";
-update mysql.innodb_table_stats set n_rows=1000000 where table_name like " + tableName + ";
+update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoing_message_0_0";
 flush table outgoing_message_0_0;
 ```
 
