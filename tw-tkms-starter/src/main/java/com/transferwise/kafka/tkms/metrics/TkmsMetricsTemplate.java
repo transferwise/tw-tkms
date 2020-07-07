@@ -49,6 +49,21 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @PostConstruct
   public void init() {
+    System.out.println(PROXY_POLL.replaceAll("\\.", "_"));
+    System.out.println(PROXY_CYCLE.replaceAll("\\.", "_"));
+    System.out.println(PROXY_MESSAGE_SEND.replaceAll("\\.", "_"));
+    System.out.println(PROXY_KAFKA_MESSAGES_SEND.replaceAll("\\.", "_"));
+    System.out.println(PROXY_MESSAGES_DELETION.replaceAll("\\.", "_"));
+    System.out.println(INTERFACE_MESSAGE_REGISTERED.replaceAll("\\.", "_"));
+    System.out.println(DAO_MESSAGE_INSERT.replaceAll("\\.", "_"));
+    System.out.println(DAO_MESSAGES_DELETION.replaceAll("\\.", "_"));
+    System.out.println(DAO_POLL_FIRST_RESULT.replaceAll("\\.", "_"));
+    System.out.println(DAO_POLL_GET_CONNECTION.replaceAll("\\.", "_"));
+    System.out.println(DAO_POLL_ALL_RESULTS.replaceAll("\\.", "_"));
+    System.out.println(DAO_POLL_ALL_RESULTS_COUNT.replaceAll("\\.", "_"));
+    System.out.println(STORED_MESSAGE_PARSING.replaceAll("\\.", "_"));
+    System.out.println(MESSAGE_INSERT_TO_ACK.replaceAll("\\.", "_"));
+
     Map<String, long[]> slas = new HashMap<>();
     long[] defaultSlas = new long[]{1, 5, 25, 125, 625, 3125};
     slas.put(PROXY_POLL, defaultSlas);
@@ -102,8 +117,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public void recordProxyMessageSendFailure(TkmsShardPartition shardPartition, String topic) {
     meterRegistry.counter(PROXY_MESSAGE_SEND, shardPartitionTags(shardPartition).and(topicTag(topic)).and(successTag(false))).increment();
   }
-
-
+  
   @Override
   public void recordMessageRegistering(String topic, TkmsShardPartition shardPartition) {
     meterRegistry
@@ -182,7 +196,6 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         .register(meterRegistry);
   }
 
-
   protected Tags entryPointTags() {
     TwContext twContext = TwContext.current();
     return Tags.of(TAG_EP_GROUP, twContext.getGroup(), TAG_EP_NAME, twContext.getName(), TAG_EP_OWNER, twContext.getOwner());
@@ -196,7 +209,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   }
 
   protected Tags pollResultTag(boolean empty) {
-    return Tags.of("result", empty ? "empty" : "not_empty");
+    return Tags.of("pollResult", empty ? "empty" : "not_empty");
   }
 
   protected Tags topicTag(String topic) {

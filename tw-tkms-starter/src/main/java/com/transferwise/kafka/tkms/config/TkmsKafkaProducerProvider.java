@@ -32,7 +32,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.RETRIES_CONFIG, "0");
       configs.put(ProducerConfig.BATCH_SIZE_CONFIG, "163840");
       configs.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10485760");
-      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 50);
+      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 500);
       configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify tw-tkms.kafka.bootstrap.servers");
       configs.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
