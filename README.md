@@ -12,12 +12,11 @@ A library for sending Kafka messages according to [Transactional Outbox Pattern]
 * Replaces [tw-tasks-kafka-publisher](https://github.com/transferwise/tw-tasks-executor/tree/master/tw-tasks-kafka-publisher)
 * At least once delivery
 
-Do not use this library if
-* You do not need atomic transactions around your business data and kafka messages.
+Do not use this library
+* If you do not need atomic transactions around your business data and kafka messages.
   * For example:
     * You are just converting incoming kafka messages into messages for another topic.
     * Only thing your logic does is sending out kafka messages and it does not change the main database. 
-
 
 You probably would want to start by going over the [main concepts](docs/concepts.md).
 
