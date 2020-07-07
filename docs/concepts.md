@@ -43,11 +43,11 @@ It is highly likely that you do not need more than 1 partitions.
 So basically the messages go through the following steps.
 
 1. Gets inserted into a table from business transactions and threads.
-2. Polled from that table in a separate thread.
+2. Polled from that table in a separate thread. In the documentation, this component/thread is often referred as "Proxy" or "Kafka Proxy".
    
    2.1. Sent to the Kafka, using `kafka-clients` library.
 
-   2.2. Deleted from it.
+   2.2. Deleted from the table.
 
 When message sending has been requested, a shard and partition will be determined for that message.
 
