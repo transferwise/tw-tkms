@@ -79,6 +79,8 @@ public class TkmsProperties {
   /**
    * How much do we wait, when the last poll did not find any messages in the database.
    *
+   * <p>Tradeoff between low latency and QPS. Due to increased QPS, very low values could actually increase the latency.
+   * 
    * <p>Probably biggest consideration here is how many QPS you would tolerate.
    * 10ms means 100 queries per second per shard-partition. At the same time those empty queries will be very cheap.
    */

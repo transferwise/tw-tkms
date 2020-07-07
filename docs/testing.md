@@ -26,7 +26,7 @@ For example:
 public PayoutBatchStateChangedEvent waitForNinjasHasReceivedBatchStateChange(Long batchId) {
     return await().until(() -> {
         List<PayoutBatchStateChangedEvent> sentKafkaMessages = tkmsSentMessagesCollector.getSentJsonMessages(
-                com.transferwise.ninjas.interfaces.PublicQueueDestinations.PAYOUT_BATCH_STATE_CHANGED, PayoutBatchStateChangedEvent.class);
+                PAYOUT_BATCH_STATE_CHANGED, PayoutBatchStateChangedEvent.class);
 
         List<PayoutBatchStateChangedEvent> list = sentKafkaMessages.stream().filter((m) -> m.getBatchId().equals(batchId)).collect(Collectors.toList());
         return list.size() == 1 ? list.get(0) : null;
@@ -39,3 +39,5 @@ Make sure, you are cleaning the memory regularly. For example after (or before) 
 registeredMessagesCollector.clear()
 tkmsSentMessagesCollector.clear()
 ```
+
+> If you don't the TwTkms will start yelling at you.

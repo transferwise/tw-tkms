@@ -7,14 +7,14 @@ implementation platform("com.transferwise.common:tw-dependencies:${twDependencie
 implementation 'com.transferwise.kafka:tw-tkms-starter'
 ```
 
-Configuration can be tweaked according to `com.transferwise.kafka.tkms.config.TkmsProperties`. Usually there is no need to change defaults.
+Configuration can be tweaked according to `com.transferwise.kafka.tkms.config.TkmsProperties`. Usually there is no need to change the defaults.
 
 However, if you are using Postgres database, you need to change
 ```yaml
 tw-tkms.database-dialect: POSTGRES
 ```
 
-Of-course you need database tables as well.
+Of-course you need to create tables in the database as well.
 
 For each shard & partition combination, you need a table in a form of `outgoing_message_<shard>_<partition>`.
 
@@ -27,7 +27,7 @@ optimal performance even in cases where those tables will suddenly accumulate la
 ## MariaDb
 
 ```mariadb
-CREATE TABLE outgoing_message_0_0(
+CREATE TABLE outgoing_message_0_0 (
               id BIGINT AUTO_INCREMENT PRIMARY KEY,
               message MEDIUMBLOB NOT NULL)
               stats_persistent=1, stats_auto_recalc=0 ENGINE=InnoDB;
@@ -37,14 +37,14 @@ update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoi
 flush table outgoing_message_0_0;
 ```
 
-As those command require specific permissions, you most likely will need some help from DBAs.
+As some of those commands require specific permissions, you most likely will need some help from DBAs.
 
 Also, it is beneficial (but not crucial) to set [innodb_autoinc_lock_mode](https://mariadb.com/docs/reference/es/system-variables/innodb_autoinc_lock_mode/) to 2.
 
 ## Postgres
 
 ```postgresql
-CREATE TABLE outgoing_message_0_0(
+CREATE TABLE outgoing_message_0_0 (
   id BIGSERIAL PRIMARY KEY,
   message BYTEA NOT NULL
 ) WITH (autovacuum_analyze_threshold=2000000000);
@@ -55,21 +55,24 @@ VACUUM FULL outgoing_message_0_0;
 
 ## Curator setup
 TwTkms is relying on [tw-leader-selector](https://github.com/transferwise/tw-leader-selector), which in turn needs a specific
-connection listener to be registered.
+connection listener to be registered, before the `CuratorFramework` is started.
 
-If you have your own configuration class, for creating CuratorFramework bean, you can remove it.
+If you have your own configuration class for creating `CuratorFramework` bean, you can just remove it and it will be replaced with a good one.
 
-TwTkms is taking in [tw-curator](https://github.com/transferwise/tw-curator) which does the correct auto configuration by itself.
+`tw-leader-selector` is bringing in [tw-curator](https://github.com/transferwise/tw-curator) which does the correct auto configuration by itself.
 
-Just set the following `tw-curator.zookeeper-connect-string` configuration option, and you are done. For example:
-
+Just set the following `tw-curator.zookeeper-connect-string` configuration option, and you are done.
+ 
+For example:
 ```yaml
 tw-curator:
   zookeeper-connect-string: "localhost:2181"
 ```
 
-## Multiple datasource
+## Multiple datasources
 
-If you have multiple dataSources, you can use `@Tkms` annotation to mark a datasource to be used for tw-tkms.
+Some service have multiple datasources and TwTkms needs to know which one to use.
 
-Alternatively you can provide an `ITkmsDataSourceProvider` implementation bean.
+For that, you can use `@Tkms` annotation to mark a datasource to be used for tw-tkms.
+
+Alternatively, in more complex setups you can provide an `ITkmsDataSourceProvider` implementation bean.
