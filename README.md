@@ -11,6 +11,7 @@ A library for sending Kafka messages according to [Transactional Outbox Pattern]
 * Supports all Kafka Client features, like headers or forcing messages into specific partitions
 * Replaces [tw-tasks-kafka-publisher](https://github.com/transferwise/tw-tasks-executor/tree/master/tw-tasks-kafka-publisher)
 * At least once delivery
+* Supports both Postgres and MariaDb.
 
 Do not use this library
 * If you do not need atomic transactions around your business data and kafka messages.
@@ -32,7 +33,7 @@ When there will be [trouble](docs/troubleshooting.md), you will be prepared.
 
 The library is also providing [observability](docs/observability.md).
 
-In TransferWise we are "enhancing and fixing a flying plane", so make sure you will not cause any incidents while 
+In TransferWise we are "enhancing and fixing a flying airplane", so make sure you will not cause any incidents while 
 [migrating](docs/migration.md) to the library.
 
 Feel free to [contribute](docs/contributing.md) and come and chat in #tw-tasks-executor slack channel.

@@ -135,14 +135,16 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
           .execute(() -> {
             long cycleStartNanoTime = System.nanoTime();
+            int polledRecordsCount = 0;
             try {
               List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
-              if (records.size() == 0) {
+              polledRecordsCount = records.size();
+              if (polledRecordsCount == 0) {
                 metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
                 tkmsPaceMaker.doSmallPause(shardPartition.getShard());
                 return;
               }
-              metricsTemplate.recordProxyPoll(shardPartition, records.size(), cycleStartNanoTime);
+              metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
 
               byte[] acks = new byte[records.size()];
 
@@ -218,7 +220,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               log.error(t.getMessage(), t);
               tkmsPaceMaker.pauseOnError(shardPartition.getShard());
             } finally {
-              metricsTemplate.recordProxyCycle(shardPartition, cycleStartNanoTime);
+              metricsTemplate.recordProxyCycle(shardPartition, polledRecordsCount, cycleStartNanoTime);
             }
           });
     }

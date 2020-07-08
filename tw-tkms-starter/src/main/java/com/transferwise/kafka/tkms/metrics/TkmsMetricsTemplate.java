@@ -150,8 +150,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   }
 
   @Override
-  public void recordProxyCycle(TkmsShardPartition shardPartition, long startNanoTime) {
-    meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition))
+  public void recordProxyCycle(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
+    meterRegistry.timer(PROXY_CYCLE, shardPartitionTags(shardPartition).and(pollResultTag(recordsCount > 0)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
   }
 

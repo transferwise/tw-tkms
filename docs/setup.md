@@ -18,7 +18,7 @@ Of-course you need to create tables in the database as well.
 
 For each shard & partition combination, you need a table in a form of `outgoing_message_<shard>_<partition>`.
 
->> If you are using Flyway, it can be achieved programmatically. For inspiration, check the `V1__Init` classes in this repo.
+> If you are using Flyway, it can be achieved programmatically. For inspiration, check the `V1__Init` classes in this repo.
 
 The tricky part is that those tables have to be created in exact way, to trick the database statistics not to consider
 the table as empty and thus forcing it to rely more on primary key indexes. This is crucial to have minimum locking between the threads and
@@ -47,7 +47,7 @@ Also, it is beneficial (but not crucial) to set [innodb_autoinc_lock_mode](https
 CREATE TABLE outgoing_message_0_0 (
   id BIGSERIAL PRIMARY KEY,
   message BYTEA NOT NULL
-) WITH (autovacuum_analyze_threshold=2000000000);
+) WITH (autovacuum_analyze_threshold=2000000000, autovacuum_vacuum_threshold=100000);
 
 ALTER TABLE outgoing_message_0_0 ALTER COLUMN id SET (n_distinct=1000000);
 VACUUM FULL outgoing_message_0_0;
@@ -71,8 +71,8 @@ tw-curator:
 
 ## Multiple datasources
 
-Some service have multiple datasources and TwTkms needs to know which one to use.
+Some services have multiple data sources and TwTkms needs to know which one to use.
 
-For that, you can use `@Tkms` annotation to mark a datasource to be used for tw-tkms.
+For that, you can annotate the correct one with `@Tkms` annotation.
 
-Alternatively, in more complex setups you can provide an `ITkmsDataSourceProvider` implementation bean.
+Alternatively, for more complex setups you can provide an `ITkmsDataSourceProvider` implementation bean.

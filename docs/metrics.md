@@ -34,7 +34,7 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 
 `tw_tkms_dao_poll_get_connection {shard, partition}`
 
-`tw_tkms_proxy_cycle {shard, partition}`
+`tw_tkms_proxy_cycle {shard, partition, pollResult}`
 
 `tw_tkms_proxy_kafka_messages_send {shard, partition}`
 
@@ -44,7 +44,7 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 
 `tw_tkms_stored_message_parsing {shard, partition}`
 
-##### Tags
+### Tags
 
 | Tag          | Description                                                               |
 |--------------|---------------------------------------------------------------------------|

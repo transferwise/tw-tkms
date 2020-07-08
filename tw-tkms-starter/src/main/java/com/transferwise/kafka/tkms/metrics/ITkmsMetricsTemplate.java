@@ -23,7 +23,7 @@ public interface ITkmsMetricsTemplate {
 
   void recordDaoPollGetConnection(TkmsShardPartition shardPartition, long startNanoTime);
 
-  void recordProxyCycle(TkmsShardPartition shardPartition, long cycleStartNanoTime);
+  void recordProxyCycle(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime);
 
   void recordProxyKafkaMessagesSend(TkmsShardPartition shardPartition, long startNanoTime);
 
