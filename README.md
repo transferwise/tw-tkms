@@ -25,7 +25,7 @@ First you need to [set it up](docs/setup.md).
 
 Then you can [start using it](docs/usage.md).
 
-Of-course the library can be used in your service's [integration tests](docs/testing.md) 
+Of course, the library can be used in your service's [integration tests](docs/testing.md) 
 
 [Performance considerations](docs/performance.md) can be quite useful to check into.
 
