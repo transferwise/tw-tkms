@@ -25,7 +25,7 @@ public interface ITkmsDao {
 
   List<MessageRecord> getMessages(TkmsShardPartition shardPartition, int maxCount);
 
-  void deleteMessage(TkmsShardPartition shardPartition, List<Long> records);
+  void deleteMessages(TkmsShardPartition shardPartition, List<Long> records);
 
   @Data
   @Accessors(chain = true)

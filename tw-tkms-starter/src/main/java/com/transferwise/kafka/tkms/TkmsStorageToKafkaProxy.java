@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -174,14 +175,14 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                           ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
                       metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
                     } else {
-                      log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
+                      handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
                       metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
                     }
                   });
 
                   futures.add(future);
                 } catch (Throwable t) {
-                  log.error("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t);
+                  handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t);
                 }
               }
 
@@ -193,7 +194,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 try {
                   future.get();
                 } catch (Throwable t) {
-                  log.error("Sending message failed.", t);
+                  handleKafkaError("Sending message in " + shardPartition + " failed.", t);
                 }
               }
 
@@ -210,7 +211,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               //   For example we want to probably offload deleting into a separate thread(s)
               //   Select would need id>X, which probably would not be too bad.
               long deleteStartNanoTime = System.nanoTime();
-              dao.deleteMessage(shardPartition, successIds);
+              dao.deleteMessages(shardPartition, successIds);
               metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
 
               if (successIds.size() != records.size()) {
@@ -223,6 +224,21 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               metricsTemplate.recordProxyCycle(shardPartition, polledRecordsCount, cycleStartNanoTime);
             }
           });
+    }
+  }
+
+  /**
+   * The idea is to avoid spam when for example Kafka cluster is upgraded and/or topics are rebalanced.
+   * 
+   * <p>But at the same time it would be quite risky to ignore all RetriableExceptions, so we log at least some.
+   */
+  protected void handleKafkaError(String message, Throwable t) {
+    if (t instanceof RetriableException) {
+      if (exceptionRateLimiter.tryAcquire()) {
+        log.error(message, t);
+      }
+    } else {
+      log.error(message, t);
     }
   }
 
