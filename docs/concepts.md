@@ -29,15 +29,16 @@ latencies related to only a subset of the messages.
 >the same entity's messages into the same topic using different shards.
  
 ## Partitions
-Every shard can have a number of partitions. 
+> TwTkms partitions are not the same as Kafka partitions.
 
-> Do not confuse them with Kafka partitions.
+In TwTkms, every shard has 1 or more partitions. In most cases, 1 partition is enough. 
 
-Performance tests show that using multiple messages tables increases throughput, although with diminishing
-returns. By adding partitions, TwTkms will proxy messages through multiple tables. For example, with 3 partitions,
-messages to shard #0 would be proxied through tables `outgoing_message_0_0`, `outgoing_messages_0_1`, and `outgoing_messages_0_2`.
+Using multiple partitions means TwTkms will proxy messages through multiple tables, which is known to increase throughput
+(although with diminishing returns). For example, with 3 partitions, messages to shard #0 would be proxied through tables
+`outgoing_message_0_0`, `outgoing_messages_0_1`, and `outgoing_messages_0_2`.
 
-It is highly likely that you do not need more than 1 partition.
+Using multiple partitions adds complexity to troubleshooting and increases QPS, and should not be used without clear
+justification.
 
 ## Algorithm
 
