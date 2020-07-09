@@ -2,12 +2,12 @@
 
 TwTkms also provides helpers for conducting end-to-end integration tests.
 
-For that, you can add a dependency.
+For that, you can add a dependency:
 ```groovy
 testImplementation 'com.transferwise.kafka:tw-tkms-test-starter'
 ```
 
-And you will get the following beans.
+And you will get the following beans:
 ```java
 @Autowired
 protected ITkmsSentMessagesCollector tkmsSentMessagesCollector;
@@ -17,7 +17,7 @@ protected ITransactionalKafkaMessageSender tkmsTransactionalKafkaMessageSender;
 protected ITkmsTestDao tkmsTestDao
 ```
 
- Consult those classes JavaDocs for more information about usages.
+Consult those classes' JavaDocs for more information about usage.
 
 Usually you are using only `ITkmsSentMessagesCollector` though.
 
@@ -40,4 +40,4 @@ registeredMessagesCollector.clear()
 tkmsSentMessagesCollector.clear()
 ```
 
-> If you don't the TwTkms will start yelling at you.
+> If you don't, TwTkms will start yelling at you.
