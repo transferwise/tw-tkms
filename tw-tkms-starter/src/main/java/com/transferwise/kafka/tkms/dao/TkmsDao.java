@@ -293,7 +293,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public void deleteMessage(TkmsShardPartition shardPartition, List<Long> ids) {
+  public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
     MutableInt idIdx = new MutableInt();
     while (idIdx.getValue() < ids.size()) {
       for (int batchSize : batchSizes) {

@@ -12,7 +12,7 @@ And you will get the following beans:
 @Autowired
 protected ITkmsSentMessagesCollector tkmsSentMessagesCollector;
 @Autowired
-protected ITransactionalKafkaMessageSender tkmsTransactionalKafkaMessageSender;
+protected ITkmsRegisteredMessagesCollector tkmsRegisteredMessagesCollector;
 @Autowired
 protected ITkmsTestDao tkmsTestDao
 ```
@@ -20,6 +20,8 @@ protected ITkmsTestDao tkmsTestDao
 Consult those classes' JavaDocs for more information about usage.
 
 Usually you are using only `ITkmsSentMessagesCollector` though.
+
+But `ITkmsRegisteredMessagesCollector` can be useful, if you have transactional tests which get rolled back at the end.
 
 For example:
 ```java
@@ -36,7 +38,7 @@ public PayoutBatchStateChangedEvent waitForNinjasHasReceivedBatchStateChange(Lon
 
 Make sure, you are cleaning the memory regularly. For example after (or before) each test:
 ```java
-registeredMessagesCollector.clear()
+tkmsRegisteredMessagesCollector.clear()
 tkmsSentMessagesCollector.clear()
 ```
 
