@@ -46,7 +46,12 @@ public class EndToEndIntTest extends BaseIntTest {
 
   @Test
   public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
-    String message = "Hello World!";
+    String messagePart = "Hello World!";
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 100; i++) {
+      sb.append(messagePart);
+    }
+    String message = sb.toString();
 
     AtomicInteger receivedCount = new AtomicInteger();
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {

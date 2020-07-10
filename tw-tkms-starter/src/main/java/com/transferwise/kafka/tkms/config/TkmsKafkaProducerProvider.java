@@ -29,13 +29,16 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
       configs.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
       configs.put(ProducerConfig.ACKS_CONFIG, "all");
-      configs.put(ProducerConfig.RETRIES_CONFIG, "0");
       configs.put(ProducerConfig.BATCH_SIZE_CONFIG, "163840");
       configs.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10485760");
-      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 500);
-      configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify tw-tkms.kafka.bootstrap.servers");
+      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+      configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify 'tw-tkms.kafka.bootstrap.servers'.");
       configs.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
+      configs.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
+      configs.put(ProducerConfig.LINGER_MS_CONFIG, "5");
+      // Zstd is the best, but we need to get all clients to kafka-clients:2.1
+      // configs.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "zstd");
 
       configs.putAll(tkmsProperties.getKafka());
 

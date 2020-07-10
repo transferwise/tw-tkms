@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms.dao;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
@@ -16,7 +17,11 @@ import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.airlift.compress.snappy.SnappyFramedInputStream;
+import io.airlift.compress.snappy.SnappyFramedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -26,7 +31,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +50,8 @@ public class TkmsDao implements ITkmsDao {
 
   protected static final int FLAG_COMPRESS = 1;
   protected static final int HEADER_SIZE_BYTES = 3;
+  
+  static final byte[] SNAPPY_HEADER_BYTES = {(byte) 0xff, 0x06, 0x00, 0x00, 0x73, 0x4e, 0x61, 0x50, 0x70, 0x59};
 
   private static final int[] batchSizes = {256, 64, 16, 4, 1};
 
@@ -334,32 +340,47 @@ public class TkmsDao implements ITkmsDao {
   }
 
   protected void compress(byte[] data, ByteArrayOutputStream out) {
-    Deflater deflater = new Deflater();
-    deflater.setInput(data);
-    deflater.finish();
-    byte[] buffer = new byte[1024];
-    while (!deflater.finished()) {
-      int count = deflater.deflate(buffer);
-      out.write(buffer, 0, count);
-    }
+    ExceptionUtils.doUnchecked(() -> {
+      OutputStream snappyOut = new SnappyFramedOutputStream(out);
+      snappyOut.write(data);
+      snappyOut.close();
+    });
   }
 
   protected byte[] decompress(byte[] data, int off, int len) {
     return ExceptionUtils.doUnchecked(() -> {
-      Inflater inflater = new Inflater();
-      inflater.setInput(data, off, len);
-      ByteArrayOutputStream outputStream = new ByteArrayOutputStream(data.length);
-      byte[] buffer = new byte[1024];
-      while (!inflater.finished()) {
-        int count = inflater.inflate(buffer);
-        if (count == 0) {
-          break;
-        }
-        outputStream.write(buffer, 0, count);
+      if (isSnappyStream(data, off, len)) {
+        return ByteStreams.toByteArray(new SnappyFramedInputStream(new ByteArrayInputStream(data, off, len)));
       }
-      outputStream.close();
-      byte[] output = outputStream.toByteArray();
-      return output;
+
+      // Remove the following in 0.3+ 
+      Inflater inflater = new Inflater();
+      try {
+        inflater.setInput(data, off, len);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(data.length);
+        byte[] buffer = new byte[1024];
+        while (!inflater.finished()) {
+          int count = inflater.inflate(buffer);
+          if (count == 0) {
+            break;
+          }
+          outputStream.write(buffer, 0, count);
+        }
+        outputStream.close();
+        byte[] output = outputStream.toByteArray();
+        return output;
+      } finally {
+        inflater.end();
+      }
     });
+  }
+
+  protected boolean isSnappyStream(byte[] data, int off, int len) {
+    for (int i = 0; i < SNAPPY_HEADER_BYTES.length; i++) {
+      if (i > len - 1 || data[off + i] != SNAPPY_HEADER_BYTES[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }
