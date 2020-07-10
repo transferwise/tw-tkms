@@ -14,7 +14,7 @@ However, if you are using Postgres database, you need to change
 tw-tkms.database-dialect: POSTGRES
 ```
 
-Of-course you need to create tables in the database as well.
+Of course you need to create tables in the database as well.
 
 For each shard & partition combination, you need a table in a form of `outgoing_message_<shard>_<partition>`.
 

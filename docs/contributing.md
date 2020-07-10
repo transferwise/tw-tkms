@@ -3,7 +3,7 @@
 The tests are important.
 
 The library has extensive automatic tests coverage, but more will never hurt. However, avoid high maintenance (unit) tests, try to write tests
-without mocking anything and do not rely on internal components nor their relation.
+without mocking anything and do not rely on internal components or their relation.
 
 ## ComplexTest
 

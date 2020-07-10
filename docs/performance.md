@@ -12,12 +12,12 @@ The total throughput will depend on numerous factors
 The only meaningful recommendation here is to monitor and tune. 
 
 On a local laptop, where Kafka, MariaDb, service nodes and performance tests are running, **50,000 messages/s** has been achieved.
- - with about message size of 1024 bytes
+ - with message size of circa 1024 bytes
  - with 100 messages in one transaction
  - with 20 threads constantly sending the messages
  - 250 million messages sent through without throughput degradation
  
-In a production where processes are running in their own servers, the number can be considerably higher.
+In a production where the ancillary processes are running in their own servers, the number can be considerably higher.
 
 > Future performance tests running against real, separate Kafka and RDS database could give more insights.
 > But for now it's already clear that it is much, much more efficient than for example tw-tasks. 
@@ -26,7 +26,7 @@ The main bottlenecks in local tests are around how many bytes we are pumping thr
 That is why we do compress messages with ZLIB by default - application CPU is not an issue.
 
 However, you need to consider, that you are not using your database only for TwTkms, so you still have to be careful about how many messages
-you are registering in a time period. For example if you will try to insert 1000000 messages/s in 100 threads, you probably will cause
+you are registering in a time period. For example if you will try to insert 1000000 messages/s in 100 threads, you will probably cause
 an outage.
 
 You need to think through if you need to have additional concurrency controls, like rate limiters or bulkheads in place, which you can

@@ -22,9 +22,8 @@ Any corrupted message in a shard-partition table can halt processing of that sha
 > Probably could happen only when a new TwTkms version is released without full backward-compatibility.
 > To mitigate that risk, make sure you upgrade that library (and any other tw library :) ) at least once per quarter.
 
-If you don't have a DBA in hand, or you have many random rows corrupted,
-you can temporarily configure the application to send new messages to another, healthy shard. While you are working on a fix for the
-broken shard.
+If you don't have a DBA at hand, or you have many random rows corrupted, you can temporarily configure the application
+to send new messages to another, healthy shard, while you are working on a fix for the broken shard.
 
-There is a possibility to implement and register an `ITkmsMessageInterceptor` bean which will save the message to another table (DLQ) or 
+There is also a possibility to implement and register an `ITkmsMessageInterceptor` bean which will save the message to another table (DLQ) or 
 just log it out and return `Result.DISCARD`.

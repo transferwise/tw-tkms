@@ -58,4 +58,4 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 | topic        | Kafka topic                                                               |
 | success      | true/false                                                                |
 | batchSize    | batch size for the operation                                              |
-| pollReulst   | 'emtpy', 'not_empty'                                                      |
+| pollResult   | 'empty', 'not_empty'                                                      |
