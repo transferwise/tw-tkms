@@ -167,6 +167,10 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 }
 
                 try {
+                  // Theoretically, to be absolutely sure, about the ordering, we would need to wait for the future result immediately.
+                  // But it would not be practical. I mean we could send one message from each partitions concurrently, but
+                  // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
+                  // TODO: Consider transactions. They would need heavy performance testing though.
                   Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
                     if (exception == null) {
                       acks[finalI] = 1;

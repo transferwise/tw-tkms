@@ -25,13 +25,16 @@ public class ComplexRealTest {
 
   private final RestTemplate restTemplate = new RestTemplate();
 
+  /**
+   * Runs 135s on my laptop with 5 * 10000 * 5.
+   */
   @Test
   @SneakyThrows
   void complexTest() {
     ExecutorService executorService = Executors.newFixedThreadPool(10);
     long topicsCount = 5;
     long entitiesCount = 10_000;
-    long eventsCount = 5;
+    long entityEventsCount = 5;
 
     rpc("/complexTest/reset");
 
@@ -42,7 +45,7 @@ public class ComplexRealTest {
         long finalE = e;
         long finalT = t;
         executorService.submit(() -> {
-          for (long ev = 0; ev < eventsCount; ev++) {
+          for (long ev = 0; ev < entityEventsCount; ev++) {
             try {
               rpc("/complexTest/produceSpamMessages?topic=ComplexTest" + finalT + "&entityId=" + finalE + "&entitySeq=" + ev);
             } catch (Throwable error) {
@@ -59,7 +62,7 @@ public class ComplexRealTest {
     }
 
     await().atMost(Duration.ofHours(1)).pollInterval(Duration.ofSeconds(5)).until(() ->
-        Long.parseLong(rpc("/complexTest/getRecordedMessagesCount")) >= topicsCount * entitiesCount * eventsCount);
+        Long.parseLong(rpc("/complexTest/getRecordedMessagesCount")) >= topicsCount * entitiesCount * entityEventsCount);
 
     log.info("Done in " + (System.currentTimeMillis() - start) + " ms.");
   }
