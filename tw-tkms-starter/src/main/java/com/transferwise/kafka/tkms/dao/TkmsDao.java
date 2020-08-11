@@ -18,8 +18,10 @@ import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.airlift.compress.snappy.SnappyFramedInputStream;
+import io.airlift.compress.snappy.SnappyFramedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,7 +31,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -339,25 +340,11 @@ public class TkmsDao implements ITkmsDao {
   }
 
   protected void compress(byte[] data, ByteArrayOutputStream out) {
-    Deflater deflater = new Deflater();
-    try {
-      deflater.setInput(data);
-      deflater.finish();
-      byte[] buffer = new byte[1024];
-      while (!deflater.finished()) {
-        int count = deflater.deflate(buffer);
-        out.write(buffer, 0, count);
-      }
-    } finally {
-      deflater.end();
-    }
-
-    // Enable following in 0.3
-    //ExceptionUtils.doUnchecked(() -> {
-    //OutputStream snappyOut = new SnappyFramedOutputStream(out);
-    //snappyOut.write(data);
-    //snappyOut.close();
-    //});
+    ExceptionUtils.doUnchecked(() -> {
+      OutputStream snappyOut = new SnappyFramedOutputStream(out);
+      snappyOut.write(data);
+      snappyOut.close();
+    });
   }
 
   protected byte[] decompress(byte[] data, int off, int len) {
