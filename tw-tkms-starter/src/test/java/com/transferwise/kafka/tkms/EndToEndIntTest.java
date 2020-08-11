@@ -47,8 +47,9 @@ public class EndToEndIntTest extends BaseIntTest {
   @Test
   public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
     String messagePart = "Hello World!";
+    int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < messageMultiplier; i++) {
       sb.append(messagePart);
     }
     String message = sb.toString();

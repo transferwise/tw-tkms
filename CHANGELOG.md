@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2020-07-10
 ### Added
 * Better defaults for sending out messages in a fast and ordered way.
+* Using pure-java Snappy compression implementation instead of native Zlib.
 
 ## [0.1.3] - 2020-07-09
 ### Added
