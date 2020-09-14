@@ -53,7 +53,7 @@ public class TkmsDao implements ITkmsDao {
 
   static final byte[] SNAPPY_HEADER_BYTES = {(byte) 0xff, 0x06, 0x00, 0x00, 0x73, 0x4e, 0x61, 0x50, 0x70, 0x59};
 
-  private static final int[] batchSizes = {256, 64, 16, 4, 1};
+  private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
 
   protected Map<TkmsShardPartition, String> insertMessageSqls;
 
@@ -300,22 +300,22 @@ public class TkmsDao implements ITkmsDao {
 
   @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
-    MutableInt idIdx = new MutableInt();
-    while (idIdx.getValue() < ids.size()) {
-      for (int batchSize : batchSizes) {
-        if (ids.size() - idIdx.getValue() < batchSize) {
-          continue;
-        }
+    int processedCount = 0;
 
+    for (int batchSize : batchSizes) {
+      while (ids.size() - processedCount >= batchSize) {
         Pair<TkmsShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
         String sql = deleteSqlsMap.get(p);
 
+        int finalProcessedCount = processedCount;
         jdbcTemplate.update(sql, ps -> {
           for (int i = 0; i < batchSize; i++) {
-            Long id = ids.get(idIdx.getAndIncrement());
+            Long id = ids.get(finalProcessedCount + i);
             ps.setLong(i + 1, id);
           }
         });
+
+        processedCount += batchSize;
 
         metricsTemplate.recordDaoMessagesDeletion(shardPartition, batchSize);
       }
