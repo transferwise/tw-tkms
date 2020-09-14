@@ -67,6 +67,11 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
 
+  @TestOnly
+  private volatile boolean paused = false;
+  @TestOnly
+  private volatile boolean pauseRequested = false;
+
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private final List<LeaderSelectorV2> leaderSelectors = new ArrayList<>();
   private RateLimiter exceptionRateLimiter = RateLimiter.create(2);
@@ -126,6 +131,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
 
     while (!control.shouldStop()) {
+      if (pauseRequested) {
+        paused = true;
+        tkmsPaceMaker.doSmallPause(shardPartition.getShard());
+        control.yield();
+        return;
+      }
+
       if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
         // Poor man's balancer. Allow other nodes a chance to get a leader as well.
         // TODO: investigate how Kafka client does it and replicate.
@@ -233,7 +245,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
   /**
    * The idea is to avoid spam when for example Kafka cluster is upgraded and/or topics are rebalanced.
-   * 
+   *
    * <p>But at the same time it would be quite risky to ignore all RetriableExceptions, so we log at least some.
    */
   protected void handleKafkaError(String message, Throwable t) {
@@ -333,4 +345,25 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     return tkmsEventsListeners;
   }
 
+  @TestOnly
+  public void pause() {
+    this.pauseRequested = true;
+    this.paused = false;
+  }
+
+  /**
+   * There is a small chance of race condition between pauseRequested and pause.
+   *
+   * <p>However this would only affect some tests with extremely low probability. So creating a new lock is not feasible.
+   */
+  @TestOnly
+  public void resume() {
+    this.pauseRequested = false;
+    this.paused = false;
+  }
+
+  @TestOnly
+  public boolean isPaused() {
+    return paused;
+  }
 }
