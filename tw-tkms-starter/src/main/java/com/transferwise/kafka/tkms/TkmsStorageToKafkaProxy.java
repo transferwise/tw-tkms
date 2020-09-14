@@ -67,7 +67,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
 
+  @TestOnly
   private volatile boolean paused = false;
+  @TestOnly
   private volatile boolean pauseRequested = false;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
@@ -343,6 +345,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     return tkmsEventsListeners;
   }
 
+  @TestOnly
   public void pause() {
     this.pauseRequested = true;
     this.paused = false;
@@ -350,14 +353,16 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
   /**
    * There is a small chance of race condition between pauseRequested and pause.
-   * 
+   *
    * <p>However this would only affect some tests with extremely low probability. So creating a new lock is not feasible.
    */
+  @TestOnly
   public void resume() {
     this.pauseRequested = false;
     this.paused = false;
   }
 
+  @TestOnly
   public boolean isPaused() {
     return paused;
   }
