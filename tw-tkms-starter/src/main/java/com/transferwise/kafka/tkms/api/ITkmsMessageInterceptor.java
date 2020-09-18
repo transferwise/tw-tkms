@@ -19,4 +19,13 @@ public interface ITkmsMessageInterceptor {
     return new TkmsProxyDecision().setResult(Result.NEUTRAL);
   }
 
+  /**
+   * When an error happens, the interceptor can decide what to do with the message.
+   * 
+   * <p>By default we will be retrying sending that message until it succeeds.
+   */
+  default TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
+  }
+
 }

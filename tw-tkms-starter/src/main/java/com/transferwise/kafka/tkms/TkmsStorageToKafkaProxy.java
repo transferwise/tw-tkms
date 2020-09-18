@@ -30,6 +30,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.PostConstruct;
+import lombok.Data;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -159,22 +161,23 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               }
               metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
 
-              byte[] acks = new byte[records.size()];
-
-              List<Future<RecordMetadata>> futures = new ArrayList<>();
+              MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];
 
               final long kafkaSendStartNanoTime = System.nanoTime();
               KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
+              boolean atLeastOneSendDone = false;
 
               for (int i = 0; i < records.size(); i++) {
-                int finalI = i;
-
                 MessageRecord messageRecord = records.get(i);
                 ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
+                contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
+                    .setShardPartition(shardPartition);
+                MessageProcessingContext context = contexts[i];
 
                 TkmsProxyDecision proxyDecision = messageIntereceptors.beforeProxy(producerRecord);
                 if (proxyDecision != null && proxyDecision.getResult() == Result.DISCARD) {
-                  acks[finalI] = 1;
+                  log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
+                  context.setAcked(true);
                   continue;
                 }
 
@@ -185,32 +188,36 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   // TODO: Consider transactions. They would need heavy performance testing though.
                   Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
                     if (exception == null) {
-                      acks[finalI] = 1;
+                      context.setAcked(true);
                       fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
                       Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
                           ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
                       metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
                     } else {
-                      handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception);
+                      handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception, context);
                       metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
                     }
                   });
+                  atLeastOneSendDone = true;
 
-                  futures.add(future);
+                  contexts[i].setKafkaSenderFuture(future);
                 } catch (Throwable t) {
-                  handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t);
+                  handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
                 }
               }
 
-              if (!futures.isEmpty()) {
+              if (atLeastOneSendDone) {
                 kafkaProducer.flush();
               }
 
-              for (Future<RecordMetadata> future : futures) {
-                try {
-                  future.get();
-                } catch (Throwable t) {
-                  handleKafkaError("Sending message in " + shardPartition + " failed.", t);
+              for (int i = 0; i < records.size(); i++) {
+                MessageProcessingContext context = contexts[i];
+                if (context.getKafkaSenderFuture() != null) {
+                  try {
+                    context.getKafkaSenderFuture().get();
+                  } catch (Throwable t) {
+                    handleKafkaError("Sending message in " + shardPartition + " failed.", t, context);
+                  }
                 }
               }
 
@@ -218,7 +225,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
               List<Long> successIds = new ArrayList<>();
               for (int i = 0; i < records.size(); i++) {
-                if (acks[i] == 1) {
+                if (contexts[i].isAcked()) {
                   successIds.add(records.get(i).getId());
                 }
               }
@@ -248,13 +255,19 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
    *
    * <p>But at the same time it would be quite risky to ignore all RetriableExceptions, so we log at least some.
    */
-  protected void handleKafkaError(String message, Throwable t) {
+  protected void handleKafkaError(String message, Throwable t, MessageProcessingContext context) {
     if (t instanceof RetriableException) {
       if (exceptionRateLimiter.tryAcquire()) {
         log.error(message, t);
       }
     } else {
       log.error(message, t);
+    }
+
+    TkmsProxyDecision tkmsProxyDecision = messageIntereceptors.onError(t, context.getProducerRecord());
+    if (tkmsProxyDecision.getResult() == Result.DISCARD) {
+      log.warn("Discarding message {}:{}.", context.getShardPartition(), context.getMessageRecord().getId());
+      context.setAcked(true);
     }
   }
 
@@ -365,5 +378,16 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   @TestOnly
   public boolean isPaused() {
     return paused;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  protected static class MessageProcessingContext {
+
+    private boolean acked;
+    private Future<RecordMetadata> kafkaSenderFuture;
+    private ProducerRecord<String, byte[]> producerRecord;
+    private MessageRecord messageRecord;
+    private TkmsShardPartition shardPartition;
   }
 }

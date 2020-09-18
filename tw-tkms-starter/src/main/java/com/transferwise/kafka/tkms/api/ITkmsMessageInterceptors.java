@@ -8,4 +8,9 @@ public interface ITkmsMessageInterceptors {
    * Just an aggregator for {@link ITkmsMessageInterceptor}.
    */
   TkmsProxyDecision beforeProxy(ProducerRecord<String, byte[]> producerRecord);
+
+  /**
+   * Just an aggregator for {@link ITkmsMessageInterceptor}.
+   */
+  TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord);
 }

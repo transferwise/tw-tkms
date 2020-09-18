@@ -5,6 +5,7 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -31,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Transactional(rollbackFor = Exception.class)
 public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessageSender {
+
+  private static int FIELD_SIZE_BYTES = 6;
 
   @Autowired
   private ITkmsDao tkmsDao;
@@ -69,6 +72,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     Map<TkmsShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
 
     for (TkmsMessage tkmsMessage : request.getTkmsMessages()) {
+      validateMessageSize(tkmsMessage);
+
       TkmsShardPartition shardPartition = getShardPartition(tkmsMessage);
 
       String topic = tkmsMessage.getTopic();
@@ -103,6 +108,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Override
   public SendMessageResult sendMessage(TkmsMessage message) {
     validateMessage(message);
+    validateMessageSize(message);
 
     TkmsShardPartition shardPartition = getShardPartition(message);
 
@@ -142,6 +148,56 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     if (!violations.isEmpty()) {
       throw new ConstraintViolationException(violations);
     }
+  }
+
+  /**
+   * The initial size and padding will use conservative values of 100 and 6.
+   *
+   * <p>This would allow to calculate the size safely while not tying our code to some internal kafka client methods.
+   */
+  protected void validateMessageSize(TkmsMessage message) {
+    int size = 100;
+
+    size += FIELD_SIZE_BYTES;
+    size += utf8Length(message.getKey());
+    size += FIELD_SIZE_BYTES;
+    size += message.getValue().length;
+    size += FIELD_SIZE_BYTES;
+
+    if (message.getHeaders() != null) {
+      for (Header header : message.getHeaders()) {
+        size += FIELD_SIZE_BYTES;
+        size += utf8Length(header.getKey());
+        size += FIELD_SIZE_BYTES;
+        size += header.getValue() == null ? 0 : header.getValue().length;
+      }
+    }
+
+    if (size >= properties.getMaximumMessageBytes()) {
+      throw new IllegalArgumentException(
+          "Estimated message size is " + size + ", which is larger than maximum of " + properties.getMaximumMessageBytes() + ".");
+    }
+  }
+
+  private int utf8Length(CharSequence s) {
+    if (s == null) {
+      return 0;
+    }
+    int count = 0;
+    for (int i = 0, len = s.length(); i < len; i++) {
+      char ch = s.charAt(i);
+      if (ch <= 0x7F) {
+        count++;
+      } else if (ch <= 0x7FF) {
+        count += 2;
+      } else if (Character.isHighSurrogate(ch)) {
+        count += 4;
+        ++i;
+      } else {
+        count += 3;
+      }
+    }
+    return count;
   }
 
   protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {

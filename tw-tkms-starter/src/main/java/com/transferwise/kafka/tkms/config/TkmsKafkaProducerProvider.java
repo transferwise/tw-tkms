@@ -30,7 +30,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
       configs.put(ProducerConfig.ACKS_CONFIG, "all");
       configs.put(ProducerConfig.BATCH_SIZE_CONFIG, "163840");
-      configs.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "10485760");
+      configs.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, String.valueOf(tkmsProperties.getMaximumMessageBytes()));
       configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
       configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify 'tw-tkms.kafka.bootstrap.servers'.");
       configs.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
