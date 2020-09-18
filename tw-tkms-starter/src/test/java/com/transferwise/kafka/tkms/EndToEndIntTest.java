@@ -11,6 +11,7 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesResult;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
@@ -25,6 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +61,10 @@ public class EndToEndIntTest extends BaseIntTest {
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
       TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
       if (receivedEvent.getMessage().equals(message)) {
+        assertThat(cr.headers().toArray().length).isEqualTo(1);
+        org.apache.kafka.common.header.Header header = cr.headers().toArray()[0];
+        assertThat(header.key()).isEqualTo("x-tw-criticality");
+        assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo("PrettyLowLol");
         receivedCount.incrementAndGet();
       } else {
         throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
@@ -69,7 +76,8 @@ public class EndToEndIntTest extends BaseIntTest {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
       transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent))
+              .addHeader(new Header().setKey("x-tw-criticality").setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8))));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -323,5 +331,53 @@ public class EndToEndIntTest extends BaseIntTest {
 
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
+  }
+
+  @Test
+  public void testThatSendingLargeMessagesWillNotCauseAnIssue() {
+    StringBuilder sb = new StringBuilder();
+    // We generate message as large as maximum allowed bytes but this is set up to fail, as there is additional information
+    // added by kafka producer.
+    for (int i = 0; i < 10485760; i++) {
+      sb.append(RandomStringUtils.randomAlphabetic(1));
+    }
+    final MutableObject<String> message = new MutableObject<>(sb.toString());
+
+    AtomicInteger receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      String receivedValue = cr.value();
+      if (receivedValue.equals(message.getValue())) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message received.");
+      }
+    });
+
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      assertThatThrownBy(() ->
+          transactionalKafkaMessageSender
+              .sendMessage(
+                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))))
+          .isInstanceOf(IllegalArgumentException.class).hasMessage("Estimated message size is 10485878, which is larger than maximum of 10485760.");
+
+      assertThatThrownBy(() ->
+          transactionalKafkaMessageSender
+              .sendMessages(new SendMessagesRequest().addTkmsMessage(
+                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)))))
+          .isInstanceOf(IllegalArgumentException.class).hasMessage("Estimated message size is 10485878, which is larger than maximum of 10485760.");
+
+      message.setValue(message.getValue().substring(0, 10484000));
+      transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)));
+
+      await().until(() -> receivedCount.get() > 0);
+
+      log.info("Messages received: " + receivedCount.get());
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
 }

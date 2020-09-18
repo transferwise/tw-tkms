@@ -4,6 +4,7 @@ import com.transferwise.common.baseutils.transactionsmanagement.TransactionsConf
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication
@@ -14,5 +15,10 @@ public class TestApplication {
   @PostConstruct
   public void init() {
     log.info("Starting Test Application.");
+  }
+
+  @Bean
+  public TestMessagesIntereceptor testMessagesIntereceptor() {
+    return new TestMessagesIntereceptor();
   }
 }

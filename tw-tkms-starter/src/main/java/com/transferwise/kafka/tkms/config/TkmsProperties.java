@@ -66,16 +66,18 @@ public class TkmsProperties {
    * How many messages is Kafka proxy polling from a database at once.
    *
    * <p>Should not be any need to change it.
+   * 
+   * <p>Check `com.transferwise.kafka.tkms.dao.TkmsDao#batchSizes` for most optimal values.
    */
   @Positive
-  private int pollerBatchSize = 1000;
+  private int pollerBatchSize = 1024;
   /**
    * On batch messages registration, how large database batch size we are using for inserting those messages into the database.
    *
    * <p>Should not be any need to change it.
    */
   @Positive
-  private int insertBatchSize = 1000;
+  private int insertBatchSize = 1024;
   /**
    * How much do we wait, when the last poll did not find any messages in the database.
    *
@@ -115,6 +117,13 @@ public class TkmsProperties {
    */
   private boolean useCompression = true;
 
+  /**
+   * Safety net for validating message sizes before registering them with tw-tkms.
+   * 
+   * <p>Be extra careful here by validating what is the corresponding value on the Kafka server side.
+   */
+  private int maximumMessageBytes = 10485760;
+  
   /**
    * List topics used by the lib.
    *

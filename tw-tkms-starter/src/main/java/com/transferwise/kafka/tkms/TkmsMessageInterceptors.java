@@ -22,18 +22,38 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
   private RateLimiter errorRateLimiter = RateLimiter.create(2);
 
   @Override
-  public TkmsProxyDecision beforeProxy(ProducerRecord<String, byte[]> message) {
+  public TkmsProxyDecision beforeProxy(ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
     if (interceptors != null) {
       for (ITkmsMessageInterceptor interceptor : interceptors) {
         try {
-          TkmsProxyDecision proxyDecision = interceptor.beforeProxy(message);
+          TkmsProxyDecision proxyDecision = interceptor.beforeProxy(producerRecord);
           if (proxyDecision != null && proxyDecision.getResult() != Result.NEUTRAL) {
             return proxyDecision;
           }
         } catch (Throwable t) {
           if (errorRateLimiter.tryAcquire()) {
             log.error(t.getMessage(), t);
+          }
+        }
+      }
+    }
+    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
+  }
+
+  @Override
+  public TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+    List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
+    if (interceptors != null) {
+      for (ITkmsMessageInterceptor interceptor : interceptors) {
+        try {
+          TkmsProxyDecision proxyDecision = interceptor.onError(t, producerRecord);
+          if (proxyDecision != null && proxyDecision.getResult() != Result.NEUTRAL) {
+            return proxyDecision;
+          }
+        } catch (Throwable t1) {
+          if (errorRateLimiter.tryAcquire()) {
+            log.error(t1.getMessage(), t1);
           }
         }
       }
