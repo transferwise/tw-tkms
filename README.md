@@ -36,4 +36,4 @@ The library also provides [observability](docs/observability.md).
 At TransferWise we are "enhancing and fixing a flying airplane", so make sure you will not cause any incidents while 
 [migrating](docs/migration.md) to the library.
 
-Feel free to [contribute](docs/contributing.md) and come and chat in the #tw-tasks-executor Slack channel.
+Feel free to [contribute](docs/contributing.md) and come and chat in the #tw-task-exec Slack channel.
