@@ -112,7 +112,7 @@ public class TkmsConfiguration {
         }
         if (dataSource == null) {
           throw new IllegalStateException(
-              "" + beanNames.length + " data source(s) found, but none is marked as Primary nor qualified with @TwTkms: "
+              "" + beanNames.length + " data source(s) found, but none is marked as Primary nor qualified with @Tkms: "
                   + String.join(", ", beanNames));
         }
       }

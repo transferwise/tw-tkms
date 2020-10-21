@@ -1,0 +1,76 @@
+
+version: 2
+
+references:
+  container_config: &container_config
+    docker:
+      - image: arti.tw.ee/circle_openjdk8:latest
+        user: circleci
+    resource_class: medium
+    environment:
+      TERM: vt100
+      GRADLE_OPTS: '-Dorg.gradle.console=plain'
+  working_directory: &working_directory
+    working_directory: ~/tw-tkms
+
+jobs:
+  build:
+    <<: *working_directory
+    <<: *container_config
+    steps:
+      - checkout
+      - restore_cache:
+          key: tw-tkms-gradle-{{ checksum "build.gradle" }}-{{ checksum "gradle.properties" }}
+      - run:
+          name: Assemble jar
+          command: ./gradlew assemble --refresh-dependencies --console=plain --no-daemon
+      - run:
+          name: Run tests
+          command: ./gradlew check --console=plain --no-daemon --stacktrace
+      - save_cache:
+          paths:
+            - ~/.gradle/
+          key: tw-tkms-gradle-{{ checksum "build.gradle" }}-{{ checksum "gradle.properties" }}
+      - store_test_results:
+          path: ./tw-tkms-starter/build/test-results/
+      - store_test_results:
+          path: ./tw-tkms-test-starter/build/test-results/
+      - persist_to_workspace:
+          root: .
+          paths:
+            - '*'
+  artifacts-publish:
+    <<: *working_directory
+    <<: *container_config
+    resource_class: small
+    steps:
+      - attach_workspace:
+          at: ~/tw-tkms
+      - restore_cache:
+          key: tw-tkms-gradle-{{ checksum "build.gradle" }}-{{ checksum "gradle.properties" }}
+      - run:
+          name: Set git config
+          command: |
+            mkdir -p ~/.ssh
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+            git config --global user.name "TransferWise CircleCI" && git config --global user.email circle@circle.tw.ee
+      - run:
+          name: Publish artifacts
+          command: |
+            if ./.circleci/version-changed.sh tw-tkms-starter ; then
+              ./gradlew pushTag publish --no-daemon --console=plain
+            fi
+
+workflows:
+  version: 2
+  build_and_publish:
+    jobs:
+      - build
+      - artifacts-publish:
+          context: artifactory-deploy
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master

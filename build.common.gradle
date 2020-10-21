@@ -27,7 +27,7 @@ dependencies {
 
     implementation 'org.projectlombok:lombok'
 
-    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.0.3'
+    compileOnly "com.github.spotbugs:spotbugs-annotations:${spotBugsAnnotationsVersion}"
 }
 
 java {
@@ -97,4 +97,10 @@ tasks.findAll { it.name.startsWith("spotbugs") }*.configure {
 
 clean.doFirst {
     delete "out"
+}
+
+yamlValidator {
+    searchPaths = ['src']
+    allowDuplicates = false
+    searchRecursive = true
 }

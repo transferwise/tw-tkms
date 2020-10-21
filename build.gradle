@@ -6,15 +6,16 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
-        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.10.9"
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.13'
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.13.4"
     }
 }
 
 plugins {
     id 'idea'
-    id 'org.springframework.boot' version '2.2.8.RELEASE' apply false
-    id "com.github.spotbugs" version "4.3.0" apply false
+    id 'org.springframework.boot' version '2.3.4.RELEASE' apply false
+    id "com.github.spotbugs" version "4.5.1" apply false
+    id "at.zierler.yamlvalidator" version "1.5.0"
 }
 
 idea.project {
@@ -24,5 +25,17 @@ idea.project {
 }
 
 ext {
-    springBootVersion = "2.2.7.RELEASE"
+    springBootVersion = "2.3.4.RELEASE"
+    twBaseUtilsVersion = "1.3.2"
+    twLeaderSelectorVersion = "1.4.0"
+    spotBugsAnnotationsVersion = "4.1.4"
+    awaitilityVersion = "4.0.3"
+    protobufVersion = "3.13.0"
+    curatorVersion = "5.1.0"
+}
+
+yamlValidator {
+    searchPaths = ['.circleci/']
+    allowDuplicates = false
+    searchRecursive = true
 }

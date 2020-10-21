@@ -31,7 +31,7 @@ public class KafkaConfiguration {
 
   @PostConstruct
   public void init() {
-    AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig());
+    AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
     try {
       createTopic(adminClient, new NewTopic("MyTopic", 10, (short) 1));
       createTopic(adminClient, new NewTopic("ComplexTest0", 10, (short) 1));

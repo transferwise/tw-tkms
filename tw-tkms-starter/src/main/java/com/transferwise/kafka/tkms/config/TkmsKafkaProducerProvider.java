@@ -44,7 +44,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
 
       ShardProperties shardProperties = tkmsProperties.getShards().get(shard);
       if (shardProperties != null) {
-        configs.putAll(tkmsProperties.getKafka());
+        configs.putAll(shardProperties.getKafka());
       }
 
       return new KafkaProducer<>(configs);
