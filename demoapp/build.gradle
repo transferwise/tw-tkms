@@ -22,6 +22,7 @@ dependencies {
     implementation "com.transferwise.common:tw-base-utils:${twBaseUtilsVersion}"
     implementation 'org.flywaydb:flyway-core'
     implementation 'com.transferwise.common:tw-graceful-shutdown-interfaces:1.3.2'
+    implementation 'jakarta.validation:jakarta.validation-api'
 
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
 

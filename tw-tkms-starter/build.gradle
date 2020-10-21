@@ -61,7 +61,9 @@ protobuf {
     }
 }
 
-dockerCompose.isRequiredBy(test)
+if (System.getenv("IN_CIRCLE") != "true") {
+    dockerCompose.isRequiredBy(test)
+}
 
 ServerSocket ss = new ServerSocket(0);
 def freePort = ss.getLocalPort();

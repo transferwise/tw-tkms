@@ -100,7 +100,7 @@ public class EndToEndIntTest extends BaseIntTest {
     ConcurrentHashMap<Long, AtomicInteger> receivedMap = new ConcurrentHashMap<>();
     ConcurrentHashMap<Integer, AtomicInteger> partitionsMap = new ConcurrentHashMap<>();
 
-    AtomicInteger receivedCount = new AtomicInteger();
+    var receivedCount = new AtomicInteger();
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
       TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
       if (receivedEvent.getMessage().equals(message)) {
