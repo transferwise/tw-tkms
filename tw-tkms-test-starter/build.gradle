@@ -14,14 +14,14 @@ apply from: "../build.library.gradle"
 dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
-    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.0.1'
+    compileOnly "com.github.spotbugs:spotbugs-annotations:${spotBugsAnnotationsVersion}"
     compileOnly 'jakarta.validation:jakarta.validation-api'
 
     implementation project(":tw-tkms-starter")
 
     implementation 'org.springframework.boot:spring-boot-starter'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
-    implementation 'com.transferwise.common:tw-base-utils:1.2.8'
+    implementation "com.transferwise.common:tw-base-utils:${twBaseUtilsVersion}"
     implementation 'org.apache.kafka:kafka-clients'
     implementation 'org.apache.commons:commons-lang3'
     implementation 'org.springframework:spring-jdbc'

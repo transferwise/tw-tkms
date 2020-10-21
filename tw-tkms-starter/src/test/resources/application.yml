@@ -37,6 +37,9 @@ tw-tkms:
   shards:
     1:
       polling-interval: 6ms
+      kafka:
+        linger:
+          ms: 7
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000

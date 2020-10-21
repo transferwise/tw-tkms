@@ -152,8 +152,9 @@ public class EndToEndIntTest extends BaseIntTest {
         }
       }
 
-      // All partitions received messages
-      assertThat(partitionsMap.entrySet().size()).isEqualTo(10);
+      // Starting from kafka-clients 2.5, another type of efficient partitioning is used, which does not guarantee
+      // that all partitions receive messages with that kind of dataset.
+      assertThat(partitionsMap.entrySet().size()).as("At least some partitions received messages").isGreaterThan(2);
       partitionsMap.forEach((key, value) -> log.info("Partition " + key + " received " + value.get() + " messages."));
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
