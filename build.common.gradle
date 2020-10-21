@@ -43,6 +43,11 @@ compileJava {
     options.compilerArgs << '-Xlint:-processing'
 }
 
+compileTestJava {
+    sourceCompatibility = JavaVersion.VERSION_13
+    targetCompatibility = JavaVersion.VERSION_13
+}
+
 tasks.withType(Checkstyle) {
     config = resources.text.fromFile(file('../google_checks.xml'))
 
@@ -61,7 +66,6 @@ java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
     withSourcesJar()
-    withJavadocJar()
 }
 
 jar {
