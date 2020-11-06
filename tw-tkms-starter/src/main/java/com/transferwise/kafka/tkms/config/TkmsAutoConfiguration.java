@@ -18,5 +18,4 @@ public class TkmsAutoConfiguration {
   public DefaultExecutorServicesProvider tkmsExecutorServicesProvider() {
     return new DefaultExecutorServicesProvider();
   }
-
 }

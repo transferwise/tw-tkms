@@ -71,7 +71,7 @@ jobs:
           command: ./gradlew assemble --refresh-dependencies --console=plain --no-daemon
       - run:
           name: Run tests
-          command: ./gradlew check -Din.circle=true --console=plain --no-daemon --stacktrace
+          command: ./gradlew check --console=plain --no-daemon --stacktrace
       - save_cache:
           paths:
             - ~/.gradle/

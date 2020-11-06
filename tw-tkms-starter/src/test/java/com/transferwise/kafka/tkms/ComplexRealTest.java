@@ -84,7 +84,7 @@ public class ComplexRealTest {
 
         return restTemplate.exchange(requestEntity, String.class).getBody();
       } catch (Exception e) {
-        if (tries++ >= ports.length) {
+        if (tries + 1 >= ports.length) {
           throw e;
         }
         log.error(e.getMessage());

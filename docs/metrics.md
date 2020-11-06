@@ -44,6 +44,8 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 
 `tw_tkms_stored_message_parsing {shard, partition}`
 
+`tw_tkms_compression_ratio_achieved {shard, partition, algorithm}'
+
 ### Tags
 
 | Tag          | Description                                                               |
@@ -59,3 +61,4 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 | success      | true/false                                                                |
 | batchSize    | batch size for the operation                                              |
 | pollResult   | 'empty', 'not_empty'                                                      |
+| algorithm    | 'none', 'snappy', 'snappy_framed', 'zstd'                                 |

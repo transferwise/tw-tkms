@@ -1,10 +1,6 @@
 package com.transferwise.kafka.tkms.dao;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.UInt32Value;
-import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -12,26 +8,16 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
-import com.transferwise.kafka.tkms.stored_message.StoredMessage;
-import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
-import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers.Builder;
-import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.airlift.compress.snappy.SnappyFramedInputStream;
-import io.airlift.compress.snappy.SnappyFramedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.Inflater;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -47,11 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Transactional(rollbackFor = Exception.class)
 public class TkmsDao implements ITkmsDao {
-
-  protected static final int FLAG_COMPRESS = 1;
-  protected static final int HEADER_SIZE_BYTES = 3;
-
-  static final byte[] SNAPPY_HEADER_BYTES = {(byte) 0xff, 0x06, 0x00, 0x00, 0x73, 0x4e, 0x61, 0x50, 0x70, 0x59};
 
   private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
 
@@ -69,6 +50,9 @@ public class TkmsDao implements ITkmsDao {
 
   @Autowired
   protected ITkmsMetricsTemplate metricsTemplate;
+
+  @Autowired
+  protected ITkmsMessageSerializer messageSerializer;
 
   protected JdbcTemplate jdbcTemplate;
 
@@ -130,7 +114,8 @@ public class TkmsDao implements ITkmsDao {
 
             for (int i = 0; i < batchSize; i++) {
               TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
-              ps.setBytes(1, messageToContent(shardPartition, tkmsMessageWithSequence.getTkmsMessage()));
+              ps.setBinaryStream(1, serializeMessage(shardPartition, tkmsMessageWithSequence.getTkmsMessage()));
+
               ps.addBatch();
 
               results.add(new InsertMessageResult().setSequence(tkmsMessageWithSequence.getSequence()));
@@ -143,8 +128,11 @@ public class TkmsDao implements ITkmsDao {
               int i = 0;
               while (rs.next()) {
                 Long id = rs.getLong(1);
-                results.get(idx.intValue() + i++).setStorageId(id);
-                metricsTemplate.recordDaoMessageInsert(shardPartition);
+                TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
+                InsertMessageResult insertMessageResult = results.get(idx.intValue() + i);
+                insertMessageResult.setStorageId(id);
+                metricsTemplate.recordDaoMessageInsert(shardPartition, tkmsMessageWithSequence.getTkmsMessage().getTopic());
+                i++;
               }
             } finally {
               rs.close();
@@ -169,7 +157,7 @@ public class TkmsDao implements ITkmsDao {
     jdbcTemplate.update(con -> {
       PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS);
       try {
-        ps.setBytes(1, messageToContent(shardPartition, message));
+        ps.setBinaryStream(1, serializeMessage(shardPartition, message));
         return ps;
       } catch (Exception e) {
         ps.close();
@@ -177,65 +165,19 @@ public class TkmsDao implements ITkmsDao {
       }
     }, keyHolder);
 
-    metricsTemplate.recordDaoMessageInsert(shardPartition);
+    metricsTemplate.recordDaoMessageInsert(shardPartition, message.getTopic());
 
     result.setStorageId(keyToLong(keyHolder));
     return result;
   }
 
-  protected byte[] messageToContent(TkmsShardPartition shardPartition, TkmsMessage message) {
-    return ExceptionUtils.doUnchecked(() -> {
-      byte[] messageBytes = convert(message).toByteArray();
+  /*
+    Technically we can avoid allocating additional memory and return InputStream instead.
+    But this would involve using another thread and pipe streams, which most likely only makes sense for very large datasets.
+   */
+  protected InputStream serializeMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
+    return messageSerializer.serialize(shardPartition, message);
 
-      boolean useCompression = properties.useCompression(shardPartition.getShard());
-
-      ByteArrayOutputStream os = new ByteArrayOutputStream(messageBytes.length / (useCompression ? 4 : 1) + HEADER_SIZE_BYTES);
-
-      // 3 byte header for future use
-      os.write(0);
-      os.write(0);
-
-      if (properties.useCompression(shardPartition.getShard())) {
-        os.write(FLAG_COMPRESS);
-        compress(messageBytes, os);
-      } else {
-        os.write(0);
-        os.write(messageBytes);
-      }
-      os.close();
-
-      return os.toByteArray();
-    });
-  }
-
-  protected StoredMessage.Message convert(TkmsMessage message) {
-    StoredMessage.Headers headers = null;
-    if (message.getHeaders() != null && !message.getHeaders().isEmpty()) {
-      Builder builder = Headers.newBuilder();
-      for (TkmsMessage.Header header : message.getHeaders()) {
-        builder.addHeaders(StoredMessage.Header.newBuilder().setKey(header.getKey()).setValue(ByteString.copyFrom(header.getValue())).build());
-      }
-      headers = builder.build();
-    }
-
-    StoredMessage.Message.Builder storedMessageBuilder = StoredMessage.Message.newBuilder();
-    storedMessageBuilder.setValue(ByteString.copyFrom(message.getValue()));
-    if (headers != null) {
-      storedMessageBuilder.setHeaders(headers);
-    }
-    if (message.getPartition() != null) {
-      storedMessageBuilder.setPartition(UInt32Value.of(message.getPartition()));
-    }
-    if (message.getTimestamp() != null) {
-      storedMessageBuilder.setTimestamp(UInt64Value.of(message.getTimestamp().toEpochMilli()));
-    }
-    if (message.getKey() != null) {
-      storedMessageBuilder.setKey(message.getKey());
-    }
-
-    storedMessageBuilder.setInsertTimestamp(UInt64Value.of(System.currentTimeMillis()));
-
-    return storedMessageBuilder.setTopic(message.getTopic()).build();
   }
 
   @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
@@ -265,24 +207,7 @@ public class TkmsDao implements ITkmsDao {
 
               MessageRecord messageRecord = new MessageRecord();
               messageRecord.setId(rs.getLong(1));
-
-              byte[] data = rs.getBytes(2);
-              byte[] messageBytes = data;
-              // Temporary check for old version not having 3 byte header.
-              // Can be removed as soon as there are no earlier version of lib present.
-              if (data.length >= 3 && data[0] == 0 && data[1] == 0) {
-                boolean compressed = (data[2] & FLAG_COMPRESS) == FLAG_COMPRESS;
-                if (compressed) {
-                  messageBytes = decompress(data, 3, data.length - 3);
-                } else {
-                  messageBytes = Arrays.copyOfRange(messageBytes, 3, messageBytes.length);
-                }
-              }
-
-              long messageParsingStartNanoTime = System.nanoTime();
-              Message message = Message.parseFrom(messageBytes);
-              metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartNanoTime);
-              messageRecord.setMessage(message);
+              messageRecord.setMessage(messageSerializer.deserialize(shardPartition, rs.getBinaryStream(2)));
 
               records.add(messageRecord);
             }
@@ -339,48 +264,4 @@ public class TkmsDao implements ITkmsDao {
     return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
 
-  protected void compress(byte[] data, ByteArrayOutputStream out) {
-    ExceptionUtils.doUnchecked(() -> {
-      OutputStream snappyOut = new SnappyFramedOutputStream(out);
-      snappyOut.write(data);
-      snappyOut.close();
-    });
-  }
-
-  protected byte[] decompress(byte[] data, int off, int len) {
-    return ExceptionUtils.doUnchecked(() -> {
-      if (isSnappyStream(data, off, len)) {
-        return ByteStreams.toByteArray(new SnappyFramedInputStream(new ByteArrayInputStream(data, off, len)));
-      }
-
-      // Remove the following in 0.4+ 
-      Inflater inflater = new Inflater();
-      try {
-        inflater.setInput(data, off, len);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream(data.length);
-        byte[] buffer = new byte[1024];
-        while (!inflater.finished()) {
-          int count = inflater.inflate(buffer);
-          if (count == 0) {
-            break;
-          }
-          outputStream.write(buffer, 0, count);
-        }
-        outputStream.close();
-        byte[] output = outputStream.toByteArray();
-        return output;
-      } finally {
-        inflater.end();
-      }
-    });
-  }
-
-  protected boolean isSnappyStream(byte[] data, int off, int len) {
-    for (int i = 0; i < SNAPPY_HEADER_BYTES.length; i++) {
-      if (i > len - 1 || data[off + i] != SNAPPY_HEADER_BYTES[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
 }

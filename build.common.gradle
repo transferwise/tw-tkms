@@ -16,18 +16,20 @@ repositories {
     mavenLocal()
 }
 
+apply from: "../build.libraries.gradle"
+
 dependencies {
-    annotationProcessor platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
-    implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
-    compileOnly platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
-    testAnnotationProcessor platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
+    annotationProcessor platform(libraries.springBootDependencies)
+    implementation platform(libraries.springBootDependencies)
+    compileOnly platform(libraries.springBootDependencies)
+    testAnnotationProcessor platform(libraries.springBootDependencies)
 
-    annotationProcessor 'org.projectlombok:lombok'
-    testAnnotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor libraries.lombok
+    testAnnotationProcessor libraries.lombok
 
-    implementation 'org.projectlombok:lombok'
+    implementation libraries.lombok
 
-    compileOnly "com.github.spotbugs:spotbugs-annotations:${spotBugsAnnotationsVersion}"
+    compileOnly libraries.spotbugsAnnotations
 }
 
 java {
@@ -79,6 +81,7 @@ jar {
 
 test {
     useJUnitPlatform()
+    jvmArgs("-Xmx1g")
     testLogging {
         events TestLogEvent.STARTED, TestLogEvent.FAILED, TestLogEvent.SKIPPED, TestLogEvent.PASSED,
                 TestLogEvent.STANDARD_ERROR
@@ -92,7 +95,7 @@ tasks.findAll { it.name.startsWith("spotbugs") }*.configure {
     effort = "max"
 
     excludeFilter = file('../spotbugs-exclude.xml')
-    
+
     reports {
         xml.enabled false
         html.enabled true

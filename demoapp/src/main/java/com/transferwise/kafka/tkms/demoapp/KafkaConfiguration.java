@@ -1,5 +1,6 @@
 package com.transferwise.kafka.tkms.demoapp;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class KafkaConfiguration {
       createTopic(adminClient, new NewTopic("ComplexTest3", 10, (short) 1));
       createTopic(adminClient, new NewTopic("ComplexTest4", 10, (short) 1));
     } finally {
-      adminClient.close();
+      adminClient.close(Duration.ofMinutes(1));
     }
   }
 

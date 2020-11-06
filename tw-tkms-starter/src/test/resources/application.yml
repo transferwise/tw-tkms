@@ -10,8 +10,6 @@ spring:
       maximum-pool-size: 50
       minimum-idle: 0
       transaction-isolation: 2
-      data-source-properties:
-        useServerPrepStmts: true
 
   kafka:
     bootstrap-servers: "localhost:${KAFKA_TCP_9092}"
@@ -40,6 +38,10 @@ tw-tkms:
       kafka:
         linger:
           ms: 7
+  debug-enabled: true
+  compression:
+    algorithm: random
+    min-size: 10
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000

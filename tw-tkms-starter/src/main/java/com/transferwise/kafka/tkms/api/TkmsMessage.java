@@ -14,7 +14,7 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class TkmsMessage {
-
+  
   /**
    * Kafka topic.
    */
@@ -44,7 +44,14 @@ public class TkmsMessage {
    * Kafka message's content/payload.
    */
   @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+  @NotNull
   private byte[] value;
+  
+  /**
+   * Tkms shard.
+   */
+  @PositiveOrZero
+  private Integer shard;
 
   /**
    * Kafka message's headers.
@@ -59,11 +66,6 @@ public class TkmsMessage {
     return this;
   }
 
-  /**
-   * Tkms shard.
-   */
-  @PositiveOrZero
-  private Integer shard;
 
   @Data
   @Accessors(chain = true)

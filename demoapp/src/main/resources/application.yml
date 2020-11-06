@@ -54,6 +54,10 @@ management:
 tw-curator:
   zookeeper-connect-string: "localhost:2181"
 
+logging.level.org.apache.kafka.clients.producer.ProducerConfig: WARN
+logging.level.org.apache.kafka.clients.admin.AdminClientConfig: WARN
+logging.level.org.apache.kafka.clients.consumer.ConsumerConfig: WARN
+
 ---
 
 spring:
