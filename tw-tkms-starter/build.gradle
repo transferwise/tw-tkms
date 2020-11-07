@@ -38,7 +38,7 @@ dependencies {
     testCompileOnly libraries.spotbugsAnnotations
 
     testImplementation project(":tw-tkms-test-starter")
-    
+
     testImplementation libraries.awaitility
     testImplementation libraries.flywayCore
     testImplementation libraries.lombok
@@ -69,7 +69,7 @@ dockerCompose {
 
     // Set to true if you have anomalies
     stopContainers = false
-    
+
     removeContainers = true
     removeVolumes = true
 }

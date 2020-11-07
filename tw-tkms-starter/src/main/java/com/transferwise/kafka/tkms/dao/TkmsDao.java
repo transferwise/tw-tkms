@@ -170,11 +170,7 @@ public class TkmsDao implements ITkmsDao {
     result.setStorageId(keyToLong(keyHolder));
     return result;
   }
-
-  /*
-    Technically we can avoid allocating additional memory and return InputStream instead.
-    But this would involve using another thread and pipe streams, which most likely only makes sense for very large datasets.
-   */
+  
   protected InputStream serializeMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
     return messageSerializer.serialize(shardPartition, message);
 

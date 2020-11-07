@@ -129,7 +129,8 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
       if (compressionType == COMPRESSION_TYPE_NONE) {
         return dataStream;
       } else if (compressionType == COMPRESSION_TYPE_SNAPPY_FRAMED) {
-        return new SnappyFramedInputStream(dataStream);
+        // Deprecated 0.4 version did not write checksums. 
+        return new SnappyFramedInputStream(dataStream, false);
       } else if (compressionType == COMPRESSION_TYPE_ZSTD) {
         return new ZstdInputStream(dataStream);
       }

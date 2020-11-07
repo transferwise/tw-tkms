@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Only upgrade from 0.3 and from 0.4 is supported. Upgrading directly from older version creates a processing pause
 until all service nodes have the new version running.
 ### Fixed
+* Memory allocation rate considerably reduced.
+### Fixed
 * The Snappy compressor was doing crazy memory allocations. Now we use reusable byte buffers instead.
 This is achieved by moving away from Airlift's aircompression library and using the same library Kafka client is using:
 Xerial Snappy.
