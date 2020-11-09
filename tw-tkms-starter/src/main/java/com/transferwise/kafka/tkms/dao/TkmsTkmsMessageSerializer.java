@@ -8,7 +8,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.common.baseutils.streams.FastByteArrayOutputStream;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -22,6 +21,7 @@ import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.xerial.snappy.SnappyFramedInputStream;
 import org.xerial.snappy.SnappyFramedOutputStream;
@@ -42,67 +42,65 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
   protected ITkmsMetricsTemplate metricsTemplate;
 
   @Override
-  public InputStream serialize(TkmsShardPartition shardPartition, TkmsMessage tkmsMessage) {
-    return ExceptionUtils.doUnchecked(() -> {
-      Message storedMessage = toStoredMessage(tkmsMessage);
-      int serializedSize = storedMessage.getSerializedSize();
+  public InputStream serialize(TkmsShardPartition shardPartition, TkmsMessage tkmsMessage) throws IOException {
+    Message storedMessage = toStoredMessage(tkmsMessage);
+    int serializedSize = storedMessage.getSerializedSize();
 
-      FastByteArrayOutputStream os = new FastByteArrayOutputStream(serializedSize / 4);
+    UnsynchronizedByteArrayOutputStream os = new UnsynchronizedByteArrayOutputStream(serializedSize / 4);
 
-      // 3 byte header for future use
-      os.write(0);
-      os.write(0);
+    // 3 byte header for future use
+    os.write(0);
+    os.write(0);
 
-      Compression compression = properties.getCompression();
-      Algorithm algorithm = compression.getAlgorithm();
-      if (algorithm == Algorithm.RANDOM) {
-        algorithm = Algorithm.getRandom();
-      }
+    Compression compression = properties.getCompression();
+    Algorithm algorithm = compression.getAlgorithm();
+    if (algorithm == Algorithm.RANDOM) {
+      algorithm = Algorithm.getRandom();
+    }
 
-      if (algorithm == Algorithm.NONE || serializedSize < compression.getMinSize()) {
-        os.write(COMPRESSION_TYPE_NONE);
-        storedMessage.writeTo(os);
+    if (algorithm == Algorithm.NONE || serializedSize < compression.getMinSize()) {
+      os.write(COMPRESSION_TYPE_NONE);
+      storedMessage.writeTo(os);
+    } else {
+      if (algorithm == Algorithm.SNAPPY) {
+        os.write(COMPRESSION_TYPE_SNAPPY);
+        compressSnappy(compression, storedMessage, os);
+      } else if (algorithm == Algorithm.SNAPPY_FRAMED) {
+        os.write(COMPRESSION_TYPE_SNAPPY_FRAMED);
+        compressSnappyFramed(compression, storedMessage, os);
+      } else if (algorithm == Algorithm.ZSTD) {
+        os.write(COMPRESSION_TYPE_ZSTD);
+        compressZstd(compression, storedMessage, os);
       } else {
-        if (algorithm == Algorithm.SNAPPY) {
-          os.write(COMPRESSION_TYPE_SNAPPY);
-          compressSnappy(compression, storedMessage, os);
-        } else if (algorithm == Algorithm.SNAPPY_FRAMED) {
-          os.write(COMPRESSION_TYPE_SNAPPY_FRAMED);
-          compressSnappyFramed(compression, storedMessage, os);
-        } else if (algorithm == Algorithm.ZSTD) {
-          os.write(COMPRESSION_TYPE_ZSTD);
-          compressZstd(compression, storedMessage, os);
-        } else {
-          throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
-        }
-        if (properties.isDebugEnabled()) {
-          metricsTemplate.recordMessageCompression(shardPartition, algorithm, (double) os.size() / serializedSize);
-        }
+        throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
       }
+      if (properties.isDebugEnabled()) {
+        metricsTemplate.recordMessageCompression(shardPartition, algorithm, (double) os.size() / serializedSize);
+      }
+    }
 
-      return os.toInputStream();
-    });
+    return os.toInputStream();
   }
 
   @Override
-  public Message deserialize(TkmsShardPartition shardPartition, InputStream is) {
-    return ExceptionUtils.doUnchecked(() -> {
-      byte h0 = (byte) is.read();
-      byte h1 = (byte) is.read();
-      byte h2 = (byte) is.read();
+  public Message deserialize(TkmsShardPartition shardPartition, InputStream is) throws IOException {
+    // Reserved header #0
+    is.read();
+    // Reserved header #1
+    is.read();
+    byte h2 = (byte) is.read();
 
-      InputStream decompressedStream = decompress(h2, is);
-      try {
-        long messageParsingStartNanoTime = System.nanoTime();
-        StoredMessage.Message message = StoredMessage.Message.parseFrom(decompressedStream);
-        if (properties.isDebugEnabled()) {
-          metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartNanoTime);
-        }
-        return message;
-      } finally {
-        decompressedStream.close();
+    InputStream decompressedStream = decompress(h2, is);
+    try {
+      long messageParsingStartNanoTime = System.nanoTime();
+      StoredMessage.Message message = StoredMessage.Message.parseFrom(decompressedStream);
+      if (properties.isDebugEnabled()) {
+        metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartNanoTime);
       }
-    });
+      return message;
+    } finally {
+      decompressedStream.close();
+    }
   }
 
   protected void compressSnappy(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
@@ -142,7 +140,7 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
    * First 3 bits form a compression type/variant.
    */
   protected int getCompressionType(byte header) {
-    return header & 7;
+    return header & 0b111;
   }
 
   protected StoredMessage.Message toStoredMessage(TkmsMessage message) {

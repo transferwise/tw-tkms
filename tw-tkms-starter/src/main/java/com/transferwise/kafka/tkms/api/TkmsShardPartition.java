@@ -2,11 +2,9 @@ package com.transferwise.kafka.tkms.api;
 
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import io.micrometer.core.instrument.Tag;
-import lombok.Data;
-import lombok.experimental.Accessors;
+import lombok.Value;
 
-@Data
-@Accessors(chain = true)
+@Value
 public class TkmsShardPartition {
 
   private int shard;

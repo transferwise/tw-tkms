@@ -170,10 +170,9 @@ public class TkmsDao implements ITkmsDao {
     result.setStorageId(keyToLong(keyHolder));
     return result;
   }
-  
-  protected InputStream serializeMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
-    return messageSerializer.serialize(shardPartition, message);
 
+  protected InputStream serializeMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
+    return ExceptionUtils.doUnchecked(() -> messageSerializer.serialize(shardPartition, message));
   }
 
   @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
