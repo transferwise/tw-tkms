@@ -5,7 +5,7 @@ With a new service everything is quite simple.
 But with already existing service sending messages already by other means, you could mitigate the risk by different steps.
 
 For example.
-* Initially, just [set it up](docs/setup.md) and release the service with TwTkms.
+* Initially, just [set it up](setup.md) and release the service with TwTkms.
   * See if Rollbar is empty, metrics get registered and so on. 
 * Then just direct a handful of messages or less important topic through it.
 * After that move and release other topics, one-by-one if decided so.

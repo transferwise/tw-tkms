@@ -28,10 +28,10 @@ public class KafkaConfiguration {
   @PostConstruct
   @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE")
   public void init() {
-    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig())) {
+    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
       deleteTopic(adminClient, tkmsProperties.getTestTopic());
     }
-    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfig())) {
+    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
       createTopic(adminClient, tkmsProperties.getTestTopic(), 10);
     }
   }
@@ -49,6 +49,7 @@ public class KafkaConfiguration {
     }
   }
 
+  @SuppressWarnings("SameParameterValue")
   protected void createTopic(final AdminClient adminClient, final String topicName, final int partitions) {
     // It sometimes takes time for delete to actually apply and finalize.
     for (int i = 0; i < 50; i++) {

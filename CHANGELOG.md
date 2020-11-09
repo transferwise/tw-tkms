@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2020-11-06
+### Removed
+* Gzip decompressor.
+Only upgrade from 0.3 and from 0.4 is supported. Upgrading directly from older version creates a processing pause
+until all service nodes have the new version running.
+### Fixed
+* Memory allocation rate considerably reduced.
+### Fixed
+* The Snappy compressor was doing crazy memory allocations. Now we use reusable byte buffers instead.
+This is achieved by moving away from Airlift's aircompression library and using the same library Kafka client is using:
+Xerial Snappy.
+
 ## [0.4.0] - 2020-10-21
 ### Added
 * Fixed an issue where shard kafka properties did not overwrite default kafka properties.

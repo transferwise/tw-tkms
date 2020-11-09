@@ -1,10 +1,14 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import io.micrometer.core.instrument.Tag;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
@@ -14,6 +18,16 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class TkmsProperties {
+
+  @PostConstruct
+  public void init() {
+    TkmsShardPartition.init(this);
+  }
+
+  /**
+   * Provides more metrics at performance penalty.
+   */
+  private boolean debugEnabled;
 
   /**
    * The default number of partitions in a shard.
@@ -66,7 +80,7 @@ public class TkmsProperties {
    * How many messages is Kafka proxy polling from a database at once.
    *
    * <p>Should not be any need to change it.
-   * 
+   *
    * <p>Check `com.transferwise.kafka.tkms.dao.TkmsDao#batchSizes` for most optimal values.
    */
   @Positive
@@ -82,7 +96,7 @@ public class TkmsProperties {
    * How much do we wait, when the last poll did not find any messages in the database.
    *
    * <p>Tradeoff between low latency and QPS. Due to increased QPS, very low values could actually increase the latency.
-   * 
+   *
    * <p>Probably biggest consideration here is how many QPS you would tolerate.
    * 10ms means 100 queries per second per shard-partition. At the same time those empty queries will be very cheap.
    */
@@ -119,11 +133,11 @@ public class TkmsProperties {
 
   /**
    * Safety net for validating message sizes before registering them with tw-tkms.
-   * 
+   *
    * <p>Be extra careful here by validating what is the corresponding value on the Kafka server side.
    */
   private int maximumMessageBytes = 10485760;
-  
+
   /**
    * List topics used by the lib.
    *
@@ -145,6 +159,8 @@ public class TkmsProperties {
    */
   private Map<Integer, ShardProperties> shards = new HashMap<>();
 
+  private Compression compression = new Compression();
+
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {
@@ -154,7 +170,8 @@ public class TkmsProperties {
     private Duration pollingInterval;
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
-    private Boolean useCompression;
+    private boolean compressionOverridden;
+    private Compression compression = new Compression();
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -199,16 +216,81 @@ public class TkmsProperties {
     return insertBatchSize;
   }
 
-  public boolean useCompression(int shard) {
+  public Compression getCompression(int shard) {
     ShardProperties shardProperties = shards.get(shard);
-    if (shardProperties != null && shardProperties.getUseCompression() != null) {
-      return shardProperties.getUseCompression();
+    if (shardProperties != null && shardProperties.isCompressionOverridden()) {
+      return shardProperties.getCompression();
     }
-    return useCompression;
+    return compression;
   }
 
   public enum DatabaseDialect {
     POSTGRES,
     MYSQL
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class Compression {
+
+    public enum Algorithm {
+      NONE,
+      /**
+       * Recommended default.
+       * 
+       * <p>Almost no memory allocations on output. Memory allocations for input correlate well with message sizes.
+       */
+      SNAPPY,
+      /**
+       * Deprecated, will be soon removed.
+       */
+      SNAPPY_FRAMED,
+      /**
+       * Extremely memory hungry, allocates 128kb buffers for both output and input.
+       * 
+       * <p>Makes only sense with very large messages, unless we find a better implementation.
+       */
+      ZSTD,
+      // For complex tests
+      RANDOM;
+
+      private Tag micrometerTag = Tag.of("algorithm", name().toLowerCase());
+
+      public Tag getMicrometerTag() {
+        return micrometerTag;
+      }
+
+      public static Algorithm getRandom() {
+        switch (ThreadLocalRandom.current().nextInt(3)) {
+          case 0:
+            return NONE;
+          case 1:
+            return SNAPPY;
+          default:
+            return ZSTD;
+        }
+      }
+    }
+    
+    // For backward compatibility with 0.4, we can not set SNAPPY as default yet.
+    // We will do that in 0.6.
+    private Algorithm algorithm = Algorithm.SNAPPY_FRAMED;
+
+    /**
+     * Can be quite large, even when we have small(er) messages, because we reuse memory buffers.
+     */
+    private int blockSize = 32 * 1024;
+
+    /**
+     * Approximate message size is considered.
+     *
+     * <p>Heuristics
+     */
+    private int minSize = 128;
+
+    /**
+     * Default is set for zstd.
+     */
+    private int level = 3;
   }
 }

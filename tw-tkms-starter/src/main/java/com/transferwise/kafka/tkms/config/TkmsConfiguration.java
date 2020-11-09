@@ -15,8 +15,10 @@ import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
 import com.transferwise.kafka.tkms.api.helpers.TkmsMessageFactory;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
+import com.transferwise.kafka.tkms.dao.ITkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
+import com.transferwise.kafka.tkms.dao.TkmsTkmsMessageSerializer;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -132,4 +134,9 @@ public class TkmsConfiguration {
     return new TkmsMessageInterceptors();
   }
 
+  @Bean
+  @ConditionalOnMissingBean(ITkmsMessageSerializer.class)
+  public ITkmsMessageSerializer tkmsMessageSerializer() {
+    return new TkmsTkmsMessageSerializer();
+  }
 }

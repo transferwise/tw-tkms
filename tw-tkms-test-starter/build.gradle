@@ -12,17 +12,17 @@ apply from: "../build.common.gradle"
 apply from: "../build.library.gradle"
 
 dependencies {
-    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor libraries.spotbugsAnnotations
 
-    compileOnly "com.github.spotbugs:spotbugs-annotations:${spotBugsAnnotationsVersion}"
-    compileOnly 'jakarta.validation:jakarta.validation-api'
+    compileOnly libraries.jakartaValidationApi
+    compileOnly libraries.springBootConfigurationProcessor
 
     implementation project(":tw-tkms-starter")
 
-    implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'com.fasterxml.jackson.core:jackson-databind'
-    implementation "com.transferwise.common:tw-base-utils:${twBaseUtilsVersion}"
-    implementation 'org.apache.kafka:kafka-clients'
-    implementation 'org.apache.commons:commons-lang3'
-    implementation 'org.springframework:spring-jdbc'
+    implementation libraries.commonsLang3
+    implementation libraries.jacksonDatabind
+    implementation libraries.kafkaClients
+    implementation libraries.springBootStarter
+    implementation libraries.springJdbc
+    implementation libraries.twBaseUtils
 }

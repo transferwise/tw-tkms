@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PaceTracker implements GracefulShutdownStrategy {
 
-  private AtomicLong messagesInserted = new AtomicLong();
-  private AtomicLong messagesDelivered = new AtomicLong();
+  private final AtomicLong messagesInserted = new AtomicLong();
+  private final AtomicLong messagesDelivered = new AtomicLong();
   private long startTimeMs = -1;
   private int timeSlice = 0;
   private volatile boolean shuttingDown;

@@ -143,7 +143,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
         // Poor man's balancer. Allow other nodes a chance to get a leader as well.
         // TODO: investigate how Kafka client does it and replicate.
-        log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
+        if (log.isDebugEnabled()) {
+          log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
+        }
         control.yield();
         return;
       }
@@ -273,7 +275,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
   protected void fireMessageAcknowledgedEvent(TkmsShardPartition shardPartition, Long id, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
-    log.debug("Message was acknowledged for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+    if (log.isDebugEnabled()) {
+      log.debug("Message was acknowledged for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+    }
 
     if (listeners.isEmpty()) {
       return;

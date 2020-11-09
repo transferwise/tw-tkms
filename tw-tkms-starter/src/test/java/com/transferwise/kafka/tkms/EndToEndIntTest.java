@@ -49,7 +49,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
   @Test
   public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
-    String messagePart = "Hello World!";
+    var messagePart = "Hello World!";
     int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < messageMultiplier; i++) {
@@ -290,10 +290,9 @@ public class EndToEndIntTest extends BaseIntTest {
   @Test
   @SneakyThrows
   public void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
-    assertThatThrownBy(() -> {
-      transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)));
-    }).hasMessageContaining("Topic NotExistingTopic not present in metadata");
+    assertThatThrownBy(() -> transactionalKafkaMessageSender
+        .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
+        .hasMessageContaining("Topic NotExistingTopic not present in metadata");
   }
 
   @Test
@@ -301,9 +300,8 @@ public class EndToEndIntTest extends BaseIntTest {
     byte[] value = "{\"message\" : \"Hello World!\"}".getBytes(StandardCharsets.UTF_8);
 
     AtomicInteger receivedCount = new AtomicInteger();
-    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
-      receivedCount.incrementAndGet();
-    });
+    Consumer<ConsumerRecord<String, String>> messageCounter =
+        cr -> ExceptionUtils.doUnchecked(receivedCount::incrementAndGet);
 
     testMessagesListener.registerConsumer(messageCounter);
 
@@ -360,13 +358,15 @@ public class EndToEndIntTest extends BaseIntTest {
           transactionalKafkaMessageSender
               .sendMessage(
                   new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))))
-          .isInstanceOf(IllegalArgumentException.class).hasMessage("Estimated message size is 10485878, which is larger than maximum of 10485760.");
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       assertThatThrownBy(() ->
           transactionalKafkaMessageSender
               .sendMessages(new SendMessagesRequest().addTkmsMessage(
                   new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)))))
-          .isInstanceOf(IllegalArgumentException.class).hasMessage("Estimated message size is 10485878, which is larger than maximum of 10485760.");
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       message.setValue(message.getValue().substring(0, 10484000));
       transactionalKafkaMessageSender

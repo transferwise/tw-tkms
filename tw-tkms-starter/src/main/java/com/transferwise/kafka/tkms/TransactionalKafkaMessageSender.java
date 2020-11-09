@@ -1,5 +1,7 @@
 package com.transferwise.kafka.tkms;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
@@ -21,9 +23,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.PostConstruct;
-import javax.validation.ConstraintViolation;
-import javax.validation.ConstraintViolationException;
-import javax.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -37,8 +36,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Autowired
   private ITkmsDao tkmsDao;
-  @Autowired
-  private Validator validator;
   @Autowired
   private ITkmsMetricsTemplate metricsTemplate;
   @Autowired
@@ -61,18 +58,21 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessagesResult sendMessages(SendMessagesRequest request) {
-    validateInput(request);
+    validateMessages(request);
 
     Set<String> validatedTopics = new HashSet<>();
 
     int seq = 0;
 
-    SendMessageResult[] responses = new SendMessageResult[request.getTkmsMessages().size()];
+    List<TkmsMessage> tkmsMessages = request.getTkmsMessages();
+    int tmksMessagesCount = tkmsMessages.size();
+    SendMessageResult[] responses = new SendMessageResult[tmksMessagesCount];
 
     Map<TkmsShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
 
-    for (TkmsMessage tkmsMessage : request.getTkmsMessages()) {
-      validateMessageSize(tkmsMessage);
+    for (int messageIdx = 0; messageIdx < tmksMessagesCount; messageIdx++) {
+      TkmsMessage tkmsMessage = tkmsMessages.get(messageIdx);
+      validateMessageSize(tkmsMessage, messageIdx);
 
       TkmsShardPartition shardPartition = getShardPartition(tkmsMessage);
 
@@ -107,16 +107,15 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessageResult sendMessage(TkmsMessage message) {
-    validateMessage(message);
-    validateMessageSize(message);
+    validateMessage(message, 0);
+    validateMessageSize(message, 0);
 
     TkmsShardPartition shardPartition = getShardPartition(message);
 
     String topic = message.getTopic();
     validateTopic(shardPartition.getShard(), topic);
 
-    InsertMessageResult insertMessageResult = null;
-    insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
+    InsertMessageResult insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
     fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
     metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition());
     return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
@@ -129,24 +128,34 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     kafkaProducerProvider.getKafkaProducer(shard).partitionsFor(topic);
   }
 
-  /**
-   * Can not trust the @Valid annotation.
-   */
-  protected void validateMessage(TkmsMessage message) {
-    Set<ConstraintViolation<TkmsMessage>> violations = validator.validate(message);
-    if (!violations.isEmpty()) {
-      throw new ConstraintViolationException(violations);
-    }
-
-    if (message.getShard() != null && message.getShard() >= properties.getShardsCount()) {
-      throw new IllegalArgumentException("Shard " + message.getShard() + " is out of bounds. Shards count is " + properties.getShardsCount());
+  protected void validateMessages(SendMessagesRequest request) {
+    for (int i = 0; i < request.getTkmsMessages().size(); i++) {
+      TkmsMessage tkmsMessage = request.getTkmsMessages().get(i);
+      validateMessage(tkmsMessage, i);
     }
   }
 
-  protected <T> void validateInput(T input) {
-    Set<ConstraintViolation<T>> violations = validator.validate(input);
-    if (!violations.isEmpty()) {
-      throw new ConstraintViolationException(violations);
+  protected void validateMessage(TkmsMessage message, int messageIdx) {
+    Preconditions.checkNotNull(message, "%s: No message provided.", messageIdx);
+    Preconditions.checkArgument(!Strings.isNullOrEmpty(message.getTopic()), "%s: No topic provided.", messageIdx);
+    if (message.getPartition() != null) {
+      Preconditions.checkArgument(message.getPartition() >= 0, "%s: Partition number can not be negative: %s", messageIdx, message.getPartition());
+    }
+    if (message.getKey() != null) {
+      Preconditions.checkArgument(message.getKey().length() > 0, "%s: Key can not be an empty string.", messageIdx);
+    }
+    if (message.getShard() != null) {
+      Preconditions.checkArgument(message.getShard() >= 0, "%s: Shard number can not be negative :%s", messageIdx, message.getShard());
+      Preconditions.checkArgument(message.getShard() < properties.getShardsCount(),
+          "%s: Shard %s is out of bounds. Shards count is %s.", messageIdx, message.getShard(), properties.getShardsCount());
+    }
+    Preconditions.checkNotNull(message.getValue(), "%s: Value can not be null.", messageIdx);
+    if (message.getHeaders() != null) {
+      for (int headerIdx = 0; headerIdx < message.getHeaders().size(); headerIdx++) {
+        Header header = message.getHeaders().get(headerIdx);
+        Preconditions.checkNotNull(header.getValue(), "%s: Header value @{%s} can not be null.", messageIdx, headerIdx);
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(header.getKey()), "%s: Header key @{%s} can not be null.", messageIdx, headerIdx);
+      }
     }
   }
 
@@ -155,7 +164,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
    *
    * <p>This would allow to calculate the size safely while not tying our code to some internal kafka client methods.
    */
-  protected void validateMessageSize(TkmsMessage message) {
+  protected void validateMessageSize(TkmsMessage message, int messageIdx) {
     int size = 100;
 
     size += FIELD_SIZE_BYTES;
@@ -175,7 +184,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     if (size >= properties.getMaximumMessageBytes()) {
       throw new IllegalArgumentException(
-          "Estimated message size is " + size + ", which is larger than maximum of " + properties.getMaximumMessageBytes() + ".");
+          "" + messageIdx + ": Estimated message size is " + size + ", which is larger than maximum of " + properties.getMaximumMessageBytes() + ".");
     }
   }
 
@@ -202,7 +211,9 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
-    log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+    if (log.isDebugEnabled()) {
+      log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+    }
 
     if (tkmsEventsListeners.isEmpty()) {
       return;
