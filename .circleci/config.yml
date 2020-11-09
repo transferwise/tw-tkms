@@ -5,7 +5,7 @@ references:
     docker:
       - image: arti.tw.ee/circle_openjdk8:latest
         user: circleci
-    resource_class: medium
+    resource_class: medium+
     environment:
       TERM: vt100
       GRADLE_OPTS: '-Dorg.gradle.console=plain'
