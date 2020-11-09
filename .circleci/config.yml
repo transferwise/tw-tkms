@@ -5,7 +5,7 @@ references:
     docker:
       - image: arti.tw.ee/circle_openjdk8:latest
         user: circleci
-    resource_class: medium+
+    resource_class: small
     environment:
       TERM: vt100
       GRADLE_OPTS: '-Dorg.gradle.console=plain'
@@ -15,6 +15,7 @@ references:
 jobs:
   build:
     <<: *working_directory
+    resource_class: medium+
     environment:
       IN_CIRCLE: true
       MARIADB_TCP_3306: 3306
@@ -94,7 +95,6 @@ jobs:
   artifacts-publish:
     <<: *working_directory
     <<: *container_config
-    resource_class: small
     steps:
       - attach_workspace:
           at: ~/tw-tkms
