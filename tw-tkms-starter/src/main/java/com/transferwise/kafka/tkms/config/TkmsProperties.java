@@ -274,7 +274,7 @@ public class TkmsProperties {
     
     // For backward compatibility with 0.4, we can not set SNAPPY as default yet.
     // We will do that in 0.6.
-    private Algorithm algorithm = Algorithm.SNAPPY_FRAMED;
+    private Algorithm algorithm = Algorithm.SNAPPY;
 
     /**
      * Can be quite large, even when we have small(er) messages, because we reuse memory buffers.
