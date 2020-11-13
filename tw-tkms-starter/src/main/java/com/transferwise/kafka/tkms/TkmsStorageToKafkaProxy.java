@@ -102,6 +102,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 } catch (Throwable t) {
                   log.error(t.getMessage(), t);
                   return false;
+                } finally {
+                  control.yield();
                 }
               })),
               () -> {
@@ -133,10 +135,10 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
 
     while (!control.shouldStop()) {
+
       if (pauseRequested) {
         paused = true;
         tkmsPaceMaker.doSmallPause(shardPartition.getShard());
-        control.yield();
         return;
       }
 
@@ -146,7 +148,6 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
         if (log.isDebugEnabled()) {
           log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
         }
-        control.yield();
         return;
       }
       unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()

@@ -82,11 +82,9 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
           for (int i = 0; i < sloValues.length; i++) {
             sloValues[i] = sloValues[i] * 1_000_000L;
           }
-          // TODO: Move from depreacted `sla` method to `serviceLevelObjectives` method a bit later.
-          // TODO: Otherwise we force everyone to upgrade micrometer, which may not work always. Or would it?
           return DistributionStatisticConfig.builder()
               .percentilesHistogram(false)
-              .sla(sloValues)
+              .serviceLevelObjectives(sloValues)
               .build()
               .merge(config);
         }
