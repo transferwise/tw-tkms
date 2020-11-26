@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.PostConstruct;
 import lombok.Data;
+import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -53,6 +54,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   @Autowired
   private TkmsProperties properties;
   @Autowired
+  @Setter
   private ITkmsDao dao;
   @Autowired
   private ITkmsPaceMaker tkmsPaceMaker;
@@ -135,7 +137,6 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
 
     while (!control.shouldStop()) {
-
       if (pauseRequested) {
         paused = true;
         tkmsPaceMaker.doSmallPause(shardPartition.getShard());
@@ -227,8 +228,10 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               metricsTemplate.recordProxyKafkaMessagesSend(shardPartition, kafkaSendStartNanoTime);
 
               List<Long> successIds = new ArrayList<>();
+
               for (int i = 0; i < records.size(); i++) {
-                if (contexts[i].isAcked()) {
+                MessageProcessingContext context = contexts[i];
+                if (context.isAcked()) {
                   successIds.add(records.get(i).getId());
                 }
               }
@@ -238,6 +241,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               //   Select would need id>X, which probably would not be too bad.
               long deleteStartNanoTime = System.nanoTime();
               dao.deleteMessages(shardPartition, successIds);
+
               metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
 
               if (successIds.size() != records.size()) {
