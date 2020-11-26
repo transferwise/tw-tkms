@@ -70,7 +70,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     slos.put(PROXY_KAFKA_MESSAGES_SEND, defaultSlos);
     slos.put(PROXY_MESSAGES_DELETION, defaultSlos);
     slos.put(STORED_MESSAGE_PARSING, defaultSlos);
-    slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125 * 5});
+    slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 3125 * 5});
     slos.put(COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
 
     meterRegistry.config().meterFilter(new MeterFilter() {
