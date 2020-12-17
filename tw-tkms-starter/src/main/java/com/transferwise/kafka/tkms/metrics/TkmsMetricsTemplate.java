@@ -129,7 +129,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         .counter(PROXY_MESSAGE_SEND, Tags.of(
             partitionTag(shardPartition),
             shardTag(shardPartition),
-            successTag(false)))
+            successTag(false),
+            topicTag(topic)))
         .increment();
   }
 
