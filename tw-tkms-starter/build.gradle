@@ -35,6 +35,7 @@ dependencies {
 
     runtimeOnly libraries.twGracefulShutdown
     runtimeOnly libraries.twLeaderSelectorStarter
+    runtimeOnly libraries.micrometerRegistryPrometheus
 
     testCompileOnly libraries.spotbugsAnnotations
 
