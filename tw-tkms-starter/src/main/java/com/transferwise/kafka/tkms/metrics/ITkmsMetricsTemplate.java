@@ -1,7 +1,6 @@
 package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.Compression.Algorithm;
 import java.time.Instant;
 

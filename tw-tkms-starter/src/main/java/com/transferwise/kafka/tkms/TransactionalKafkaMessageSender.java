@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(rollbackFor = Exception.class)
 public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessageSender {
 
-  private static int FIELD_SIZE_BYTES = 6;
+  private static final int FIELD_SIZE_BYTES = 6;
 
   @Autowired
   private ITkmsDao tkmsDao;

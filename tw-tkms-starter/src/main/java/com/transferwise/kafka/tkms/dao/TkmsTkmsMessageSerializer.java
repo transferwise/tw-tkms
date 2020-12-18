@@ -83,7 +83,7 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
         compressLz4(compression, storedMessage, os);
       } else if (algorithm == Algorithm.GZIP) {
         os.write(COMPRESSION_TYPE_GZIP);
-        compressGzip(compression, storedMessage, os);
+        compressGzip(storedMessage, os);
       } else {
         throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
       }
@@ -141,7 +141,7 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
     }
   }
 
-  protected void compressGzip(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
+  protected void compressGzip(StoredMessage.Message storedMessage, OutputStream out) throws IOException {
     try (GZIPOutputStream compressOut = new GZIPOutputStream(out)) {
       storedMessage.writeTo(compressOut);
     }
