@@ -76,3 +76,20 @@ Some services have multiple data sources and TwTkms needs to know which one to u
 For that, you can annotate the correct one with `@Tkms` annotation.
 
 Alternatively, for more complex setups you can provide an `ITkmsDataSourceProvider` implementation bean.
+
+## Choosing a compression algorithm
+
+A typical transfer change event compressed 100000 times:
+```
+Original size: 3237
+Snappy time: 16057ms.
+Snappy size: 1478
+Gzip time: 36970ms.
+Gzip size: 1044
+LZ4 fast time: 7881ms.
+LZ4 fast size: 1484
+```
+
+LZ4 is recommended as a default.
+
+However, when you are using a cloud database with expensive storage, Gzip is recommended instead.

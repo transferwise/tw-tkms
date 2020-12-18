@@ -21,6 +21,11 @@ import com.transferwise.kafka.tkms.stored_message.StoredMessage.Message;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import net.jpountz.lz4.LZ4BlockInputStream;
+import net.jpountz.lz4.LZ4BlockOutputStream;
+import net.jpountz.lz4.LZ4Factory;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.xerial.snappy.SnappyFramedInputStream;
@@ -34,6 +39,8 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
   protected static final int COMPRESSION_TYPE_SNAPPY_FRAMED = 1;
   protected static final int COMPRESSION_TYPE_SNAPPY = 2;
   protected static final int COMPRESSION_TYPE_ZSTD = 3;
+  protected static final int COMPRESSION_TYPE_LZ4 = 4;
+  protected static final int COMPRESSION_TYPE_GZIP = 5;
 
   @Autowired
   protected TkmsProperties properties;
@@ -52,7 +59,7 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
     os.write(0);
     os.write(0);
 
-    Compression compression = properties.getCompression();
+    Compression compression = properties.getCompression(shardPartition.getShard());
     Algorithm algorithm = compression.getAlgorithm();
     if (algorithm == Algorithm.RANDOM) {
       algorithm = Algorithm.getRandom();
@@ -71,6 +78,12 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
       } else if (algorithm == Algorithm.ZSTD) {
         os.write(COMPRESSION_TYPE_ZSTD);
         compressZstd(compression, storedMessage, os);
+      } else if (algorithm == Algorithm.LZ4) {
+        os.write(COMPRESSION_TYPE_LZ4);
+        compressLz4(compression, storedMessage, os);
+      } else if (algorithm == Algorithm.GZIP) {
+        os.write(COMPRESSION_TYPE_GZIP);
+        compressGzip(compression, storedMessage, os);
       } else {
         throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
       }
@@ -121,6 +134,19 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
     }
   }
 
+  protected void compressLz4(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
+    try (LZ4BlockOutputStream compressOut = new LZ4BlockOutputStream(out, compression.getBlockSize(),
+        LZ4Factory.fastestJavaInstance().fastCompressor())) {
+      storedMessage.writeTo(compressOut);
+    }
+  }
+
+  protected void compressGzip(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
+    try (GZIPOutputStream compressOut = new GZIPOutputStream(out)) {
+      storedMessage.writeTo(compressOut);
+    }
+  }
+
   protected InputStream decompress(byte header, InputStream dataStream) {
     int compressionType = getCompressionType(header);
     return ExceptionUtils.doUnchecked(() -> {
@@ -131,7 +157,12 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
         return new SnappyFramedInputStream(dataStream, false);
       } else if (compressionType == COMPRESSION_TYPE_ZSTD) {
         return new ZstdInputStream(dataStream);
+      } else if (compressionType == COMPRESSION_TYPE_LZ4) {
+        return new LZ4BlockInputStream(dataStream, LZ4Factory.fastestJavaInstance().fastDecompressor());
+      } else if (compressionType == COMPRESSION_TYPE_GZIP) {
+        return new GZIPInputStream(dataStream);
       }
+
       return new SnappyInputStream(dataStream);
     });
   }

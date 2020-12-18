@@ -251,6 +251,14 @@ public class TkmsProperties {
        * <p>Makes only sense with very large messages, unless we find a better implementation.
        */
       ZSTD,
+      /**
+       * Considerably faster than Snappy with similar compression rate.
+       */
+      LZ4,
+      /**
+       * Best compression rate with reasonable resource usage.
+       */
+      GZIP,
       // For complex tests
       RANDOM;
 
@@ -266,15 +274,17 @@ public class TkmsProperties {
             return NONE;
           case 1:
             return SNAPPY;
+          case 2:
+            return LZ4;
+          case 3:
+            return GZIP;
           default:
             return ZSTD;
         }
       }
     }
     
-    // For backward compatibility with 0.4, we can not set SNAPPY as default yet.
-    // We will do that in 0.6.
-    private Algorithm algorithm = Algorithm.SNAPPY;
+    private Algorithm algorithm = Algorithm.LZ4;
 
     /**
      * Can be quite large, even when we have small(er) messages, because we reuse memory buffers.

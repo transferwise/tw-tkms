@@ -19,6 +19,7 @@ import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -265,14 +266,16 @@ public class EndToEndIntTest extends BaseIntTest {
       for (Thread thread : threads) {
         thread.start();
       }
+      final long startTimeMs = System.currentTimeMillis();
       for (Thread thread : threads) {
         thread.join();
       }
 
-      await().until(() -> receivedCount.get() >= messagesCount);
+      await().atMost(Duration.ofMinutes(10)).until(() -> receivedCount.get() >= messagesCount);
 
       log.info("Messages received: " + receivedCount.get());
-
+      log.info("Messages sent in " + (System.currentTimeMillis() - startTimeMs) + " ms.");
+      
       for (long i = 0; i < entitiesCount; i++) {
         List<Long> entityEventsIds = receivedMap.get(i);
         assertThat(entityEventsIds.size()).isEqualTo(entityEventsCount);
