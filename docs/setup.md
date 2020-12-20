@@ -47,10 +47,18 @@ Also, it is beneficial (but not crucial) to set [innodb_autoinc_lock_mode](https
 CREATE TABLE outgoing_message_0_0 (
   id BIGSERIAL PRIMARY KEY,
   message BYTEA NOT NULL
-) WITH (autovacuum_analyze_threshold=2000000000, autovacuum_vacuum_threshold=100000);
+) WITH (autovacuum_analyze_threshold=2000000000, autovacuum_vacuum_threshold=100000, toast_tuple_target=8160);
 
 ALTER TABLE outgoing_message_0_0 ALTER COLUMN id SET (n_distinct=1000000);
 VACUUM FULL outgoing_message_0_0;
+```
+>> toast_tuple_target - we should avoid getting payload to TOAST, as it will be deleted anyway.
+
+Postgres tries to compress the message when it is large enough (by default 2kb). But because tw-tkms already applies compression, 
+it will be wasted effort and resources.
+
+```postgresql
+ALTER TABLE outgoing_message_0_0 ALTER COLUMN message SET STORAGE EXTERNAL;
 ```
 
 ## Curator setup
