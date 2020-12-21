@@ -261,14 +261,14 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
             shardTag(shardPartition)))
         .record(ratio);
   }
-  
+
   @Override
-  public void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition){
+  public void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition) {
     meterRegistry
         .counter(DAO_INVALID_GENERATED_KEYS_COUNT, Tags.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
-    .increment();
+        .increment();
   }
 
   @Override
