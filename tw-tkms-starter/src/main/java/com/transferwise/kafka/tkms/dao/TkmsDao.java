@@ -5,7 +5,7 @@ import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.TkmsDataSourceProvider;
+import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -43,7 +43,7 @@ public class TkmsDao implements ITkmsDao {
   private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap;
 
   @Autowired
-  protected TkmsDataSourceProvider dataSourceProvider;
+  protected ITkmsDataSourceProvider dataSourceProvider;
 
   @Autowired
   protected TkmsProperties properties;
