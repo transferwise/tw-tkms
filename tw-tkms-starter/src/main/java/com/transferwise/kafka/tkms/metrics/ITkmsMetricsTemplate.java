@@ -35,4 +35,6 @@ public interface ITkmsMetricsTemplate {
   void recordStoredMessageParsing(TkmsShardPartition shardPartition, long messageParsingStartNanoTime);
 
   void recordMessageCompression(TkmsShardPartition shardPartition, Algorithm algorithm, double ratio);
+
+  void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition);
 }

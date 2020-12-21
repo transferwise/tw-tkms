@@ -134,6 +134,10 @@ public class TkmsDao implements ITkmsDao {
                 metricsTemplate.recordDaoMessageInsert(shardPartition, tkmsMessageWithSequence.getTkmsMessage().getTopic());
                 i++;
               }
+              if (i != batchSize) {
+                log.info("Invalid generated keys count: batchSize was " + batchSize + " but we received " + i + " keys.");
+                metricsTemplate.recordDaoInvalidGeneratedKeysCount(shardPartition);
+              }
             } finally {
               rs.close();
             }
