@@ -37,8 +37,6 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
       configs.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
       configs.put(ProducerConfig.LINGER_MS_CONFIG, "5");
-      // Zstd is the best, but we need to get all clients to kafka-clients:2.1
-      // configs.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "zstd");
 
       configs.putAll(tkmsProperties.getKafka());
 

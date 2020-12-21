@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2020-12-18
+* Added LZ4 and Gzip compressions.
+
 ## [0.6.2] - 2020-12-17
 ### Fixed
 * Registering a metric for failed kafka send resulted in error because of wrong set of tags being used. 

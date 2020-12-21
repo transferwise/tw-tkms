@@ -56,7 +56,7 @@ services:
     --character-set-server=utf8mb4
     --collation-server=utf8mb4_unicode_ci --transaction-isolation=READ-COMMITTED --innodb_autoinc_lock_mode=2"
   postgres:
-    image: postgres:10
+    image: postgres:12
     ports:
       - "5432"
     environment:
