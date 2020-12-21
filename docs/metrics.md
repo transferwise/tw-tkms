@@ -44,7 +44,9 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 
 `tw_tkms_stored_message_parsing {shard, partition}`
 
-`tw_tkms_compression_ratio_achieved {shard, partition, algorithm}'
+`tw_tkms_compression_ratio_achieved {shard, partition, algorithm}`
+
+`tw_tkms_dao_insert_invalid_generated_keys_count {shard, partition}`
 
 ### Tags
 

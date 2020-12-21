@@ -5,6 +5,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties.Compression.Algorithm;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Meter.Type;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -45,6 +46,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final String DAO_POLL_GET_CONNECTION = PREFIX_DAO + ".poll.get.connection";
   public static final String DAO_POLL_ALL_RESULTS = PREFIX_DAO + ".poll.all.results";
   public static final String DAO_POLL_ALL_RESULTS_COUNT = PREFIX_DAO + ".poll.all.results.count";
+  public static final String DAO_INVALID_GENERATED_KEYS_COUNT = PREFIX_DAO + ".insert.invalid.generated.keys.count";
   public static final String STORED_MESSAGE_PARSING = PREFIX + ".stored.message.parsing";
   public static final String MESSAGE_INSERT_TO_ACK = PREFIX + ".message.insert.to.ack";
   public static final String COMPRESSION_RATIO_ACHIEVED = PREFIX + ".compression.ratio.achieved";
@@ -80,7 +82,11 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         if (sloConfigValues != null) {
           double[] sloValues = Arrays.copyOf(sloConfigValues, sloConfigValues.length);
           for (int i = 0; i < sloValues.length; i++) {
-            sloValues[i] = sloValues[i] * 1_000_000L;
+            if (id.getType() == Type.TIMER) {
+              sloValues[i] = sloValues[i] * 1_000_000L;
+            } else {
+              sloValues[i] = sloValues[i];
+            }
           }
           return DistributionStatisticConfig.builder()
               .percentilesHistogram(false)
@@ -254,6 +260,15 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(ratio);
+  }
+  
+  @Override
+  public void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition){
+    meterRegistry
+        .counter(DAO_INVALID_GENERATED_KEYS_COUNT, Tags.of(
+            partitionTag(shardPartition),
+            shardTag(shardPartition)))
+    .increment();
   }
 
   @Override
