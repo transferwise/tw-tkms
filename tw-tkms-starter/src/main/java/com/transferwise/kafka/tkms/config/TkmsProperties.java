@@ -284,7 +284,7 @@ public class TkmsProperties {
       }
     }
     
-    private Algorithm algorithm = Algorithm.LZ4;
+    private Algorithm algorithm = Algorithm.SNAPPY;
 
     /**
      * Can be quite large, even when we have small(er) messages, because we reuse memory buffers.
