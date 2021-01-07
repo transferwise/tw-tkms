@@ -11,6 +11,7 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesResult;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
+import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
@@ -18,6 +19,7 @@ import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
+import io.micrometer.core.instrument.Counter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -25,12 +27,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
@@ -275,7 +282,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       log.info("Messages received: " + receivedCount.get());
       log.info("Messages sent in " + (System.currentTimeMillis() - startTimeMs) + " ms.");
-      
+
       for (long i = 0; i < entitiesCount; i++) {
         List<Long> entityEventsIds = receivedMap.get(i);
         assertThat(entityEventsIds.size()).isEqualTo(entityEventsCount);
@@ -376,6 +383,56 @@ public class EndToEndIntTest extends BaseIntTest {
           .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)));
 
       await().until(() -> receivedCount.get() > 0);
+
+      log.info("Messages received: " + receivedCount.get());
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
+  }
+
+  private static Stream<Arguments> compressionInput() {
+    return Stream.of(
+        Arguments.of(CompressionAlgorithm.GZIP, 104),
+        Arguments.of(CompressionAlgorithm.NONE, 1263),
+        Arguments.of(CompressionAlgorithm.LZ4, 127),
+        Arguments.of(CompressionAlgorithm.SNAPPY, 157),
+        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 155),
+        Arguments.of(CompressionAlgorithm.ZSTD, 93)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource("compressionInput")
+  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
+    var message = StringUtils.repeat("Hello World!", 100);
+
+    AtomicInteger receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message received: " + receivedEvent.getMessage());
+      }
+    });
+
+    Counter counter = meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
+    double startingSerializedSizeBytes = counter == null ? 0 : counter.count();
+
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
+
+      transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent))
+              .setCompression(new Compression().setAlgorithm(algorithm)));
+
+      await().until(() -> receivedCount.get() > 0);
+
+      assertThat(meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
+          - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {

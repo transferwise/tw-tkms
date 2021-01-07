@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.8.0] - 2021-01-06
 ### Changed
 * Default compression is gzip.
+It is most appropriate for typical Transferwise messages.
+
+### Added
+* A mechanism to force specific migration paths.
+Service owner can specify which version is running in production by `TkmsProperties.Environment.previousVersion`.
+If the version is too old, the service will refuse to start. It can be fixed by doing upgrades to intermediate versions.  
+
+* Metrics
+`tw_tkms_dao_serialization_original_size_bytes {shard, partition, algorithm}`
+`tw_tkms_dao_serialization_serialized_size_bytes {shard, partition, algorithm}`
+`tw_tkms_dao_serialization_compression_ratio {shard, partition, algorithm}`
 
 ## [0.7.3] - 2021-01-03
 ### Changed

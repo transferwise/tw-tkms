@@ -39,7 +39,7 @@ public enum CompressionAlgorithm {
   }
 
   public static CompressionAlgorithm getRandom() {
-    switch (ThreadLocalRandom.current().nextInt(3)) {
+    switch (ThreadLocalRandom.current().nextInt(4)) {
       case 0:
         return NONE;
       case 1:

@@ -60,48 +60,49 @@ public class TkmsMessageSerializer implements ITkmsMessageSerializer {
     os.write(0);
 
     Compression compression = properties.getCompression(shardPartition.getShard());
-    CompressionAlgorithm algorithm = compression.getAlgorithm();
-    int minSize = compression.getMinSize();
-    Integer blockSize = compression.getBlockSize();
-    Integer level = compression.getLevel();
+    CompressionAlgorithm compressionAlgorithm = compression.getAlgorithm();
+    int minCompressableSize = compression.getMinSize();
+    Integer compressionBlockSize = compression.getBlockSize();
+    Integer compressionLevel = compression.getLevel();
 
     TkmsMessage.Compression tkmsMessageCompression = tkmsMessage.getCompression();
     if (tkmsMessageCompression != null) {
-      minSize = 0;
-      algorithm = tkmsMessageCompression.getAlgorithm();
-      blockSize = tkmsMessageCompression.getBlockSize();
-      level = tkmsMessageCompression.getLevel();
+      minCompressableSize = 0;
+      compressionAlgorithm = tkmsMessageCompression.getAlgorithm();
+      compressionBlockSize = tkmsMessageCompression.getBlockSize();
+      compressionLevel = tkmsMessageCompression.getLevel();
     }
 
-    if (algorithm == CompressionAlgorithm.RANDOM) {
-      algorithm = CompressionAlgorithm.getRandom();
+    if (serializedSize < minCompressableSize) {
+      compressionAlgorithm = CompressionAlgorithm.NONE;
+    } else if (compressionAlgorithm == CompressionAlgorithm.RANDOM) {
+      compressionAlgorithm = CompressionAlgorithm.getRandom();
     }
 
-    if (algorithm == CompressionAlgorithm.NONE || serializedSize < minSize) {
+    if (compressionAlgorithm == CompressionAlgorithm.NONE) {
       os.write(COMPRESSION_TYPE_NONE);
       storedMessage.writeTo(os);
+    } else if (compressionAlgorithm == CompressionAlgorithm.SNAPPY) {
+      os.write(COMPRESSION_TYPE_SNAPPY);
+      compressSnappy(storedMessage, os, compressionBlockSize);
+    } else if (compressionAlgorithm == CompressionAlgorithm.SNAPPY_FRAMED) {
+      os.write(COMPRESSION_TYPE_SNAPPY_FRAMED);
+      compressSnappyFramed(storedMessage, os, compressionBlockSize);
+    } else if (compressionAlgorithm == CompressionAlgorithm.ZSTD) {
+      os.write(COMPRESSION_TYPE_ZSTD);
+      compressZstd(storedMessage, os, compressionLevel);
+    } else if (compressionAlgorithm == CompressionAlgorithm.LZ4) {
+      os.write(COMPRESSION_TYPE_LZ4);
+      compressLz4(storedMessage, os, compressionBlockSize);
+    } else if (compressionAlgorithm == CompressionAlgorithm.GZIP) {
+      os.write(COMPRESSION_TYPE_GZIP);
+      compressGzip(storedMessage, os);
     } else {
-      if (algorithm == CompressionAlgorithm.SNAPPY) {
-        os.write(COMPRESSION_TYPE_SNAPPY);
-        compressSnappy(storedMessage, os, blockSize);
-      } else if (algorithm == CompressionAlgorithm.SNAPPY_FRAMED) {
-        os.write(COMPRESSION_TYPE_SNAPPY_FRAMED);
-        compressSnappyFramed(storedMessage, os, blockSize);
-      } else if (algorithm == CompressionAlgorithm.ZSTD) {
-        os.write(COMPRESSION_TYPE_ZSTD);
-        compressZstd(storedMessage, os, level);
-      } else if (algorithm == CompressionAlgorithm.LZ4) {
-        os.write(COMPRESSION_TYPE_LZ4);
-        compressLz4(storedMessage, os, blockSize);
-      } else if (algorithm == CompressionAlgorithm.GZIP) {
-        os.write(COMPRESSION_TYPE_GZIP);
-        compressGzip(storedMessage, os);
-      } else {
-        throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
-      }
-      if (properties.isDebugEnabled()) {
-        metricsTemplate.recordMessageSerialization(shardPartition, algorithm, os.size(), serializedSize);
-      }
+      throw new IllegalArgumentException("Compression compressionAlgorithm " + compressionAlgorithm + " is not supported.");
+    }
+
+    if (properties.isDebugEnabled()) {
+      metricsTemplate.recordMessageSerialization(shardPartition, compressionAlgorithm, serializedSize, os.size());
     }
 
     return os.toInputStream();
