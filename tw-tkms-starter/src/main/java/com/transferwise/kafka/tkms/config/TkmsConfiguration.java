@@ -1,5 +1,7 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.kafka.tkms.EnvironmentValidator;
+import com.transferwise.kafka.tkms.IEnvironmentValidator;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
@@ -17,8 +19,8 @@ import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
+import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
-import com.transferwise.kafka.tkms.dao.TkmsTkmsMessageSerializer;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -130,13 +132,19 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsMessageInterceptors.class)
-  public ITkmsMessageInterceptors tkmsMessageInterceptors() {
+  public TkmsMessageInterceptors tkmsMessageInterceptors() {
     return new TkmsMessageInterceptors();
   }
 
   @Bean
   @ConditionalOnMissingBean(ITkmsMessageSerializer.class)
-  public ITkmsMessageSerializer tkmsMessageSerializer() {
-    return new TkmsTkmsMessageSerializer();
+  public TkmsMessageSerializer tkmsMessageSerializer() {
+    return new TkmsMessageSerializer();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(IEnvironmentValidator.class)
+  public EnvironmentValidator tkmsMigrationHandler() {
+    return new EnvironmentValidator();
   }
 }

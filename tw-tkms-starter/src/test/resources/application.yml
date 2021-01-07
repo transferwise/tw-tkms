@@ -42,6 +42,8 @@ tw-tkms:
   compression:
     algorithm: random
     min-size: 10
+  environment:
+    previous-version: 0.7.3
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000

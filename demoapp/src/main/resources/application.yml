@@ -31,6 +31,8 @@ tw-tkms:
     - ComplexTest
   kafka:
     bootstrap.servers: "localhost:9092"
+  environment:
+    previous-version: 0.7.3
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 10000

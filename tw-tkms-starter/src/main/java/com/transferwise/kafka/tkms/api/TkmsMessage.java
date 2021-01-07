@@ -1,5 +1,6 @@
 package com.transferwise.kafka.tkms.api;
 
+import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class TkmsMessage {
-  
+
   /**
    * Kafka topic.
    */
@@ -46,7 +47,7 @@ public class TkmsMessage {
   @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
   @NotNull
   private byte[] value;
-  
+
   /**
    * Tkms shard.
    */
@@ -66,6 +67,10 @@ public class TkmsMessage {
     return this;
   }
 
+  /**
+   * Forces specified compression.
+   */
+  private Compression compression;
 
   @Data
   @Accessors(chain = true)
@@ -81,5 +86,16 @@ public class TkmsMessage {
      */
     @NotNull
     public byte[] value;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class Compression {
+
+    private CompressionAlgorithm algorithm = CompressionAlgorithm.GZIP;
+
+    private Integer blockSize;
+
+    private Integer level;
   }
 }

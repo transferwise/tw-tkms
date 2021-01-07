@@ -44,12 +44,16 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private ApplicationContext applicationContext;
   @Autowired
   private ITkmsKafkaProducerProvider kafkaProducerProvider;
+  @Autowired
+  private IEnvironmentValidator environmentValidator;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
   @PostConstruct
   public void init() {
+    environmentValidator.validate();
+    
     metricsTemplate.registerLibrary();
     for (String topic : properties.getTopics()) {
       validateTopic(properties.getDefaultShard(), topic);

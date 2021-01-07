@@ -1,8 +1,8 @@
 package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.common.context.TwContext;
+import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Compression.Algorithm;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Type;
@@ -49,7 +49,9 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final String DAO_INVALID_GENERATED_KEYS_COUNT = PREFIX_DAO + ".insert.invalid.generated.keys.count";
   public static final String STORED_MESSAGE_PARSING = PREFIX + ".stored.message.parsing";
   public static final String MESSAGE_INSERT_TO_ACK = PREFIX + ".message.insert.to.ack";
-  public static final String COMPRESSION_RATIO_ACHIEVED = PREFIX + ".compression.ratio.achieved";
+  public static final String COMPRESSION_RATIO_ACHIEVED = PREFIX_DAO + ".serialization.compression.ratio";
+  public static final String ORIGINAL_SIZE_BYTES = PREFIX_DAO + ".serialization.original.size.bytes";
+  public static final String SERIALIZED_SIZE_BYTES = PREFIX_DAO + ".serialization.serialized.size.bytes";
 
   public static final Tag NA_SHARD_TAG = Tag.of("shard", "N/A");
   public static final Tag NA_PARTITION_TAG = Tag.of("partition", "N/A");
@@ -253,13 +255,27 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   }
 
   @Override
-  public void recordMessageCompression(TkmsShardPartition shardPartition, Algorithm algorithm, double ratio) {
+  public void recordMessageSerialization(TkmsShardPartition shardPartition, CompressionAlgorithm algorithm, long originalSizeBytes,
+      long serializedSizeBytes) {
+    double ratio = (double) originalSizeBytes / serializedSizeBytes;
     meterRegistry
         .summary(COMPRESSION_RATIO_ACHIEVED, Tags.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(ratio);
+    meterRegistry
+        .counter(ORIGINAL_SIZE_BYTES, Tags.of(
+            algorithmTag(algorithm),
+            partitionTag(shardPartition),
+            shardTag(shardPartition)))
+        .increment(originalSizeBytes);
+    meterRegistry
+        .counter(SERIALIZED_SIZE_BYTES, Tags.of(
+            algorithmTag(algorithm),
+            partitionTag(shardPartition),
+            shardTag(shardPartition)))
+        .increment(serializedSizeBytes);
   }
 
   @Override
@@ -325,7 +341,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     return success ? TAG_SUCCESS_TRUE : TAG_SUCCESS_FALSE;
   }
 
-  protected Tag algorithmTag(Algorithm algorithm) {
+  protected Tag algorithmTag(CompressionAlgorithm algorithm) {
     return algorithm.getMicrometerTag();
   }
 }

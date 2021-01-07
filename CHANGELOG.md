@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2021-01-06
+### Changed
+* Default compression is gzip.
+It is most appropriate for typical Transferwise messages.
+
+### Added
+* A mechanism to force specific migration paths.
+Service owner can specify which version is running in production by `TkmsProperties.Environment.previousVersion`.
+If the version is too old, the service will refuse to start. It can be fixed by doing upgrades to intermediate versions.  
+
+* Metrics
+`tw_tkms_dao_serialization_original_size_bytes {shard, partition, algorithm}`
+`tw_tkms_dao_serialization_serialized_size_bytes {shard, partition, algorithm}`
+`tw_tkms_dao_serialization_compression_ratio {shard, partition, algorithm}`
+
 ## [0.7.3] - 2021-01-03
 ### Changed
 * Keep the default compression algorithm Snappy, to allow seemless upgrade from 0.6.x

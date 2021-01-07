@@ -1,7 +1,7 @@
 package com.transferwise.kafka.tkms.metrics;
 
+import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Compression.Algorithm;
 import java.time.Instant;
 
 public interface ITkmsMetricsTemplate {
@@ -34,7 +34,8 @@ public interface ITkmsMetricsTemplate {
 
   void recordStoredMessageParsing(TkmsShardPartition shardPartition, long messageParsingStartNanoTime);
 
-  void recordMessageCompression(TkmsShardPartition shardPartition, Algorithm algorithm, double ratio);
+  void recordMessageSerialization(TkmsShardPartition shardPartition, CompressionAlgorithm algorithm, long originalSizeBytes,
+      long serializedSizeBytes);
 
   void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition);
 }
