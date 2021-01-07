@@ -8,11 +8,11 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.Compression;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Compression.Algorithm;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage.Headers;
@@ -33,7 +33,7 @@ import org.xerial.snappy.SnappyFramedOutputStream;
 import org.xerial.snappy.SnappyInputStream;
 import org.xerial.snappy.SnappyOutputStream;
 
-public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
+public class TkmsMessageSerializer implements ITkmsMessageSerializer {
 
   protected static final int COMPRESSION_TYPE_NONE = 0;
   protected static final int COMPRESSION_TYPE_SNAPPY_FRAMED = 1;
@@ -60,35 +60,47 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
     os.write(0);
 
     Compression compression = properties.getCompression(shardPartition.getShard());
-    Algorithm algorithm = compression.getAlgorithm();
-    if (algorithm == Algorithm.RANDOM) {
-      algorithm = Algorithm.getRandom();
+    CompressionAlgorithm algorithm = compression.getAlgorithm();
+    int minSize = compression.getMinSize();
+    Integer blockSize = compression.getBlockSize();
+    Integer level = compression.getLevel();
+
+    TkmsMessage.Compression tkmsMessageCompression = tkmsMessage.getCompression();
+    if (tkmsMessageCompression != null) {
+      minSize = 0;
+      algorithm = tkmsMessageCompression.getAlgorithm();
+      blockSize = tkmsMessageCompression.getBlockSize();
+      level = tkmsMessageCompression.getLevel();
     }
 
-    if (algorithm == Algorithm.NONE || serializedSize < compression.getMinSize()) {
+    if (algorithm == CompressionAlgorithm.RANDOM) {
+      algorithm = CompressionAlgorithm.getRandom();
+    }
+
+    if (algorithm == CompressionAlgorithm.NONE || serializedSize < minSize) {
       os.write(COMPRESSION_TYPE_NONE);
       storedMessage.writeTo(os);
     } else {
-      if (algorithm == Algorithm.SNAPPY) {
+      if (algorithm == CompressionAlgorithm.SNAPPY) {
         os.write(COMPRESSION_TYPE_SNAPPY);
-        compressSnappy(compression, storedMessage, os);
-      } else if (algorithm == Algorithm.SNAPPY_FRAMED) {
+        compressSnappy(storedMessage, os, blockSize);
+      } else if (algorithm == CompressionAlgorithm.SNAPPY_FRAMED) {
         os.write(COMPRESSION_TYPE_SNAPPY_FRAMED);
-        compressSnappyFramed(compression, storedMessage, os);
-      } else if (algorithm == Algorithm.ZSTD) {
+        compressSnappyFramed(storedMessage, os, blockSize);
+      } else if (algorithm == CompressionAlgorithm.ZSTD) {
         os.write(COMPRESSION_TYPE_ZSTD);
-        compressZstd(compression, storedMessage, os);
-      } else if (algorithm == Algorithm.LZ4) {
+        compressZstd(storedMessage, os, level);
+      } else if (algorithm == CompressionAlgorithm.LZ4) {
         os.write(COMPRESSION_TYPE_LZ4);
-        compressLz4(compression, storedMessage, os);
-      } else if (algorithm == Algorithm.GZIP) {
+        compressLz4(storedMessage, os, blockSize);
+      } else if (algorithm == CompressionAlgorithm.GZIP) {
         os.write(COMPRESSION_TYPE_GZIP);
         compressGzip(storedMessage, os);
       } else {
         throw new IllegalArgumentException("Compression algorithm " + algorithm + " is not supported.");
       }
       if (properties.isDebugEnabled()) {
-        metricsTemplate.recordMessageCompression(shardPartition, algorithm, (double) os.size() / serializedSize);
+        metricsTemplate.recordMessageSerialization(shardPartition, algorithm, os.size(), serializedSize);
       }
     }
 
@@ -116,26 +128,27 @@ public class TkmsTkmsMessageSerializer implements ITkmsMessageSerializer {
     }
   }
 
-  protected void compressSnappy(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
-    try (SnappyOutputStream compressOut = new SnappyOutputStream(out, compression.getBlockSize())) {
+  protected void compressSnappy(StoredMessage.Message storedMessage, OutputStream out, Integer blockSize) throws IOException {
+    try (SnappyOutputStream compressOut = new SnappyOutputStream(out, blockSize == null ? 32 * 1024 : blockSize)) {
       storedMessage.writeTo(compressOut);
     }
   }
 
-  protected void compressSnappyFramed(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
-    try (SnappyFramedOutputStream compressOut = new SnappyFramedOutputStream(out, compression.getBlockSize(), DEFAULT_MIN_COMPRESSION_RATIO)) {
+  protected void compressSnappyFramed(StoredMessage.Message storedMessage, OutputStream out, Integer blockSize) throws IOException {
+    try (SnappyFramedOutputStream compressOut = new SnappyFramedOutputStream(out,
+        blockSize == null ? SnappyFramedOutputStream.DEFAULT_BLOCK_SIZE : blockSize, DEFAULT_MIN_COMPRESSION_RATIO)) {
       storedMessage.writeTo(compressOut);
     }
   }
 
-  protected void compressZstd(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
-    try (ZstdOutputStream compressOut = new ZstdOutputStream(out, compression.getLevel())) {
+  protected void compressZstd(StoredMessage.Message storedMessage, OutputStream out, Integer level) throws IOException {
+    try (ZstdOutputStream compressOut = level == null ? new ZstdOutputStream(out) : new ZstdOutputStream(out, level)) {
       storedMessage.writeTo(compressOut);
     }
   }
 
-  protected void compressLz4(Compression compression, StoredMessage.Message storedMessage, OutputStream out) throws IOException {
-    try (LZ4BlockOutputStream compressOut = new LZ4BlockOutputStream(out, compression.getBlockSize(),
+  protected void compressLz4(StoredMessage.Message storedMessage, OutputStream out, Integer blockSize) throws IOException {
+    try (LZ4BlockOutputStream compressOut = new LZ4BlockOutputStream(out, blockSize == null ? 1 << 16 : blockSize,
         LZ4Factory.fastestJavaInstance().fastCompressor())) {
       storedMessage.writeTo(compressOut);
     }

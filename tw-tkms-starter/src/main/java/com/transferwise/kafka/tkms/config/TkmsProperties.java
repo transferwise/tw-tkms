@@ -1,13 +1,12 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import io.micrometer.core.instrument.Tag;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
@@ -161,6 +160,8 @@ public class TkmsProperties {
 
   private Compression compression = new Compression();
 
+  private Environment environment = new Environment();
+
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {
@@ -233,74 +234,24 @@ public class TkmsProperties {
   @Accessors(chain = true)
   public static class Compression {
 
-    public enum Algorithm {
-      NONE,
-      /**
-       * Recommended default.
-       * 
-       * <p>Almost no memory allocations on output. Memory allocations for input correlate well with message sizes.
-       */
-      SNAPPY,
-      /**
-       * Deprecated, will be soon removed.
-       */
-      SNAPPY_FRAMED,
-      /**
-       * Extremely memory hungry, allocates 128kb buffers for both output and input.
-       * 
-       * <p>Makes only sense with very large messages, unless we find a better implementation.
-       */
-      ZSTD,
-      /**
-       * Considerably faster than Snappy with similar compression rate.
-       */
-      LZ4,
-      /**
-       * Best compression rate with reasonable resource usage.
-       */
-      GZIP,
-      // For complex tests
-      RANDOM;
+    private CompressionAlgorithm algorithm = CompressionAlgorithm.GZIP;
 
-      private Tag micrometerTag = Tag.of("algorithm", name().toLowerCase());
-
-      public Tag getMicrometerTag() {
-        return micrometerTag;
-      }
-
-      public static Algorithm getRandom() {
-        switch (ThreadLocalRandom.current().nextInt(3)) {
-          case 0:
-            return NONE;
-          case 1:
-            return SNAPPY;
-          case 2:
-            return LZ4;
-          case 3:
-            return GZIP;
-          default:
-            return ZSTD;
-        }
-      }
-    }
-    
-    private Algorithm algorithm = Algorithm.SNAPPY;
+    private Integer blockSize;
 
     /**
-     * Can be quite large, even when we have small(er) messages, because we reuse memory buffers.
-     */
-    private int blockSize = 32 * 1024;
-
-    /**
-     * Approximate message size is considered.
+     * Minimum message size, to apply compression.
      *
-     * <p>Heuristics
+     * <p>Approximate message size is considered.
      */
     private int minSize = 128;
 
-    /**
-     * Default is set for zstd.
-     */
-    private int level = 3;
+    private Integer level;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class Environment {
+
+    private String previousVersion;
   }
 }
