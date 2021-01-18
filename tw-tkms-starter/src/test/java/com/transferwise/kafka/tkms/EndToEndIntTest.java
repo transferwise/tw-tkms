@@ -13,9 +13,14 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMess
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
+import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
+import com.transferwise.kafka.tkms.test.ITkmsTestDao;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
@@ -34,6 +39,8 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -54,6 +61,28 @@ public class EndToEndIntTest extends BaseIntTest {
   private ITransactionsHelper transactionsHelper;
   @Autowired
   private TestProperties testProperties;
+  @Autowired
+  private ITkmsTestDao tkmsTestDao;
+  @Autowired
+  private TkmsProperties tkmsProperties;
+  @Autowired
+  private ITkmsDao tkmsDao;
+  @Autowired
+  private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
+
+  private FaultInjectedTkmsDao faultInjectedTkmsDao;
+
+  @BeforeEach
+  public void setup() {
+    faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
+    tkmsStorageToKafkaProxy.setDao(faultInjectedTkmsDao);
+  }
+
+  @AfterEach
+  public void cleanup() {
+    super.cleanup();
+    tkmsStorageToKafkaProxy.setDao(tkmsDao);
+  }
 
   @Test
   public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
@@ -63,6 +92,7 @@ public class EndToEndIntTest extends BaseIntTest {
     for (int i = 0; i < messageMultiplier; i++) {
       sb.append(messagePart);
     }
+
     String message = sb.toString();
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -93,6 +123,8 @@ public class EndToEndIntTest extends BaseIntTest {
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
+
+    assertThatTablesAreEmpty();
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
@@ -167,6 +199,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
 
+      assertThatTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -198,6 +231,8 @@ public class EndToEndIntTest extends BaseIntTest {
       log.info("Messages received: " + receivedCount.get());
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
+
+      assertThatTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -232,6 +267,8 @@ public class EndToEndIntTest extends BaseIntTest {
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
       assertThat(partitionsMap.get(partition).get()).isEqualTo(n);
+
+      assertThatTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -292,6 +329,7 @@ public class EndToEndIntTest extends BaseIntTest {
           }
         }
       }
+      assertThatTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -340,6 +378,8 @@ public class EndToEndIntTest extends BaseIntTest {
 
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
+
+    assertThatTablesAreEmpty();
   }
 
   @Test
@@ -390,6 +430,70 @@ public class EndToEndIntTest extends BaseIntTest {
     }
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
+
+    assertThatTablesAreEmpty();
+  }
+
+  /**
+   * If `TkmsStorageToKafkaProxy has some important lines switched around "lastId" logic, the test will start failing.
+   */
+  @Test
+  public void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() throws Exception {
+    String message = "Hello World!";
+    int messagesCount = 1000;
+
+    var receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
+      }
+    });
+
+    faultInjectedTkmsDao.setDeleteMessagesFails(true);
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      for (int i = 0; i < messagesCount; i++) {
+        TestEvent testEvent = new TestEvent().setId((long) i).setMessage(message);
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+      }
+
+      await().until(() -> receivedCount.get() >= messagesCount);
+      await().until(() -> getTablesRowsCount() == messagesCount);
+
+      faultInjectedTkmsDao.setDeleteMessagesFails(false);
+
+      await().until(() -> getTablesRowsCount() == 0);
+      log.info("Messages received: " + receivedCount.get());
+    } finally {
+      faultInjectedTkmsDao.setDeleteMessagesFails(false);
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+  }
+
+  protected void assertThatTablesAreEmpty() {
+    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
+      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+        int rowsCount = tkmsTestDao.getMessagesCount(sp);
+
+        assertThat(rowsCount).as("Row count for " + sp + " is zero.").isZero();
+      }
+    }
+  }
+
+  protected int getTablesRowsCount() {
+    int count = 0;
+    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
+      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+        count += tkmsTestDao.getMessagesCount(sp);
+      }
+    }
+    return count;
   }
 
   private static Stream<Arguments> compressionInput() {

@@ -26,7 +26,9 @@ public class ComplexRealTest {
   private final RestTemplate restTemplate = new RestTemplate();
 
   /**
-   * Runs 135s on my laptop with 5 * 10000 * 5.
+   * Mariadb: Done in 141028 ms
+   *
+   * <p>Postgres: Done in 108763 ms.
    */
   @Test
   @SneakyThrows
@@ -68,7 +70,7 @@ public class ComplexRealTest {
   }
 
   private String rpc(String url) {
-    int[] ports = new int[]{8080, 8081};
+    int[] ports = new int[]{8180, 8181};
     int portIdx = ThreadLocalRandom.current().nextInt(ports.length);
 
     int tries = 0;
@@ -92,6 +94,8 @@ public class ComplexRealTest {
         if (portIdx >= ports.length) {
           portIdx = 0;
         }
+      } finally {
+        tries++;
       }
     }
     throw new IllegalStateException("Can not reach here.");
