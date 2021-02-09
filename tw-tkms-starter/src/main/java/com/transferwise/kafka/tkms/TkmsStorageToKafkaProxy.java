@@ -13,8 +13,6 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -137,6 +135,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long startTimeMs = System.currentTimeMillis();
 
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
+    final Map<Integer, ProducerRecord<String, byte[]>> producerRecordMap = new HashMap<>();
 
     while (!control.shouldStop()) {
 
@@ -175,22 +174,21 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
               boolean atLeastOneSendDone = false;
 
-              Map<Integer, ProducerRecord<String, byte[]>> producerRecordMap = null;
-              Map<Integer, MessageInterceptionDecision> interceptionDecisions = null;
+              producerRecordMap.clear();
+              Map<Integer, MessageInterceptionDecision> interceptionDecisions = new HashMap<>();
               if (messageIntereceptors.hasInterceptors()) {
-                producerRecordMap = new HashMap<>();
                 for (int i = 0; i < records.size(); i++) {
                   MessageRecord messageRecord = records.get(i);
-                  ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
-                  producerRecordMap.put(i, producerRecord);
+                  producerRecordMap.put(i, toProducerRecord(messageRecord));
                 }
                 interceptionDecisions = messageIntereceptors.beforeSendingToKafka(producerRecordMap);
               }
 
               for (int i = 0; i < records.size(); i++) {
                 MessageRecord messageRecord = records.get(i);
+                ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
                 ProducerRecord<String, byte[]> producerRecord =
-                    producerRecordMap == null ? toProducerRecord(messageRecord) : producerRecordMap.get(i);
+                    preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
                 contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
                     .setShardPartition(shardPartition);
                 MessageProcessingContext context = contexts[i];
@@ -292,8 +290,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       log.error(message, t);
     }
 
-    TkmsProxyDecision tkmsProxyDecision = messageIntereceptors.onError(t, context.getProducerRecord());
-    if (tkmsProxyDecision.getResult() == Result.DISCARD) {
+    MessageInterceptionDecision decision = messageIntereceptors.onError(t, context.getProducerRecord());
+    if (decision == MessageInterceptionDecision.DISCARD) {
       log.warn("Discarding message {}:{}.", context.getShardPartition(), context.getMessageRecord().getId());
       context.setAcked(true);
     }

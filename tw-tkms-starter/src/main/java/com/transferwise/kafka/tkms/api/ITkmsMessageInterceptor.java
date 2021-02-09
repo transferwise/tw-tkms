@@ -1,6 +1,5 @@
 package com.transferwise.kafka.tkms.api;
 
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -10,13 +9,13 @@ public interface ITkmsMessageInterceptor {
   /**
    * The method is called, before we batch-send out those producerRecords.
    *
-   * <p>Make sure this method does not throw any errors, catching `Throwable` is recommended.
+   * <p>Care should be taken to avoid throwing error from this method. However when it happens, all messages will be tried to be intercepted again
+   * shortly after.
    *
    * <p>The method has to produce a map, which contains a decision for every input map's key.
    *
    * <p>The input keys (integers) are only meaningful in context of one method call. Same kafka message can have and almost always has a different
-   * key
-   * for every call.
+   * key for every call.
    */
   default Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords) {
     return null;
@@ -27,8 +26,8 @@ public interface ITkmsMessageInterceptor {
    *
    * <p>By default we will be retrying sending that message until it succeeds.
    */
-  default TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
-    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
+  default MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+    return MessageInterceptionDecision.NEUTRAL;
   }
 
   enum MessageInterceptionDecision {

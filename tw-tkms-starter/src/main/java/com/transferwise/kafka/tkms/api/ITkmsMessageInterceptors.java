@@ -17,5 +17,5 @@ public interface ITkmsMessageInterceptors {
   /**
    * Aggregator for `ITkmsMessageInterceptor`.
    */
-  TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord);
+  MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord);
 }

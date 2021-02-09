@@ -4,8 +4,6 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -57,13 +55,13 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
   }
 
   @Override
-  public TkmsProxyDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+  public MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
     if (interceptors != null) {
       for (ITkmsMessageInterceptor interceptor : interceptors) {
         try {
-          TkmsProxyDecision proxyDecision = interceptor.onError(t, producerRecord);
-          if (proxyDecision != null && proxyDecision.getResult() != Result.NEUTRAL) {
+          MessageInterceptionDecision proxyDecision = interceptor.onError(t, producerRecord);
+          if (proxyDecision != null && proxyDecision != MessageInterceptionDecision.NEUTRAL) {
             return proxyDecision;
           }
         } catch (Throwable t1) {
@@ -73,7 +71,7 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
         }
       }
     }
-    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
+    return MessageInterceptionDecision.NEUTRAL;
   }
 
   protected List<ITkmsMessageInterceptor> getMessageInterceptors() {
