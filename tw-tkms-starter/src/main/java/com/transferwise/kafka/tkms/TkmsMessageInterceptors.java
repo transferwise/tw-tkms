@@ -4,6 +4,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +30,7 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
   }
 
   @Override
-  public Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(
+  public Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull TkmsShardPartition shardPartition,
       @Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords) {
     List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
     if (interceptors.isEmpty()) {
@@ -39,7 +40,7 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
     producerRecords.forEach((k, v) -> result.put(k, MessageInterceptionDecision.NEUTRAL));
 
     for (ITkmsMessageInterceptor interceptor : interceptors) {
-      Map<Integer, MessageInterceptionDecision> decisions = interceptor.beforeSendingToKafka(producerRecords);
+      Map<Integer, MessageInterceptionDecision> decisions = interceptor.beforeSendingToKafka(shardPartition, producerRecords);
       if (decisions != null) {
         result.forEach((k, v) -> {
           if (result.get(k) == MessageInterceptionDecision.NEUTRAL) {
@@ -55,12 +56,12 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
   }
 
   @Override
-  public MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+  public MessageInterceptionDecision onError(TkmsShardPartition tkmsShardPartition, Throwable t, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
     if (interceptors != null) {
       for (ITkmsMessageInterceptor interceptor : interceptors) {
         try {
-          MessageInterceptionDecision proxyDecision = interceptor.onError(t, producerRecord);
+          MessageInterceptionDecision proxyDecision = interceptor.onError(tkmsShardPartition, t, producerRecord);
           if (proxyDecision != null && proxyDecision != MessageInterceptionDecision.NEUTRAL) {
             return proxyDecision;
           }

@@ -181,7 +181,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   MessageRecord messageRecord = records.get(i);
                   producerRecordMap.put(i, toProducerRecord(messageRecord));
                 }
-                interceptionDecisions = messageIntereceptors.beforeSendingToKafka(producerRecordMap);
+                interceptionDecisions = messageIntereceptors.beforeSendingToKafka(shardPartition, producerRecordMap);
               }
 
               for (int i = 0; i < records.size(); i++) {
@@ -219,7 +219,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                       metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
                     } else {
                       failedSendsCount.incrementAndGet();
-                      handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception, context);
+                      handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception,
+                          context);
                       metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
                     }
                   });
@@ -228,7 +229,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   contexts[i].setKafkaSenderFuture(future);
                 } catch (Throwable t) {
                   failedSendsCount.incrementAndGet();
-                  handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
+                  handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
                 }
               }
 
@@ -242,7 +243,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   try {
                     context.getKafkaSenderFuture().get();
                   } catch (Throwable t) {
-                    handleKafkaError("Sending message in " + shardPartition + " failed.", t, context);
+                    handleKafkaError(shardPartition, "Sending message in " + shardPartition + " failed.", t, context);
                   }
                 }
               }
@@ -281,7 +282,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
    *
    * <p>But at the same time it would be quite risky to ignore all RetriableExceptions, so we log at least some.
    */
-  protected void handleKafkaError(String message, Throwable t, MessageProcessingContext context) {
+  protected void handleKafkaError(TkmsShardPartition shardPartition, String message, Throwable t, MessageProcessingContext context) {
     if (t instanceof RetriableException) {
       if (exceptionRateLimiter.tryAcquire()) {
         log.error(message, t);
@@ -290,7 +291,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       log.error(message, t);
     }
 
-    MessageInterceptionDecision decision = messageIntereceptors.onError(t, context.getProducerRecord());
+    MessageInterceptionDecision decision = messageIntereceptors.onError(shardPartition, t, context.getProducerRecord());
     if (decision == MessageInterceptionDecision.DISCARD) {
       log.warn("Discarding message {}:{}.", context.getShardPartition(), context.getMessageRecord().getId());
       context.setAcked(true);

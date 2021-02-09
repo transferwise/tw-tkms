@@ -12,10 +12,11 @@ public interface ITkmsMessageInterceptors {
   /**
    * Aggregator for `ITkmsMessageInterceptor`.
    */
-  Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords);
+  Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull TkmsShardPartition shardPartition,
+      @Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords);
 
   /**
    * Aggregator for `ITkmsMessageInterceptor`.
    */
-  MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord);
+  MessageInterceptionDecision onError(@Nonnull TkmsShardPartition shardPartition, Throwable t, ProducerRecord<String, byte[]> producerRecord);
 }

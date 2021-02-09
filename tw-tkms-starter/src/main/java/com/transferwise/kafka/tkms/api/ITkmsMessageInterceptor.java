@@ -17,7 +17,8 @@ public interface ITkmsMessageInterceptor {
    * <p>The input keys (integers) are only meaningful in context of one method call. Same kafka message can have and almost always has a different
    * key for every call.
    */
-  default Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords) {
+  default Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(@Nonnull TkmsShardPartition shardPartition,
+      @Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords) {
     return null;
   }
 
@@ -26,7 +27,8 @@ public interface ITkmsMessageInterceptor {
    *
    * <p>By default we will be retrying sending that message until it succeeds.
    */
-  default MessageInterceptionDecision onError(Throwable t, ProducerRecord<String, byte[]> producerRecord) {
+  default MessageInterceptionDecision onError(@Nonnull TkmsShardPartition shardPartition, Throwable t,
+      ProducerRecord<String, byte[]> producerRecord) {
     return MessageInterceptionDecision.NEUTRAL;
   }
 
