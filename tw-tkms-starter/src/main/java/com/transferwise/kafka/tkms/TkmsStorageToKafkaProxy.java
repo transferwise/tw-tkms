@@ -175,7 +175,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               boolean atLeastOneSendDone = false;
 
               producerRecordMap.clear();
-              Map<Integer, MessageInterceptionDecision> interceptionDecisions = new HashMap<>();
+              Map<Integer, MessageInterceptionDecision> interceptionDecisions = null;
               if (messageIntereceptors.hasInterceptors()) {
                 for (int i = 0; i < records.size(); i++) {
                   MessageRecord messageRecord = records.get(i);
