@@ -19,8 +19,8 @@ public class TestApplication {
   }
 
   @Bean
-  public TestMessagesIntereceptor testMessagesIntereceptor() {
-    return new TestMessagesIntereceptor();
+  public TestMessagesInterceptor testMessagesIntereceptor() {
+    return new TestMessagesInterceptor();
   }
 
   @Bean

@@ -16,13 +16,13 @@ public class TkmsProxyDecision {
     RETRY,
     /**
      * The message will get discarded.
-     * 
+     *
      * <p>Usually the code saves the message to it's own storage (e.g. DLQ), before answering with that.
      */
     DISCARD,
     /**
      * Let other interceptors make the final decision.
-     * 
+     *
      * <p>If all interceptors respond with NEUTRAL, a RETRY will be used.
      */
     NEUTRAL

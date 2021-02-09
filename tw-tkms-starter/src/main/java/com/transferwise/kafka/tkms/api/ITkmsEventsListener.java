@@ -23,7 +23,7 @@ public interface ITkmsEventsListener {
 
     /**
      * Shard-partition message was put into.
-     * 
+     *
      * <p>You can determine the table's name by that.
      */
     private TkmsShardPartition shardPartition;
@@ -43,6 +43,7 @@ public interface ITkmsEventsListener {
   @Data
   @Accessors(chain = true)
   class MessageRegisteredEvent {
+
     /**
      * Id in database table.
      */

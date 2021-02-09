@@ -2,11 +2,15 @@ package com.transferwise.kafka.tkms;
 
 import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor;
+import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.TkmsProxyDecision;
 import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,23 +26,34 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
   private RateLimiter errorRateLimiter = RateLimiter.create(2);
 
   @Override
-  public TkmsProxyDecision beforeProxy(ProducerRecord<String, byte[]> producerRecord) {
+  public boolean hasInterceptors() {
+    return !getMessageInterceptors().isEmpty();
+  }
+
+  @Override
+  public Map<Integer, MessageInterceptionDecision> beforeSendingToKafka(
+      @Nonnull Map<Integer, ProducerRecord<String, byte[]>> producerRecords) {
     List<ITkmsMessageInterceptor> interceptors = getMessageInterceptors();
-    if (interceptors != null) {
-      for (ITkmsMessageInterceptor interceptor : interceptors) {
-        try {
-          TkmsProxyDecision proxyDecision = interceptor.beforeProxy(producerRecord);
-          if (proxyDecision != null && proxyDecision.getResult() != Result.NEUTRAL) {
-            return proxyDecision;
+    if (interceptors.isEmpty()) {
+      return null;
+    }
+    Map<Integer, MessageInterceptionDecision> result = new HashMap<>();
+    producerRecords.forEach((k, v) -> result.put(k, MessageInterceptionDecision.NEUTRAL));
+
+    for (ITkmsMessageInterceptor interceptor : interceptors) {
+      Map<Integer, MessageInterceptionDecision> decisions = interceptor.beforeSendingToKafka(producerRecords);
+      if (decisions != null) {
+        result.forEach((k, v) -> {
+          if (result.get(k) == MessageInterceptionDecision.NEUTRAL) {
+            MessageInterceptionDecision decision = decisions.get(k);
+            if (decision != null && decision != MessageInterceptionDecision.NEUTRAL) {
+              result.put(k, decision);
+            }
           }
-        } catch (Throwable t) {
-          if (errorRateLimiter.tryAcquire()) {
-            log.error(t.getMessage(), t);
-          }
-        }
+        });
       }
     }
-    return new TkmsProxyDecision().setResult(Result.NEUTRAL);
+    return result;
   }
 
   @Override
