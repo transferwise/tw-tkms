@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 
 /**
  * Marker interface to specify a component to be used for tw-tkms.
- * 
+ *
  * <p>For example a DataSource.
  */
 @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})

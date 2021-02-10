@@ -11,9 +11,8 @@ import com.transferwise.common.leaderselector.LeaderSelectorV2;
 import com.transferwise.common.leaderselector.SharedReentrantLockBuilderFactory;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEvent;
+import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision;
-import com.transferwise.kafka.tkms.api.TkmsProxyDecision.Result;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -23,11 +22,14 @@ import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.PostConstruct;
 import lombok.Data;
@@ -135,6 +137,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long startTimeMs = System.currentTimeMillis();
 
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
+    final Map<Integer, ProducerRecord<String, byte[]>> producerRecordMap = new HashMap<>();
 
     while (!control.shouldStop()) {
       if (pauseRequested) {
@@ -155,6 +158,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
           .execute(() -> {
             long cycleStartNanoTime = System.nanoTime();
             int polledRecordsCount = 0;
+            AtomicInteger failedSendsCount = new AtomicInteger();
             try {
               List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
               polledRecordsCount = records.size();
@@ -171,18 +175,35 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
               boolean atLeastOneSendDone = false;
 
+              producerRecordMap.clear();
+              Map<Integer, MessageInterceptionDecision> interceptionDecisions = null;
+              if (messageIntereceptors.hasInterceptors()) {
+                for (int i = 0; i < records.size(); i++) {
+                  MessageRecord messageRecord = records.get(i);
+                  producerRecordMap.put(i, toProducerRecord(messageRecord));
+                }
+                interceptionDecisions = messageIntereceptors.beforeSendingToKafka(shardPartition, producerRecordMap);
+              }
+
               for (int i = 0; i < records.size(); i++) {
                 MessageRecord messageRecord = records.get(i);
-                ProducerRecord<String, byte[]> producerRecord = toProducerRecord(messageRecord);
+                ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
+                ProducerRecord<String, byte[]> producerRecord =
+                    preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
                 contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
                     .setShardPartition(shardPartition);
                 MessageProcessingContext context = contexts[i];
 
-                TkmsProxyDecision proxyDecision = messageIntereceptors.beforeProxy(producerRecord);
-                if (proxyDecision != null && proxyDecision.getResult() == Result.DISCARD) {
-                  log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
-                  context.setAcked(true);
-                  continue;
+                MessageInterceptionDecision interceptionDecision = interceptionDecisions == null ? null : interceptionDecisions.get(i);
+                if (interceptionDecision != null) {
+                  if (interceptionDecision == MessageInterceptionDecision.DISCARD) {
+                    log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
+                    context.setAcked(true);
+                    continue;
+                  } else if (interceptionDecision == MessageInterceptionDecision.RETRY) {
+                    // In this context retry means - allowing interceptors to try to execute their logic again.
+                    continue;
+                  }
                 }
 
                 try {
@@ -198,7 +219,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                           ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
                       metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
                     } else {
-                      handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception, context);
+                      failedSendsCount.incrementAndGet();
+                      handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception,
+                          context);
                       metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
                     }
                   });
@@ -206,7 +229,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
                   contexts[i].setKafkaSenderFuture(future);
                 } catch (Throwable t) {
-                  handleKafkaError("Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
+                  failedSendsCount.incrementAndGet();
+                  handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
                 }
               }
 
@@ -220,7 +244,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   try {
                     context.getKafkaSenderFuture().get();
                   } catch (Throwable t) {
-                    handleKafkaError("Sending message in " + shardPartition + " failed.", t, context);
+                    handleKafkaError(shardPartition, "Sending message in " + shardPartition + " failed.", t, context);
                   }
                 }
               }
@@ -244,7 +268,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
               metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
 
-              if (successIds.size() != records.size()) {
+              if (failedSendsCount.get() > 0) {
                 tkmsPaceMaker.pauseOnError(shardPartition.getShard());
               }
             } catch (Throwable t) {
@@ -262,7 +286,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
    *
    * <p>But at the same time it would be quite risky to ignore all RetriableExceptions, so we log at least some.
    */
-  protected void handleKafkaError(String message, Throwable t, MessageProcessingContext context) {
+  protected void handleKafkaError(TkmsShardPartition shardPartition, String message, Throwable t, MessageProcessingContext context) {
     if (t instanceof RetriableException) {
       if (exceptionRateLimiter.tryAcquire()) {
         log.error(message, t);
@@ -271,8 +295,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       log.error(message, t);
     }
 
-    TkmsProxyDecision tkmsProxyDecision = messageIntereceptors.onError(t, context.getProducerRecord());
-    if (tkmsProxyDecision.getResult() == Result.DISCARD) {
+    MessageInterceptionDecision decision = messageIntereceptors.onError(shardPartition, t, context.getProducerRecord());
+    if (decision == MessageInterceptionDecision.DISCARD) {
       log.warn("Discarding message {}:{}.", context.getShardPartition(), context.getMessageRecord().getId());
       context.setAcked(true);
     }

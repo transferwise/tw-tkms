@@ -32,7 +32,7 @@ public interface ITransactionalKafkaMessageSender {
 
   /**
    * Batch variant for {@link ITransactionalKafkaMessageSender#sendMessage(com.transferwise.kafka.tkms.api.TkmsMessage)}
-   * 
+   *
    * <p>Can be useful, when you have latency concerns from sequential processes.
    * For example when importing 50,000 bank transactions.
    */
