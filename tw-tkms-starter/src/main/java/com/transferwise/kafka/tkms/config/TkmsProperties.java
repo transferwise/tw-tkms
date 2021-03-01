@@ -100,7 +100,7 @@ public class TkmsProperties {
    * 10ms means 100 queries per second per shard-partition. At the same time those empty queries will be very cheap.
    */
   @NotNull
-  private Duration pollingInterval = Duration.ofMillis(10);
+  private Duration pollingInterval = Duration.ofMillis(25);
   /**
    * How much do we wait on error.
    *

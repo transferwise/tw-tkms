@@ -2,6 +2,7 @@ package com.transferwise.kafka.tkms.dao;
 
 import com.google.common.collect.ImmutableMap;
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
@@ -28,10 +29,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
-@Transactional(rollbackFor = Exception.class)
 public class TkmsDao implements ITkmsDao {
 
   private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
@@ -53,6 +54,9 @@ public class TkmsDao implements ITkmsDao {
 
   @Autowired
   protected ITkmsMessageSerializer messageSerializer;
+
+  @Autowired
+  protected ITransactionsHelper transactionsHelper;
 
   protected JdbcTemplate jdbcTemplate;
 
@@ -99,6 +103,7 @@ public class TkmsDao implements ITkmsDao {
     deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
   }
 
+  @Transactional(rollbackFor = Exception.class)
   @Override
   public List<InsertMessageResult> insertMessages(TkmsShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages) {
     return ExceptionUtils.doUnchecked(() -> {
@@ -153,6 +158,7 @@ public class TkmsDao implements ITkmsDao {
     });
   }
 
+  @Transactional(rollbackFor = Exception.class)
   @Override
   public InsertMessageResult insertMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
     final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
@@ -224,6 +230,18 @@ public class TkmsDao implements ITkmsDao {
 
   @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
+    if (deleteSqlsMap.containsKey(Pair.of(shardPartition, ids.size()))) {
+      // There will be one query only, no need for explicit transaction.
+      deleteMessages0(shardPartition, ids);
+    } else {
+      transactionsHelper.withTransaction().call(() -> {
+        deleteMessages0(shardPartition, ids);
+        return null;
+      });
+    }
+  }
+
+  protected void deleteMessages0(TkmsShardPartition shardPartition, List<Long> ids) {
     int processedCount = 0;
 
     for (int batchSize : batchSizes) {

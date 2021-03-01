@@ -1,5 +1,6 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.common.baseutils.meters.cache.IMeterCache;
 import com.transferwise.kafka.tkms.EnvironmentValidator;
 import com.transferwise.kafka.tkms.IEnvironmentValidator;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
@@ -50,8 +51,8 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsMetricsTemplate.class)
-  public TkmsMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry) {
-    return new TkmsMetricsTemplate(meterRegistry);
+  public TkmsMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry, IMeterCache meterCache) {
+    return new TkmsMetricsTemplate(meterRegistry, meterCache);
   }
 
   @Bean
