@@ -34,10 +34,11 @@ dependencies {
     implementation libraries.commonsIo
     implementation libraries.semver4j
 
+    runtimeOnly libraries.twContextStarter
     runtimeOnly libraries.twGracefulShutdown
     runtimeOnly libraries.twLeaderSelectorStarter
     runtimeOnly libraries.micrometerRegistryPrometheus
-
+    
     testCompileOnly libraries.spotbugsAnnotations
 
     testImplementation project(":tw-tkms-test-starter")
