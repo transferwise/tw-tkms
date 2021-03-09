@@ -1,14 +1,14 @@
 package com.transferwise.kafka.tkms.metrics;
 
+import com.transferwise.common.baseutils.meters.cache.IMeterCache;
+import com.transferwise.common.baseutils.meters.cache.TagsSet;
 import com.transferwise.common.context.TwContext;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Type;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import java.time.Instant;
@@ -60,7 +60,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final Tag TAG_POLL_RESULT_EMPTY = Tag.of("pollResult", "empty");
   public static final Tag TAG_POLL_RESULTS_NOT_EMPTY = Tag.of("pollResult", "not_empty");
 
-  private final MeterRegistry meterRegistry;
+  private final IMeterCache meterCache;
 
   @PostConstruct
   public void init() {
@@ -78,7 +78,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 3125 * 5});
     slos.put(COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
 
-    meterRegistry.config().meterFilter(new MeterFilter() {
+    meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
       @Override
       public DistributionStatisticConfig configure(Meter.Id id, DistributionStatisticConfig config) {
         double[] sloConfigValues = slos.get(id.getName());
@@ -104,8 +104,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyPoll(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
-    meterRegistry
-        .timer(PROXY_POLL, Tags.of(
+    meterCache
+        .timer(PROXY_POLL, TagsSet.of(
             partitionTag(shardPartition),
             pollResultTag(recordsCount > 0),
             shardTag(shardPartition)))
@@ -114,8 +114,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyMessageSendSuccess(TkmsShardPartition shardPartition, String topic, Instant insertTime) {
-    meterRegistry
-        .counter(PROXY_MESSAGE_SEND, Tags.of(
+    meterCache
+        .counter(PROXY_MESSAGE_SEND, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition),
             successTag(true),
@@ -123,8 +123,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         .increment();
 
     if (insertTime != null) {
-      meterRegistry
-          .timer(MESSAGE_INSERT_TO_ACK, Tags.of(
+      meterCache
+          .timer(MESSAGE_INSERT_TO_ACK, TagsSet.of(
               partitionTag(shardPartition),
               shardTag(shardPartition),
               topicTag(topic)))
@@ -134,8 +134,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyMessageSendFailure(TkmsShardPartition shardPartition, String topic) {
-    meterRegistry
-        .counter(PROXY_MESSAGE_SEND, Tags.of(
+    meterCache
+        .counter(PROXY_MESSAGE_SEND, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition),
             successTag(false),
@@ -146,8 +146,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   @Override
   public void recordMessageRegistering(String topic, TkmsShardPartition shardPartition) {
     TwContext currentContext = TwContext.current();
-    meterRegistry
-        .counter(INTERFACE_MESSAGE_REGISTERED, Tags.of(
+    meterCache
+        .counter(INTERFACE_MESSAGE_REGISTERED, TagsSet.of(
             entryPointGroupTag(currentContext),
             entryPointNameTag(currentContext),
             entryPointOwnerTag(currentContext),
@@ -160,8 +160,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   @Override
   public void recordDaoMessageInsert(TkmsShardPartition shardPartition, String topic) {
     TwContext currentContext = TwContext.current();
-    meterRegistry
-        .counter(DAO_MESSAGE_INSERT, Tags.of(
+    meterCache
+        .counter(DAO_MESSAGE_INSERT, TagsSet.of(
             entryPointGroupTag(currentContext),
             entryPointNameTag(currentContext),
             entryPointOwnerTag(currentContext),
@@ -173,8 +173,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordDaoPollFirstResult(TkmsShardPartition shardPartition, long startNanoTime) {
-    meterRegistry
-        .timer(DAO_POLL_FIRST_RESULT, Tags.of(
+    meterCache
+        .timer(DAO_POLL_FIRST_RESULT, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
@@ -182,13 +182,13 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordDaoPollAllResults(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
-    meterRegistry
-        .timer(DAO_POLL_ALL_RESULTS, Tags.of(
+    meterCache
+        .timer(DAO_POLL_ALL_RESULTS, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
-    meterRegistry
-        .summary(DAO_POLL_ALL_RESULTS_COUNT, Tags.of(
+    meterCache
+        .summary(DAO_POLL_ALL_RESULTS_COUNT, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(recordsCount);
@@ -196,8 +196,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordDaoPollGetConnection(TkmsShardPartition shardPartition, long startNanoTime) {
-    meterRegistry
-        .timer(DAO_POLL_GET_CONNECTION, Tags.of(
+    meterCache
+        .timer(DAO_POLL_GET_CONNECTION, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
@@ -205,8 +205,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyCycle(TkmsShardPartition shardPartition, int recordsCount, long startNanoTime) {
-    meterRegistry
-        .timer(PROXY_CYCLE, Tags.of(
+    meterCache
+        .timer(PROXY_CYCLE, TagsSet.of(
             partitionTag(shardPartition),
             pollResultTag(recordsCount > 0),
             shardTag(shardPartition)))
@@ -215,8 +215,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyKafkaMessagesSend(TkmsShardPartition shardPartition, long startNanoTime) {
-    meterRegistry
-        .timer(PROXY_KAFKA_MESSAGES_SEND, Tags.of(
+    meterCache
+        .timer(PROXY_KAFKA_MESSAGES_SEND, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
@@ -224,8 +224,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordProxyMessagesDeletion(TkmsShardPartition shardPartition, long startNanoTime) {
-    meterRegistry
-        .timer(PROXY_MESSAGES_DELETION, Tags.of(
+    meterCache
+        .timer(PROXY_MESSAGES_DELETION, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
@@ -238,8 +238,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
    */
   @Override
   public void recordDaoMessagesDeletion(TkmsShardPartition shardPartition, int batchSize) {
-    meterRegistry
-        .counter(DAO_MESSAGES_DELETION, Tags.of(
+    meterCache
+        .counter(DAO_MESSAGES_DELETION, TagsSet.of(
             batchSizeTag(batchSize),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
@@ -248,8 +248,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordStoredMessageParsing(TkmsShardPartition shardPartition, long messageParsingStartNanoTime) {
-    meterRegistry
-        .timer(STORED_MESSAGE_PARSING, Tags.of(
+    meterCache
+        .timer(STORED_MESSAGE_PARSING, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(System.nanoTime() - messageParsingStartNanoTime, TimeUnit.NANOSECONDS);
@@ -259,20 +259,20 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public void recordMessageSerialization(TkmsShardPartition shardPartition, CompressionAlgorithm algorithm, long originalSizeBytes,
       long serializedSizeBytes) {
     double ratio = (double) originalSizeBytes / serializedSizeBytes;
-    meterRegistry
-        .summary(COMPRESSION_RATIO_ACHIEVED, Tags.of(
+    meterCache
+        .summary(COMPRESSION_RATIO_ACHIEVED, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(ratio);
-    meterRegistry
-        .counter(ORIGINAL_SIZE_BYTES, Tags.of(
+    meterCache
+        .counter(ORIGINAL_SIZE_BYTES, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .increment(originalSizeBytes);
-    meterRegistry
-        .counter(SERIALIZED_SIZE_BYTES, Tags.of(
+    meterCache
+        .counter(SERIALIZED_SIZE_BYTES, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
@@ -281,8 +281,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition) {
-    meterRegistry
-        .counter(DAO_INVALID_GENERATED_KEYS_COUNT, Tags.of(
+    meterCache
+        .counter(DAO_INVALID_GENERATED_KEYS_COUNT, TagsSet.of(
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .increment();
@@ -297,7 +297,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
     Gauge.builder(METRIC_LIBRARY_INFO, () -> 1d).tags("version", version, "library", "tw-tkms")
         .description("Provides metadata about the library, for example the version.")
-        .register(meterRegistry);
+        .register(meterCache.getMeterRegistry());
   }
 
   protected Tag batchSizeTag(int batchSize) {
