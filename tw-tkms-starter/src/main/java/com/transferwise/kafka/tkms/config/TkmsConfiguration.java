@@ -24,7 +24,6 @@ import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
-import io.micrometer.core.instrument.MeterRegistry;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,8 +50,8 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsMetricsTemplate.class)
-  public TkmsMetricsTemplate tkmsMetricsTemplate(MeterRegistry meterRegistry, IMeterCache meterCache) {
-    return new TkmsMetricsTemplate(meterRegistry, meterCache);
+  public TkmsMetricsTemplate tkmsMetricsTemplate(IMeterCache meterCache) {
+    return new TkmsMetricsTemplate(meterCache);
   }
 
   @Bean

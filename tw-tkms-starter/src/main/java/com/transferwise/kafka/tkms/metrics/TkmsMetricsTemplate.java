@@ -8,7 +8,6 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Type;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
@@ -61,7 +60,6 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final Tag TAG_POLL_RESULT_EMPTY = Tag.of("pollResult", "empty");
   public static final Tag TAG_POLL_RESULTS_NOT_EMPTY = Tag.of("pollResult", "not_empty");
 
-  private final MeterRegistry meterRegistry;
   private final IMeterCache meterCache;
 
   @PostConstruct
@@ -80,7 +78,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 3125 * 5});
     slos.put(COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
 
-    meterRegistry.config().meterFilter(new MeterFilter() {
+    meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
       @Override
       public DistributionStatisticConfig configure(Meter.Id id, DistributionStatisticConfig config) {
         double[] sloConfigValues = slos.get(id.getName());
@@ -299,7 +297,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
     Gauge.builder(METRIC_LIBRARY_INFO, () -> 1d).tags("version", version, "library", "tw-tkms")
         .description("Provides metadata about the library, for example the version.")
-        .register(meterRegistry);
+        .register(meterCache.getMeterRegistry());
   }
 
   protected Tag batchSizeTag(int batchSize) {

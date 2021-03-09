@@ -97,7 +97,7 @@ public class TkmsProperties {
    * <p>Tradeoff between low latency and QPS. Due to increased QPS, very low values could actually increase the latency.
    *
    * <p>Probably biggest consideration here is how many QPS you would tolerate.
-   * 10ms means 100 queries per second per shard-partition. At the same time those empty queries will be very cheap.
+   * 25ms means up to 40 queries per second per shard-partition. At the same time those empty queries will be very cheap.
    */
   @NotNull
   private Duration pollingInterval = Duration.ofMillis(25);
