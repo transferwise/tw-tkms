@@ -122,15 +122,6 @@ public class TkmsProperties {
   private Duration proxyTimeToLive = Duration.ofMinutes(10);
 
   /**
-   * Is message compression enabled.
-   *
-   * <p>By default the message compression is enabled as we are optimizing for network and database IO.
-   * Only conceivable downside is that there will be no meaningful way for DBAs to search specific messages in the database, But on the other hand,
-   * there should be no need for that, those messages are just so short-living in the storage anyway.
-   */
-  private boolean useCompression = true;
-
-  /**
    * Safety net for validating message sizes before registering them with tw-tkms.
    *
    * <p>Be extra careful here by validating what is the corresponding value on the Kafka server side.
