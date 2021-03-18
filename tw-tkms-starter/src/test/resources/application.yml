@@ -68,3 +68,25 @@ tw-tkms:
   database-dialect: POSTGRES
 tw-tkms-test:
   test-topic: TestTopicPostgres
+
+---
+
+spring:
+  profiles: mongo
+  application.name: tw-tkms-test-mongo
+  data:
+    mongodb:
+      uri: "mongodb://${ENV_DATASOURCE_MONGODB_USERNAME}:${ENV_DATASOURCE_MONGODB_PASSWORD}\
+        @${ENV_DATASOURCE_MONGODB_SERVERS}/${ENV_DATASOURCE_MONGODB_DB}\
+        ?authSource=${ENV_DATASOURCE_MONGODB_AUTH_DB}&retryWrites=true"
+
+tw-tkms:
+  database-dialect: MONGODB
+tw-tkms-test:
+  test-topic: TestTopicMongo
+
+ENV_DATASOURCE_MONGODB_USERNAME: root
+ENV_DATASOURCE_MONGODB_PASSWORD: example
+ENV_DATASOURCE_MONGODB_SERVERS: localhost:27017
+ENV_DATASOURCE_MONGODB_DB: tkms
+ENV_DATASOURCE_MONGODB_AUTH_DB: admin

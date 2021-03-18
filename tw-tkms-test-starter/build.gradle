@@ -24,5 +24,6 @@ dependencies {
     implementation libraries.kafkaClients
     implementation libraries.springBootStarter
     implementation libraries.springJdbc
+    implementation libraries.springBootStarterMongo
     implementation libraries.twBaseUtils
 }

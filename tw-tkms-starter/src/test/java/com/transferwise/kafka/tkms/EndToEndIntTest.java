@@ -52,19 +52,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class EndToEndIntTest extends BaseIntTest {
 
   @Autowired
-  private ObjectMapper objectMapper;
+  protected ObjectMapper objectMapper;
   @Autowired
-  private ITransactionalKafkaMessageSender transactionalKafkaMessageSender;
+  protected ITransactionalKafkaMessageSender transactionalKafkaMessageSender;
   @Autowired
-  private TestMessagesListener testMessagesListener;
+  protected TestMessagesListener testMessagesListener;
   @Autowired
   private ITransactionsHelper transactionsHelper;
   @Autowired
-  private TestProperties testProperties;
+  protected TestProperties testProperties;
   @Autowired
   private ITkmsTestDao tkmsTestDao;
   @Autowired
-  private TkmsProperties tkmsProperties;
+  protected TkmsProperties tkmsProperties;
   @Autowired
   private ITkmsDao tkmsDao;
   @Autowired
@@ -124,7 +124,7 @@ public class EndToEndIntTest extends BaseIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    assertThatTablesAreEmpty();
+    await().until(() -> getTablesRowsCount() == 0);
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
@@ -199,7 +199,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
 
-      assertThatTablesAreEmpty();
+      await().until(() -> getTablesRowsCount() == 0);
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -232,7 +232,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
 
-      assertThatTablesAreEmpty();
+      await().until(() -> getTablesRowsCount() == 0);
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -268,7 +268,7 @@ public class EndToEndIntTest extends BaseIntTest {
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
       assertThat(partitionsMap.get(partition).get()).isEqualTo(n);
 
-      assertThatTablesAreEmpty();
+      await().until(() -> getTablesRowsCount() == 0);
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -329,7 +329,7 @@ public class EndToEndIntTest extends BaseIntTest {
           }
         }
       }
-      assertThatTablesAreEmpty();
+      await().until(() -> getTablesRowsCount() == 0);
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -379,7 +379,7 @@ public class EndToEndIntTest extends BaseIntTest {
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    await().until(() -> getTablesRowsCount() == 0);
   }
 
   @Test
@@ -431,7 +431,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    await().until(() -> getTablesRowsCount() == 0);
   }
 
   /**
