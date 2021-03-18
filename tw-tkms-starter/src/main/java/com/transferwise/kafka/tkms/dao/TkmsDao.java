@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class TkmsDao implements ITkmsDao {
 
-  private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
+  static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
 
   protected Map<TkmsShardPartition, String> insertMessageSqls;
 
@@ -134,7 +134,7 @@ public class TkmsDao implements ITkmsDao {
                 Long id = rs.getLong(1);
                 TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
                 InsertMessageResult insertMessageResult = results.get(idx.intValue() + i);
-                insertMessageResult.setStorageId(id);
+                insertMessageResult.setStorageId(String.valueOf(id));
                 metricsTemplate.recordDaoMessageInsert(shardPartition, tkmsMessageWithSequence.getTkmsMessage().getTopic());
                 i++;
               }
@@ -176,7 +176,7 @@ public class TkmsDao implements ITkmsDao {
 
     metricsTemplate.recordDaoMessageInsert(shardPartition, message.getTopic());
 
-    result.setStorageId(keyToLong(keyHolder));
+    result.setStorageId(String.valueOf(keyToLong(keyHolder)));
     return result;
   }
 
@@ -210,7 +210,7 @@ public class TkmsDao implements ITkmsDao {
               }
 
               MessageRecord messageRecord = new MessageRecord();
-              messageRecord.setId(rs.getLong(1));
+              messageRecord.setId(String.valueOf(rs.getLong(1)));
               messageRecord.setMessage(messageSerializer.deserialize(shardPartition, rs.getBinaryStream(2)));
 
               records.add(messageRecord);
@@ -228,7 +228,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
+  public void deleteMessages(TkmsShardPartition shardPartition, List<String> ids) {
     if (deleteSqlsMap.containsKey(Pair.of(shardPartition, ids.size()))) {
       // There will be one query only, no need for explicit transaction.
       deleteMessages0(shardPartition, ids);
@@ -240,7 +240,7 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
-  protected void deleteMessages0(TkmsShardPartition shardPartition, List<Long> ids) {
+  protected void deleteMessages0(TkmsShardPartition shardPartition, List<String> ids) {
     int processedCount = 0;
 
     for (int batchSize : batchSizes) {
@@ -251,8 +251,8 @@ public class TkmsDao implements ITkmsDao {
         int finalProcessedCount = processedCount;
         jdbcTemplate.update(sql, ps -> {
           for (int i = 0; i < batchSize; i++) {
-            Long id = ids.get(finalProcessedCount + i);
-            ps.setLong(i + 1, id);
+            String id = ids.get(finalProcessedCount + i);
+            ps.setLong(i + 1, Long.parseLong(id));
           }
         });
 

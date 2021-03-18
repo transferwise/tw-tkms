@@ -213,7 +213,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     return count;
   }
 
-  protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
+  protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, String id, TkmsMessage message) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     if (log.isDebugEnabled()) {
       log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());

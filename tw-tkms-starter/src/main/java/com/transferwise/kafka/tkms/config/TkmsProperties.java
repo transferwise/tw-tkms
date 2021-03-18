@@ -218,7 +218,8 @@ public class TkmsProperties {
 
   public enum DatabaseDialect {
     POSTGRES,
-    MYSQL
+    MYSQL,
+    MONGODB
   }
 
   @Data

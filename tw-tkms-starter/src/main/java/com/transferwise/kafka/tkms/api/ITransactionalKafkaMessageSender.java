@@ -21,7 +21,7 @@ public interface ITransactionalKafkaMessageSender {
     /**
      * The id in the database table.
      */
-    private Long storageId;
+    private String storageId;
     /**
      * Shard-partition message was put into.
      *

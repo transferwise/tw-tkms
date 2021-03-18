@@ -22,7 +22,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
   @Autowired
   private TkmsTestProperties tkmsTestProperties;
 
-  private Map<String, Map<Pair<TkmsShardPartition, Long>, RegisteredMessage>> messages = new ConcurrentHashMap<>();
+  private Map<String, Map<Pair<TkmsShardPartition, String>, RegisteredMessage>> messages = new ConcurrentHashMap<>();
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
@@ -53,7 +53,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
 
   @Override
   public List<RegisteredMessage> getRegisteredMessages(String topic) {
-    Map<Pair<TkmsShardPartition, Long>, RegisteredMessage> messagesInTopic = messages.get(topic);
+    Map<Pair<TkmsShardPartition, String>, RegisteredMessage> messagesInTopic = messages.get(topic);
 
     if (messagesInTopic == null) {
       return new ArrayList<>();

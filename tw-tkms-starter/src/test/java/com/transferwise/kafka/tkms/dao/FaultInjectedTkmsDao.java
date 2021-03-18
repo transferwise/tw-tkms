@@ -33,7 +33,7 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   }
 
   @Override
-  public void deleteMessages(TkmsShardPartition shardPartition, List<Long> records) {
+  public void deleteMessages(TkmsShardPartition shardPartition, List<String> records) {
     if (deleteMessagesFails) {
       throw new IllegalStateException("Delete messages has a bad day.");
     } else {

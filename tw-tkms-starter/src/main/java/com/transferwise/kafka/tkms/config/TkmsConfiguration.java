@@ -21,6 +21,7 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
+import com.transferwise.kafka.tkms.dao.TkmsMongoDao;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
@@ -29,7 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,9 +65,11 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsDao.class)
-  public TkmsDao tkmsDao(TkmsProperties tkmsProperties) {
+  public ITkmsDao tkmsDao(TkmsProperties tkmsProperties) {
     if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.POSTGRES) {
       return new TkmsPostgresDao();
+    } else if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.MONGODB) {
+      return new TkmsMongoDao();
     }
     return new TkmsDao();
   }

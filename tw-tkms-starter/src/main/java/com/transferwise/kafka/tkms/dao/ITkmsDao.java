@@ -18,20 +18,20 @@ public interface ITkmsDao {
   @Accessors(chain = true)
   class InsertMessageResult {
 
-    private Long storageId;
+    private String storageId;
     private int sequence;
     private TkmsShardPartition shardPartition;
   }
 
   List<MessageRecord> getMessages(TkmsShardPartition shardPartition, int maxCount);
 
-  void deleteMessages(TkmsShardPartition shardPartition, List<Long> records);
+  void deleteMessages(TkmsShardPartition shardPartition, List<String> records);
 
   @Data
   @Accessors(chain = true)
   class MessageRecord {
 
-    private long id;
+    private String id;
     private StoredMessage.Message message;
   }
 }

@@ -18,7 +18,7 @@ public interface ITkmsSentMessagesCollector {
   @Accessors(chain = true)
   class SentMessage {
 
-    private Long storageId;
+    private String storageId;
     private TkmsShardPartition shardPartition;
     private ProducerRecord<String, byte[]> producerRecord;
   }

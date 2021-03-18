@@ -251,7 +251,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
               metricsTemplate.recordProxyKafkaMessagesSend(shardPartition, kafkaSendStartNanoTime);
 
-              List<Long> successIds = new ArrayList<>();
+              List<String> successIds = new ArrayList<>();
 
               for (int i = 0; i < records.size(); i++) {
                 MessageProcessingContext context = contexts[i];
@@ -302,7 +302,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     }
   }
 
-  protected void fireMessageAcknowledgedEvent(TkmsShardPartition shardPartition, Long id, ProducerRecord<String, byte[]> producerRecord) {
+  protected void fireMessageAcknowledgedEvent(TkmsShardPartition shardPartition, String id, ProducerRecord<String, byte[]> producerRecord) {
     List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
     if (log.isDebugEnabled()) {
       log.debug("Message was acknowledged for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());

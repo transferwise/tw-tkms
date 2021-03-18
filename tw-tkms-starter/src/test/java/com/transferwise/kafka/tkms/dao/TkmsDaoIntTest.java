@@ -46,7 +46,7 @@ public class TkmsDaoIntTest extends BaseIntTest {
   @Test
   @ProductionBug("Delete worked, but batches were combined wrongly.")
   void deletingInBatchesWorks() {
-    List<Long> records = new ArrayList<>();
+    List<String> records = new ArrayList<>();
     for (int i = 0; i < 1001; i++) {
       records.add(
           tkmsDao.insertMessage(TkmsShardPartition.of(0, 0), new TkmsMessage().setTopic("ABC").setValue("ABC".getBytes(StandardCharsets.UTF_8)))

@@ -22,7 +22,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
   @Autowired
   private TkmsTestProperties tkmsTestProperties;
 
-  private Map<String, Map<Pair<TkmsShardPartition, Long>, SentMessage>> messages = new ConcurrentHashMap<>();
+  private Map<String, Map<Pair<TkmsShardPartition, String>, SentMessage>> messages = new ConcurrentHashMap<>();
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
@@ -54,7 +54,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
 
   @Override
   public List<SentMessage> getSentMessages(String topic) {
-    Map<Pair<TkmsShardPartition, Long>, SentMessage> messagesInTopic = messages.get(topic);
+    Map<Pair<TkmsShardPartition, String>, SentMessage> messagesInTopic = messages.get(topic);
 
     if (messagesInTopic == null) {
       return new ArrayList<>();

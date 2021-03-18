@@ -19,7 +19,7 @@ public interface ITkmsEventsListener {
     /**
      * Id in database table.
      */
-    private Long storageId;
+    private String storageId;
 
     /**
      * Shard-partition message was put into.
@@ -47,7 +47,7 @@ public interface ITkmsEventsListener {
     /**
      * Id in database table.
      */
-    private Long storageId;
+    private String storageId;
 
     /**
      * Shard-partition message was put into.
