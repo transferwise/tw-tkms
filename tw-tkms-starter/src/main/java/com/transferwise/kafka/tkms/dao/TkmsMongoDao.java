@@ -7,6 +7,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.mongodb.ReadConcern;
+import com.mongodb.ReadConcernLevel;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
@@ -256,8 +257,8 @@ public class TkmsMongoDao implements ITkmsDao {
           writeConcern = String.valueOf(mongoDatabase.getWriteConcern().getW());
         }
       }
-      String readConcern = mongoDatabase.getReadConcern().getLevel() != null
-          ? mongoDatabase.getReadConcern().getLevel().getValue() : "DEFAULT";
+      ReadConcernLevel readConcernLevel = mongoDatabase.getReadConcern().getLevel();
+      String readConcern = readConcernLevel != null ? readConcernLevel.getValue() : "DEFAULT";
 
       log.warn("Using concern configuration that does not guarantee consistency. readConcern={}, "
               + "writeConcern={}, readPreference={}", readConcern, writeConcern,
