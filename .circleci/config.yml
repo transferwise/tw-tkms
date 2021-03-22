@@ -68,8 +68,7 @@ jobs:
           MONGO_INITDB_ROOT_USERNAME: root
           MONGO_INITDB_ROOT_PASSWORD: example
           MONGO_INITDB_DATABASE: tkms
-        ports:
-          - "27018:27017"
+        port: 27018:27017
     steps:
       - checkout
       - restore_cache:
