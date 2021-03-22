@@ -24,7 +24,9 @@ dependencies {
     implementation libraries.springKafka
     implementation libraries.twBaseUtils
     implementation libraries.twGracefulShutdownInterfaces
-
+    implementation libraries.mongoDriverCore
+    implementation libraries.mongoDriverSync
+    implementation libraries.springBootStarterMongo
     runtimeOnly libraries.mariadbJavaClient
     runtimeOnly libraries.micrometerRegistryPrometheus
     runtimeOnly libraries.postgresql

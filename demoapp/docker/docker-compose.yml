@@ -63,6 +63,22 @@ services:
       POSTGRES_PASSWORD: example-password-change-me
     command: -c 'max_connections=200'
 
+  mongo:
+    image: mongo:4.2.8
+    hostname: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: tkms
+      MONGO_REPLICA_SET_NAME: tkms-replicaset
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongo -u root -p example --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+    command: [ "--replSet", "compliance-moneymovement-mongo-replicaset", "--bind_ip_all"]
+
 networks:
   default:
     driver: bridge
