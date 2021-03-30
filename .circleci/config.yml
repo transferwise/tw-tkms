@@ -90,7 +90,7 @@ jobs:
       - run:
           name: Check Mongo status
           command: >
-            mongo --eval "rs.status()"
+            mongo admin -u root -p example --host localhost:27017 --eval "rs.status()"
       - run:
           name: Run tests
           command: ./gradlew check --console=plain --no-daemon --stacktrace
