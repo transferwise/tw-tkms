@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms.config;
 import com.mongodb.ServerAddress;
 import com.mongodb.connection.ConnectionPoolSettings;
 import com.mongodb.connection.SocketSettings;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -23,6 +24,7 @@ public class MongoDbProperties {
   private List<String> replicaSet;
   @NotBlank
   private String rwUser;
+  @SuppressFBWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
   private char[] rwUserPassword;
   @NotBlank
   private String dbName;
