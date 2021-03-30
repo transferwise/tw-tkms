@@ -80,6 +80,18 @@ jobs:
           name: Assemble jar
           command: ./gradlew assemble --refresh-dependencies --console=plain --no-daemon
       - run:
+          name: Configure Mongo as a standalone replicaSet
+          command: >
+            sudo apt-get install -y mongodb &&
+            mongo admin -u root -p example --host localhost:27017 --eval "rs.initiate( {_id : 'rs01',members: [{ _id: 0, host: '127.0.0.1:27017', priority: 1.0}]})"
+      - run:
+          name: Wait 5 seconds for Mongo to become Master
+          command: sleep 5
+      - run:
+          name: Check Mongo status
+          command: >
+            mongo --eval "rs.status()"
+      - run:
           name: Run tests
           command: ./gradlew check --console=plain --no-daemon --stacktrace
       - save_cache:
