@@ -10,10 +10,7 @@ import com.mongodb.ReadConcern;
 import com.mongodb.ReadConcernLevel;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.IndexOptions;
-import com.mongodb.client.model.Indexes;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -23,15 +20,17 @@ import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.mutable.MutableInt;
-import org.bson.Document;
-import org.bson.conversions.Bson;
+import org.apache.commons.lang3.tuple.Pair;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,14 +48,16 @@ public class TkmsMongoDao implements ITkmsDao {
   protected MongoTemplate mongoTemplate;
   @Autowired
   protected ITkmsMetricsTemplate metricsTemplate;
+  private static final Map<Pair<Integer, Integer>, String> COLLECTIONS = new HashMap<>();
 
   @PostConstruct
   public void init() {
     checkDbConcernSettings(mongoTemplate.getDb());
-    createCollections();
+
+    generateCollectionNames();
   }
 
-  private void createCollections() {
+  private void generateCollectionNames() {
     final int shardsCount = properties.getShardsCount();
     final int partitionCount = properties.getPartitionsCount();
     final String tableName = properties.getTableBaseName();
@@ -64,32 +65,17 @@ public class TkmsMongoDao implements ITkmsDao {
     for (int currentShard = 0; currentShard < shardsCount; currentShard++) {
       for (int currentPartition = 0; currentPartition < partitionCount; currentPartition++) {
         String collectionName = getCollectionName(tableName, currentShard, currentPartition);
-        if (!mongoTemplate.collectionExists(collectionName)) {
-          mongoTemplate.createCollection(collectionName);
-          log.info("Created MongoDB collection [{}] to be used for tkms", collectionName);
-          createIndex(collectionName);
-        }
+        COLLECTIONS.put(Pair.of(currentShard, currentPartition), collectionName);
       }
     }
   }
 
   private String getCollectionName(final TkmsShardPartition shardPartition) {
-    return getCollectionName(
-        properties.getTableBaseName(), shardPartition.getShard(), shardPartition.getPartition());
+    return COLLECTIONS.get(Pair.of(shardPartition.getShard(), shardPartition.getPartition()));
   }
 
   private String getCollectionName(final String tableName, int shard, int partition) {
     return tableName + "_" + shard + "_" + partition;
-  }
-
-  private void createIndex(String collectionName) {
-    MongoCollection<Document> mongoCollection = mongoTemplate.getCollection(collectionName);
-    IndexOptions indexOptions = new IndexOptions().background(true);
-    Bson index = Indexes.compoundIndex(
-        Indexes.text(collectionName + ".topic"),
-        Indexes.text(collectionName + ".key"));
-    mongoCollection.createIndex(index, indexOptions);
-    log.info("Created index '{}' on mongo DB collection '{}'", index, collectionName);
   }
 
   @Transactional(rollbackFor = Exception.class)
@@ -102,7 +88,7 @@ public class TkmsMongoDao implements ITkmsDao {
 
     metricsTemplate.recordDaoMessageInsert(shardPartition, message.getTopic());
 
-    result.setStorageId(savedOutgoingMessage.getId().toString());
+    result.setStorageId(savedOutgoingMessage.id().toString());
     return result;
   }
 
@@ -130,7 +116,7 @@ public class TkmsMongoDao implements ITkmsDao {
 
         int i = 0;
         for (OutgoingMessage outgoingMessage : savedOutgoingMessages) {
-          String id = outgoingMessage.getId().toString();
+          String id = outgoingMessage.id().toString();
           TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
           InsertMessageResult insertMessageResult = results.get(idx.intValue() + i);
           insertMessageResult.setStorageId(id);
@@ -138,8 +124,8 @@ public class TkmsMongoDao implements ITkmsDao {
           i++;
         }
         if (i != batchSize) {
-          log.info("Invalid generated keys count: batchSize was " + batchSize + " but we received " + i + " keys.");
           metricsTemplate.recordDaoInvalidGeneratedKeysCount(shardPartition);
+          throw new IllegalStateException("Invalid generated keys count: batchSize was " + batchSize + " but we received " + i + " keys.");
         }
         idx.add(batchSize);
       }
@@ -152,47 +138,45 @@ public class TkmsMongoDao implements ITkmsDao {
     if (!isEmpty(tkmsMessage.getHeaders())) {
       tkmsMessage.getHeaders().forEach(header ->
           messageHeaders.add(
-              MessageHeader.builder()
+              new MessageHeader()
                   .key(header.getKey())
-                  .value(new Binary(header.getValue()))
-                  .build()));
+                  .value(new Binary(header.getValue()))));
     }
 
-    return OutgoingMessage.builder()
+    return new OutgoingMessage()
         .topic(tkmsMessage.getTopic())
         .key(tkmsMessage.getKey())
         .headers(messageHeaders)
         .partition(tkmsMessage.getPartition())
         .timestamp(tkmsMessage.getTimestamp())
         .insertTimestamp(Instant.now())
-        .value(new Binary(tkmsMessage.getValue()))
-        .build();
+        .value(new Binary(tkmsMessage.getValue()));
   }
 
   private StoredMessage.Message toStoredMessage(final OutgoingMessage outgoingMessage) {
 
-    List<StoredMessage.Header> headerList = outgoingMessage.getHeaders().stream()
+    List<StoredMessage.Header> headerList = outgoingMessage.headers().stream()
         .map(messageHeader ->
             StoredMessage.Header.newBuilder()
-                .setKey(messageHeader.getKey())
-                .setValue(ByteString.copyFrom(messageHeader.getValue().getData())).build())
+                .setKey(messageHeader.key())
+                .setValue(ByteString.copyFrom(messageHeader.value().getData())).build())
         .collect(Collectors.toList());
 
     StoredMessage.Message.Builder builder = StoredMessage.Message.newBuilder();
     builder
-        .setTopic(outgoingMessage.getTopic())
-        .setValue(ByteString.copyFrom(outgoingMessage.getValue().getData()))
+        .setTopic(outgoingMessage.topic())
+        .setValue(ByteString.copyFrom(outgoingMessage.value().getData()))
         .setHeaders(StoredMessage.Headers.newBuilder().addAllHeaders(headerList).build())
-        .setInsertTimestamp(UInt64Value.newBuilder().setValue(outgoingMessage.getInsertTimestamp().toEpochMilli()).build());
+        .setInsertTimestamp(UInt64Value.newBuilder().setValue(outgoingMessage.insertTimestamp().toEpochMilli()).build());
 
-    if (outgoingMessage.getPartition() != null) {
-      builder.setPartition(UInt32Value.newBuilder().setValue(outgoingMessage.getPartition()).build());
+    if (outgoingMessage.partition() != null) {
+      builder.setPartition(UInt32Value.newBuilder().setValue(outgoingMessage.partition()).build());
     }
-    if (outgoingMessage.getKey() != null) {
-      builder.setKey(outgoingMessage.getKey());
+    if (outgoingMessage.key() != null) {
+      builder.setKey(outgoingMessage.key());
     }
-    if (outgoingMessage.getTimestamp() != null) {
-      builder.setTimestamp(UInt64Value.newBuilder().setValue(outgoingMessage.getTimestamp().toEpochMilli()).build());
+    if (outgoingMessage.timestamp() != null) {
+      builder.setTimestamp(UInt64Value.newBuilder().setValue(outgoingMessage.timestamp().toEpochMilli()).build());
     }
     return builder.build();
   }
@@ -211,7 +195,7 @@ public class TkmsMongoDao implements ITkmsDao {
 
         outgoingMessages.forEach(outgoingMessage -> {
           MessageRecord messageRecord = new MessageRecord();
-          messageRecord.setId(outgoingMessage.getId().toString());
+          messageRecord.setId(outgoingMessage.id().toString());
           messageRecord.setMessage(toStoredMessage(outgoingMessage));
           records.add(messageRecord);
         });
@@ -260,14 +244,18 @@ public class TkmsMongoDao implements ITkmsDao {
       ReadConcernLevel readConcernLevel = mongoDatabase.getReadConcern().getLevel();
       String readConcern = readConcernLevel != null ? readConcernLevel.getValue() : "DEFAULT";
 
-      log.warn("Using concern configuration that does not guarantee consistency. readConcern={}, "
-              + "writeConcern={}, readPreference={}", readConcern, writeConcern,
-          mongoDatabase.getReadPreference().getName());
+      StringBuilder errorMessage = new StringBuilder()
+          .append("Using concern configuration that does not guarantee consistency: ")
+          .append("readConcern=").append(readConcern)
+          .append(", writeConcern=").append(writeConcern)
+          .append(", readPreference=").append(mongoDatabase.getReadPreference().getName());
+      throw new IllegalStateException(errorMessage.toString());
     }
   }
 
-  @Builder
+  @Accessors(fluent = true)
   @Getter
+  @Setter
   private static class OutgoingMessage {
     private ObjectId id;
     /* hashed shardKey composed of topic and key */
@@ -280,8 +268,9 @@ public class TkmsMongoDao implements ITkmsDao {
     private List<MessageHeader> headers;
   }
 
-  @Builder
+  @Accessors(fluent = true)
   @Getter
+  @Setter
   private static class MessageHeader {
     public String key;
     public Binary value;

@@ -1,15 +1,21 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.MongoConfig;
+import com.transferwise.kafka.tkms.config.MongoDbProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Ignore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles(profiles = {"test", "mongo"})
+@Import(MongoConfig.class)
+@EnableConfigurationProperties(value = MongoDbProperties.class)
 @Slf4j
 public class MongoEndToEndIntTest extends EndToEndIntTest {
 

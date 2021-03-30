@@ -36,6 +36,9 @@ dependencies {
     implementation libraries.mongoDriverCore
     implementation libraries.mongoDriverSync
     implementation libraries.springBootStarterMongo
+    implementation platform(libraries.mongockBom)
+    implementation libraries.mongockSpringV5
+    implementation libraries.mongockSprintDataV3Driver
 
     runtimeOnly libraries.twContextStarter
     runtimeOnly libraries.twGracefulShutdown

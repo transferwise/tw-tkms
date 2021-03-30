@@ -39,8 +39,11 @@ ext {
             springBootStarterWeb            : 'org.springframework.boot:spring-boot-starter-web',
             springJdbc                      : 'org.springframework:spring-jdbc',
             springKafka                     : 'org.springframework.kafka:spring-kafka',
-            springBootStarterMongo          : 'org.springframework.boot:spring-boot-starter-data-mongodb:2.3.4.RELEASE',
+            springBootStarterMongo          : 'org.springframework.boot:spring-boot-starter-data-mongodb',
             mongoDriverCore                 : 'org.mongodb:mongodb-driver-core:4.1.0',
-            mongoDriverSync                 : 'org.mongodb:mongodb-driver-sync:4.1.0'
+            mongoDriverSync                 : 'org.mongodb:mongodb-driver-sync:4.1.0',
+            mongockBom                      : 'com.github.cloudyrock.mongock:mongock-bom:4.3.7',
+            mongockSpringV5                 : 'com.github.cloudyrock.mongock:mongock-spring-v5',
+            mongockSprintDataV3Driver       : 'com.github.cloudyrock.mongock:mongodb-springdata-v3-driver'
     ]
 }
