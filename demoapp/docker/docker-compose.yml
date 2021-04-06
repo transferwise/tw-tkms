@@ -52,7 +52,18 @@ services:
     command: "mysqld --max_connections=200 --ssl=0
     --innodb_buffer_pool_size=2g
     --character-set-server=utf8mb4
-    --collation-server=utf8mb4_unicode_ci --transaction-isolation=READ-COMMITTED --innodb_autoinc_lock_mode=2"
+    --collation-server=utf8mb4_unicode_ci --transaction-isolation=READ-COMMITTED --innodb_autoinc_lock_mode=2
+    --innodb_flush_neighbors=0
+    --log_bin=1
+    --binlog_format=ROW
+    --sync_binlog=1
+    --innodb_sync_array_size=16
+    --innodb_log_file_size=10g
+    --query_cache_type=0
+    --innodb_adaptive_hash_index=0
+    --binlog_commit_wait_count=10
+    --binlog_commit_wait_usec=1000000"
+
   #    --innodb_flush_log_at_trx_commit=1 --innodb_flush_method=O_DIRECT_NO_FSYNC
 
   postgres:
@@ -63,9 +74,3 @@ services:
       POSTGRES_PASSWORD: example-password-change-me
     command: -c 'max_connections=200'
 
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 14.9.0.0/24
