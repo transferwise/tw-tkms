@@ -4,8 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2021-04-06
+### Fixed
+* For leader locks, when `tw-tkms.group-id` is missing, we now correctly fall back to `spring.application.name`.
+* Partition tag is correctly set for metrics.
+
+### Changed
+* Mariadb SELECT query has index hint, in case table stats are wrong and not faked as per documentation.
+
+### Added
+* `tw-tkms.min-polling-interval` for globally limiting polling frequency in some environments.
+
 ## [0.11.0] - 2021-03-16
-### Changed.
+### Changed
 * Removed redundant configuration parameter of `useCompression`.
 
 ## [0.10.0] - 2021-03-01

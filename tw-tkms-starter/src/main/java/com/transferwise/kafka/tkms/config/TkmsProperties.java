@@ -129,6 +129,13 @@ public class TkmsProperties {
   private int maximumMessageBytes = 10485760;
 
   /**
+   * Minimum polling interval, overrides all other relevant settings.
+   * 
+   * <p>Can be useful in development environments, where environment owner wants to restrict resource usages globally.
+   */
+  private Duration minPollingInterval;
+
+  /**
    * List topics used by the lib.
    *
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.

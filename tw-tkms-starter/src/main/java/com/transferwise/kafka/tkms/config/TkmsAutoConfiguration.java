@@ -4,6 +4,8 @@ import com.transferwise.common.baseutils.concurrency.DefaultExecutorServicesProv
 import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.meters.cache.IMeterCache;
 import com.transferwise.common.baseutils.meters.cache.MeterCache;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
+import com.transferwise.common.baseutils.transactionsmanagement.TransactionsHelper;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -26,5 +28,11 @@ public class TkmsAutoConfiguration {
   @ConditionalOnMissingBean(IMeterCache.class)
   public IMeterCache twDefaultMeterCache(MeterRegistry meterRegistry) {
     return new MeterCache(meterRegistry);
+  }
+  
+  @Bean
+  @ConditionalOnMissingBean(ITransactionsHelper.class)
+  public TransactionsHelper twTransactionsHelper() {
+    return new TransactionsHelper();
   }
 }

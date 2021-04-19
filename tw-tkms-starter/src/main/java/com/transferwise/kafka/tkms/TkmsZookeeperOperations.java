@@ -1,6 +1,5 @@
 package com.transferwise.kafka.tkms;
 
-import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import java.util.HashMap;
@@ -32,18 +31,16 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
     if (StringUtils.isEmpty(groupId)) {
       throw new IllegalStateException("`tw-tkms.group-id` nor `spring.application.name` is specified.");
     }
-    ExceptionUtils.doUnchecked(() -> {
-      String prefix = "/tw/tkms/" + properties.getGroupId() + "/";
-      String pollerLockPrefix = prefix + "poller/lock/";
+    String prefix = "/tw/tkms/" + groupId + "/";
+    String pollerLockPrefix = prefix + "poller/lock/";
 
-      log.info("Using lock pattern of '{}'.", pollerLockPrefix + "{shard}/{partition}");
+    log.info("Using lock pattern of '{}'.", pollerLockPrefix + "{shard}/{partition}");
 
-      for (int s = 0; s < properties.getShardsCount(); s++) {
-        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-          lockNodePathMap.put(TkmsShardPartition.of(s, p), pollerLockPrefix + s + "/" + p);
-        }
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
+        lockNodePathMap.put(TkmsShardPartition.of(s, p), pollerLockPrefix + s + "/" + p);
       }
-    });
+    }
   }
 
   @Override

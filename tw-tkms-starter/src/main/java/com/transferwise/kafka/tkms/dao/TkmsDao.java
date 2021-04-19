@@ -268,7 +268,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   protected String getSelectSql(TkmsShardPartition shardPartition) {
-    return "select id, message from " + getTableName(shardPartition) + " order by id limit ?";
+    return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) order by id limit ?";
   }
 
   /**

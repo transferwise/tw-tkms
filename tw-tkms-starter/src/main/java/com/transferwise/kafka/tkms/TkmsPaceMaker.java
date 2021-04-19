@@ -12,7 +12,16 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
 
   @Override
   public void doSmallPause(int shard) {
-    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getPollingInterval(shard).toMillis()));
+    ExceptionUtils.doUnchecked(() -> {
+      Duration minPollingInterval = properties.getMinPollingInterval();
+      Duration shardPollingInterval = properties.getPollingInterval(shard);
+
+      if (minPollingInterval != null && minPollingInterval.compareTo(shardPollingInterval) > 0) {
+        Thread.sleep(minPollingInterval.toMillis());
+      } else {
+        Thread.sleep(shardPollingInterval.toMillis());
+      }
+    });
   }
 
   @Override
