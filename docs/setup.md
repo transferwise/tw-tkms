@@ -9,9 +9,12 @@ implementation 'com.transferwise.kafka:tw-tkms-starter'
 
 Configuration can be tweaked according to `com.transferwise.kafka.tkms.config.TkmsProperties`. Usually there is no need to change the defaults.
 
-However, if you are using Postgres database, you need to change
-```yaml
-tw-tkms.database-dialect: POSTGRES
+Minumum required configuration is:
+```
+tw-tkms:
+  database-dialect: POSTGRES # only required if using Postgres, Mysql is default
+  environment:
+    previous-version: $version # use current lib version for a new ingration
 ```
 
 Of course you need to create tables in the database as well.
