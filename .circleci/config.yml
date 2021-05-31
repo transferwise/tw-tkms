@@ -3,7 +3,7 @@ version: 2
 references:
   container_config: &container_config
     docker:
-      - image: arti.tw.ee/circle_openjdk8:latest
+      - image: arti.tw.ee/circle_openjdk11
         user: circleci
     resource_class: small
     environment:
@@ -23,11 +23,11 @@ jobs:
       KAFKA_TCP_9092: 9092
       ZOOKEEPER_TCP_2181: 2181
     docker:
-      - image: arti.tw.ee/circle_openjdk13
+      - image: arti.tw.ee/circle_openjdk11
         user: circleci
         environment:
           TERM: vt100
-      - image: mariadb:10.3
+      - image: mariadb:10.4
         command: ['--ssl=0',
                   '--character-set-server=utf8mb4',
                   '--innodb_flush_log_at_trx_commit=0',
