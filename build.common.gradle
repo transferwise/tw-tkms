@@ -10,9 +10,7 @@ ext.artifactoryUser = project.hasProperty("artifactoryUser") ? project.artifacto
 ext.artifactoryPassword = project.hasProperty("artifactoryPassword") ? project.artifactoryPassword : System.env.ARTIFACTORY_PASSWORD as String
 
 repositories {
-    maven {
-        url 'https://arti.tw.ee/artifactory/libs-release'
-    }
+    mavenCentral()
     mavenLocal()
 }
 
@@ -33,9 +31,10 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
     withSourcesJar()
+    withJavadocJar()
 }
 
 compileJava {

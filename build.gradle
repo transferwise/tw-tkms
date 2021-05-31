@@ -1,27 +1,21 @@
 buildscript {
-    repositories {
-        maven {
-            url 'https://arti.tw.ee/artifactory/libs-release'
-        }
-        mavenLocal()
-    }
     dependencies {
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.15'
-        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.13.4"
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.16'
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.14.3"
     }
 }
 
 plugins {
     id 'idea'
-    id 'org.springframework.boot' version '2.3.9.RELEASE' apply false
-    id "com.github.spotbugs" version "4.6.2" apply false
+    id 'org.springframework.boot' version '2.3.11.RELEASE' apply false
+    id "com.github.spotbugs" version "4.7.1" apply false
     id "at.zierler.yamlvalidator" version "1.5.0"
 }
 
 idea.project {
     vcs = 'Git'
-    languageLevel = JavaVersion.VERSION_1_8
-    targetBytecodeVersion = JavaVersion.VERSION_1_8
+    languageLevel = JavaVersion.VERSION_11
+    targetBytecodeVersion = JavaVersion.VERSION_11
 }
 
 yamlValidator {

@@ -1,4 +1,5 @@
 apply plugin: "maven-publish"
+apply plugin: "signing"
 
 ext.projectGitHubRepoName = "tw-tkms"
 ext.projectScmUrl = "https://github.com/transferwise/${projectGitHubRepoName}"
@@ -43,12 +44,34 @@ publishing {
         }
     }
 
+    if (System.getenv("OPENSOURCE_PUBLISH") == "true") {
+        signing {
+            sign publishing.publications.mavenJava
+        }
+    }
+
+    javadoc {
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption('html5', true)
+        }
+    }
+
     repositories {
-        maven {
-            url "https://arti.tw.ee/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
-            credentials {
-                username = artifactoryUser
-                password = artifactoryPassword
+        if (System.getenv("OPENSOURCE_PUBLISH") == "true") {
+            maven {
+                url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+                credentials {
+                    username sonatypeUsername
+                    password sonatypePassword
+                }
+            }
+        } else {
+            maven {
+                url "https://arti.tw.ee/artifactory/libs-${project.version.endsWith('-SNAPSHOT') ? 'snapshot' : 'release'}-local"
+                credentials {
+                    username = artifactoryUser
+                    password = artifactoryPassword
+                }
             }
         }
     }
