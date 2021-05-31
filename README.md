@@ -1,7 +1,7 @@
 # TransferWise Transactional Kafka Message Sender
 ![Apache 2](https://img.shields.io/hexpm/l/plug.svg)
 ![Java 11](https://img.shields.io/badge/Java-11-blue.svg)
-![Maven Central](https://badgen.net/maven/v/maven-central/com.transferwise.common/tw-tkms-starter)
+![Maven Central](https://badgen.net/maven/v/maven-central/com.transferwise.kafka/tw-tkms-starter)
 
 A library for sending Kafka messages according to the [Transactional Outbox Pattern](https://microservices.io/patterns/data/transactional-outbox.html)
 
