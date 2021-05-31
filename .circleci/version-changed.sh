@@ -11,7 +11,7 @@
 
     echo "Checking ${libraryName}:${libraryVersion} in artifactory."
 
-    artifactPath="https://arti.tw.ee/artifactory/libs-release-local/com/transferwise/common/${libraryName}/${libraryVersion}/${libraryName}-${libraryVersion}.jar"
+    artifactPath="https://arti.tw.ee/artifactory/libs-release-local/com/transferwise/kafka/${libraryName}/${libraryVersion}/${libraryName}-${libraryVersion}.jar"
     echo "${artifactPath}"
     artifactStatus=$(curl -s -o /dev/null -I -w "%{http_code}" "${artifactPath}")
 
