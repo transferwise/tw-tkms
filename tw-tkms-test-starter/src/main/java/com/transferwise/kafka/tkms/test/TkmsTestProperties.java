@@ -6,5 +6,6 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class TkmsTestProperties {
+
   private int maxCollectedMessages = 100_000;
 }

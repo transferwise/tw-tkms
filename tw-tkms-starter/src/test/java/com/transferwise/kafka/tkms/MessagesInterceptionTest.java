@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
-public class MessagesInterceptionTest extends BaseIntTest {
+class MessagesInterceptionTest extends BaseIntTest {
 
   @Autowired
   private TestMessagesInterceptor testMessagesInterceptor;

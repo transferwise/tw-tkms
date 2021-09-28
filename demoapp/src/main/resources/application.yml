@@ -36,6 +36,9 @@ tw-tkms:
     bootstrap.servers: "localhost:9092"
   environment:
     previous-version: 0.7.3
+  earliest-visible-messages:
+    enabled: false
+    look-back-period: 10s
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 10000

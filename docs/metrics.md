@@ -18,6 +18,14 @@ Notation used: `metric_name {tag1, tag2, tag3...}`
 
 `tw_library_info {library, version}`
 
+`tw_tkms_proxy_earliest_message_id {shard, partition}`
+
+`tw_tkms_dao_rows_in_table_stats {shard, partition}`
+
+`tw_tkms_dao_rows_in_index_stats {shard, partition}`
+
+`tw_tkms_dao_approximate_messages_count {shard, partition}`
+
 ### Summaries
 
 `tw_tkms_dao_poll_all_results_count {shard, partition}`

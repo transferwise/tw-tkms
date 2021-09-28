@@ -49,7 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
 @Slf4j
-public class EndToEndIntTest extends BaseIntTest {
+class EndToEndIntTest extends BaseIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -85,7 +85,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
+  void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
     var messagePart = "Hello World!";
     int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
@@ -99,7 +99,7 @@ public class EndToEndIntTest extends BaseIntTest {
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
       TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
       if (receivedEvent.getMessage().equals(message)) {
-        assertThat(cr.headers().toArray().length).isEqualTo(1);
+        assertThat(cr.headers().toArray()).hasSize(1);
         org.apache.kafka.common.header.Header header = cr.headers().toArray()[0];
         assertThat(header.key()).isEqualTo("x-tw-criticality");
         assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo("PrettyLowLol");
@@ -130,7 +130,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testExactlyOnceDelivery() throws Exception {
+  void testExactlyOnceDelivery() throws Exception {
     String message = "Hello World!";
     int threadsCount = 20;
     int batchesCount = 20;
@@ -206,7 +206,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatMessagesWithSameKeyEndUpInOnePartition() throws Exception {
+  void testThatMessagesWithSameKeyEndUpInOnePartition() throws Exception {
     String message = "Hello World!";
     String key = "GrailsRocks";
     int n = 20;
@@ -239,7 +239,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatMessagesWithSamePartitionEndUpInOnePartition() throws Exception {
+  void testThatMessagesWithSamePartitionEndUpInOnePartition() throws Exception {
     String message = "Hello World!";
     int partition = 3;
     int n = 20;
@@ -275,7 +275,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
+  void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
     String message = "Hello World!";
     int entitiesCount = 100;
     int entityEventsCount = 100;
@@ -337,14 +337,14 @@ public class EndToEndIntTest extends BaseIntTest {
 
   @Test
   @SneakyThrows
-  public void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
+  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
     assertThatThrownBy(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
         .hasMessageContaining("Topic NotExistingTopic not present in metadata");
   }
 
   @Test
-  public void sendingMultipleMessagesWorks() {
+  void sendingMultipleMessagesWorks() {
     byte[] value = "{\"message\" : \"Hello World!\"}".getBytes(StandardCharsets.UTF_8);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -364,7 +364,7 @@ public class EndToEndIntTest extends BaseIntTest {
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
     assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
     assertThat(sendMessagesResult.getResults().get(1).getShardPartition().getShard()).isEqualTo(1);
-    assertThat(sendMessagesResult.getResults().get(2).getShardPartition().getShard()).isEqualTo(0);
+    assertThat(sendMessagesResult.getResults().get(2).getShardPartition().getShard()).isZero();
 
     try {
       await().until(() -> receivedCount.get() == 4);
@@ -383,7 +383,7 @@ public class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  public void testThatSendingLargeMessagesWillNotCauseAnIssue() {
+  void testThatSendingLargeMessagesWillNotCauseAnIssue() {
     StringBuilder sb = new StringBuilder();
     // We generate message as large as maximum allowed bytes but this is set up to fail, as there is additional information
     // added by kafka producer.
@@ -438,7 +438,7 @@ public class EndToEndIntTest extends BaseIntTest {
    * If `TkmsStorageToKafkaProxy has some important lines switched around "lastId" logic, the test will start failing.
    */
   @Test
-  public void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() throws Exception {
+  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() throws Exception {
     String message = "Hello World!";
     int messagesCount = 1000;
 
@@ -509,7 +509,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
     var message = StringUtils.repeat("Hello World!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -522,7 +522,7 @@ public class EndToEndIntTest extends BaseIntTest {
       }
     });
 
-    Counter counter = meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
+    Counter counter = meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
     double startingSerializedSizeBytes = counter == null ? 0 : counter.count();
 
     testMessagesListener.registerConsumer(messageCounter);
@@ -535,7 +535,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       await().until(() -> receivedCount.get() > 0);
 
-      assertThat(meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
+      assertThat(meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
           - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());

@@ -9,6 +9,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -21,16 +22,23 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * READ_UNCOMMITTED isolation level is to speed up queries against information schema in databases with high number of tenants. E.g. Custom
+ * environments.
+ */
 @Slf4j
 public class TkmsDao implements ITkmsDao {
 
@@ -59,10 +67,25 @@ public class TkmsDao implements ITkmsDao {
 
   protected JdbcTemplate jdbcTemplate;
 
+  protected String currentSchema;
+
   @PostConstruct
   public void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
+    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> currentSchema = getCurrentSchema());
+
+    createInsertMessagesSqls();
+    createGetMessagesSqls();
+    createDeleteMessagesSqls();
+
+    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
+      validateSchema();
+      validateEngineSpecificSchema();
+    });
+  }
+
+  protected void createInsertMessagesSqls() {
     Map<TkmsShardPartition, String> map = new HashMap<>();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
@@ -71,7 +94,10 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     insertMessageSqls = ImmutableMap.copyOf(map);
+  }
 
+  protected void createGetMessagesSqls() {
+    Map<TkmsShardPartition, String> map = new HashMap<>();
     map.clear();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
@@ -80,7 +106,9 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     getMessagesSqls = ImmutableMap.copyOf(map);
+  }
 
+  protected void createDeleteMessagesSqls() {
     deleteSqlsMap = new HashMap<>();
 
     for (int s = 0; s < properties.getShardsCount(); s++) {
@@ -100,6 +128,49 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
+  }
+
+  protected void validateSchema() {
+    if (!doesEarliestVisibleMessagesTableExist()) {
+      for (int s = 0; s < properties.getShardsCount(); s++) {
+        var earliestVisibleMessages = properties.getEarliestVisibleMessages(s);
+        if (earliestVisibleMessages.isEnabled()) {
+          throw new IllegalStateException("Earliest visible messages table does not exist for shard " + s + ".");
+        }
+      }
+    } else {
+      for (int s = 0; s < properties.getShardsCount(); s++) {
+        var earliestVisibleMessages = properties.getEarliestVisibleMessages(s);
+        if (earliestVisibleMessages.isEnabled()) {
+          int partitions = properties.getPartitionsCount(s);
+          for (int p = 0; p < partitions; p++) {
+            TkmsShardPartition shardPartition = TkmsShardPartition.of(s, p);
+            if (getEarliestMessageId(shardPartition) == null) {
+              insertEarliestMessageId(shardPartition);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  protected void validateEngineSpecificSchema() {
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+
+        long rowsInTableStats = getRowsFromTableStats(sp);
+        long rowsInIndexStats = getRowsFromIndexStats(sp);
+
+        if (rowsInTableStats < 100000 || rowsInIndexStats < 100000) {
+          log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats
+              + ", rows in index stats is " + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
+        }
+
+        metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
+        metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
+      }
+    }
   }
 
   @Transactional(rollbackFor = Exception.class)
@@ -190,7 +261,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, int maxCount) {
+  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount) {
     return ExceptionUtils.doUnchecked(() -> {
       long startNanoTime = System.nanoTime();
 
@@ -199,8 +270,10 @@ public class TkmsDao implements ITkmsDao {
         metricsTemplate.recordDaoPollGetConnection(shardPartition, startNanoTime);
         startNanoTime = System.nanoTime();
         int i = 0;
+
         try (PreparedStatement ps = con.prepareStatement(getMessagesSqls.get(shardPartition))) {
-          ps.setLong(1, maxCount);
+          ps.setLong(1, earliestMessageId);
+          ps.setLong(2, maxCount);
 
           List<MessageRecord> records = new ArrayList<>();
           try (ResultSet rs = ps.executeQuery()) {
@@ -240,6 +313,89 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
+  @Override
+  public Long getEarliestMessageId(TkmsShardPartition shardPartition) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+    var ids =
+        jdbcTemplate.queryForList("select message_id from " + earliestVisibleMessages.getTableName() + " where shard=? and part=?", Long.class,
+            shardPartition.getShard(), shardPartition.getPartition());
+    return ids.isEmpty() ? null : ids.get(0);
+  }
+
+  @Override
+  public void saveEarliestMessageId(TkmsShardPartition shardPartition, long messageId) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+
+    if (jdbcTemplate
+        .update("update " + earliestVisibleMessages.getTableName() + " set message_id=? where shard=? and part=?", messageId,
+            shardPartition.getShard(), shardPartition.getPartition()) != 1) {
+      throw new IllegalStateException("Could not update earliest visible message id for '" + shardPartition + "'.");
+    }
+  }
+
+  @Override
+  public boolean insertEarliestMessageId(TkmsShardPartition shardPartition) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+    try {
+      jdbcTemplate.update("insert into " + earliestVisibleMessages.getTableName() + " (shard, part, message_id) values "
+          + "(?,?,?)", shardPartition.getShard(), shardPartition.getPartition(), -1L);
+    } catch (DataIntegrityViolationException e) {
+      return false;
+    }
+    return true;
+  }
+
+  @Override
+  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
+  @MonitoringQuery
+  public long getApproximateMessagesCount(TkmsShardPartition sp) {
+    List<Long> rows =
+        jdbcTemplate.queryForList("select table_rows from information_schema.tables where table_schema=? and table_name = ?", Long.class,
+            getSchemaName(sp), getTableNameWithoutSchema(sp));
+
+    return rows.isEmpty() ? -1 : rows.get(0);
+  }
+
+  @Override
+  @MonitoringQuery
+  public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
+    List<Long> exists = jdbcTemplate.queryForList("select 1 from " + getTableName(sp) + " where id < ? limit 1", Long.class, messageId);
+    return !exists.isEmpty();
+  }
+
+  protected boolean doesEarliestVisibleMessagesTableExist() {
+    String schema = currentSchema;
+    String table = properties.getEarliestVisibleMessages().getTableName();
+    if (StringUtils.contains(table, ".")) {
+      schema = StringUtils.substringBefore(table, ".");
+      table = StringUtils.substringAfter(table, ".");
+    }
+
+    return !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
+        schema, table).isEmpty();
+  }
+
+  protected long getRowsFromTableStats(TkmsShardPartition shardPartition) {
+    List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?",
+        Long.class, getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+
+    if (stats.isEmpty()) {
+      return -1;
+    }
+    return stats.get(0);
+  }
+
+  protected long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
+    List<Long> stats =
+        jdbcTemplate.queryForList("select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and "
+            + "table_name=?", Long.class, getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+
+    if (stats.isEmpty()) {
+      return -1;
+    }
+    return stats.get(0);
+  }
+
   protected void deleteMessages0(TkmsShardPartition shardPartition, List<Long> ids) {
     int processedCount = 0;
 
@@ -268,7 +424,7 @@ public class TkmsDao implements ITkmsDao {
   }
 
   protected String getSelectSql(TkmsShardPartition shardPartition) {
-    return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) order by id limit ?";
+    return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) where id >= ? order by id limit ?";
   }
 
   /**
@@ -280,4 +436,25 @@ public class TkmsDao implements ITkmsDao {
     return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
 
+  protected String getTableNameWithoutSchema(TkmsShardPartition shardPartition) {
+    String tableName = getTableName(shardPartition);
+
+    if (StringUtils.contains(tableName, ".")) {
+      return StringUtils.substringAfter(tableName, ".");
+    }
+    return tableName;
+  }
+
+  protected String getSchemaName(TkmsShardPartition shardPartition) {
+    String tableName = getTableName(shardPartition);
+
+    if (StringUtils.contains(tableName, ".")) {
+      return StringUtils.substringBefore(tableName, ".");
+    }
+    return currentSchema;
+  }
+
+  protected String getCurrentSchema() {
+    return jdbcTemplate.queryForObject("select DATABASE()", String.class);
+  }
 }

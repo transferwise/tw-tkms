@@ -2,9 +2,11 @@ package com.transferwise.kafka.tkms.api;
 
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import io.micrometer.core.instrument.Tag;
+import lombok.EqualsAndHashCode;
 import lombok.Value;
 
 @Value
+@EqualsAndHashCode(of = {"shard", "partition"})
 public class TkmsShardPartition {
 
   private int shard;

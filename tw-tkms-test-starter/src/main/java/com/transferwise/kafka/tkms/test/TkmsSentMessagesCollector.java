@@ -33,7 +33,7 @@ public class TkmsSentMessagesCollector implements ITkmsSentMessagesCollector, IT
           "Full. Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
     }
     messagesCount.incrementAndGet();
-    messages.computeIfAbsent(event.getProducerRecord().topic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
+    messages.computeIfAbsent(event.getProducerRecord().topic(), k -> Collections.synchronizedMap(new LinkedHashMap<>()))
         .put(Pair.of(event.getShardPartition(), event.getStorageId()),
             new SentMessage().setShardPartition(event.getShardPartition()).setStorageId(event.getStorageId())
                 .setProducerRecord(event.getProducerRecord()));

@@ -6,9 +6,9 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.util.StringUtils;
 
 @Slf4j
 public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
@@ -23,7 +23,6 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
 
   @PostConstruct
   public void init() {
-
     String groupId = properties.getGroupId();
     if (StringUtils.isEmpty(groupId)) {
       groupId = applicationName;

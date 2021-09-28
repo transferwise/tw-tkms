@@ -38,12 +38,16 @@ tw-tkms:
       kafka:
         linger:
           ms: 7
+      earliest-visible-messages:
+        enabled: true
   debug-enabled: true
   compression:
     algorithm: random
     min-size: 10
   environment:
     previous-version: 0.7.3
+  monitoring:
+    start-delay: 0s
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
@@ -66,5 +70,34 @@ spring:
 
 tw-tkms:
   database-dialect: POSTGRES
+
 tw-tkms-test:
   test-topic: TestTopicPostgres
+
+---
+
+spring:
+  profiles: earliest-message
+  application.name: tw-tkms-earliest-message
+  datasource:
+    url: "jdbc:postgresql://localhost:${POSTGRES_TCP_5432}/postgres"
+    username: "postgres"
+  flyway:
+    locations: "classpath:db/migration/earliestmessage"
+    default-schema: "earliestmessage"
+    schemas:
+      - "earliestmessage"
+
+tw-tkms:
+  database-dialect: POSTGRES
+  earliest-visible-messages:
+    enabled: true
+    look-back-period: 10
+    table-name: earliestmessage.tw_tkms_earliest_visible_messages 
+  shards-count: 2
+  table-base-name: earliestmessage.outgoing_message
+  monitoring:
+    left-over-messages-check-start-delay: 1s
+    
+tw-tkms-test:
+  test-topic: TestTopicEarliestMessage

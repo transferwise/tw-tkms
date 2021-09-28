@@ -29,10 +29,11 @@ public class TkmsAutoConfiguration {
   public IMeterCache twDefaultMeterCache(MeterRegistry meterRegistry) {
     return new MeterCache(meterRegistry);
   }
-  
+
   @Bean
   @ConditionalOnMissingBean(ITransactionsHelper.class)
   public TransactionsHelper twTransactionsHelper() {
     return new TransactionsHelper();
   }
+
 }

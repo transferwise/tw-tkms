@@ -1,18 +1,18 @@
 ext {
-    protobufVersion = "3.17.1"
+    protobufVersion = "3.18.0"
     libraries = [
             // version defined
             awaitility                      : 'org.awaitility:awaitility:4.1.0',
-            commonsIo                       : 'commons-io:commons-io:2.9.0',
-            curatorFramework                : 'org.apache.curator:curator-framework:5.1.0',
-            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.1.0',
+            commonsIo                       : 'commons-io:commons-io:2.11.0', // TODO: Try to remove, we have JDK 11 requirement now
+            curatorFramework                : 'org.apache.curator:curator-framework:5.2.0',
+            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.2.0',
             guava                           : 'com.google.guava:guava:30.1.1-jre',
             kafkaStreams                    : 'org.apache.kafka:kafka-streams:2.6.2',
             protobufJava                    : "com.google.protobuf:protobuf-java:${protobufVersion}",
             semver4j                        : "com.vdurmont:semver4j:3.1.0",
-            spotbugsAnnotations             : 'com.github.spotbugs:spotbugs-annotations:4.2.3',
-            springBootDependencies          : 'org.springframework.boot:spring-boot-dependencies:2.3.11.RELEASE',
-            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.5.0',
+            spotbugsAnnotations             : 'com.github.spotbugs:spotbugs-annotations:4.4.1',
+            springBootDependencies          : 'org.springframework.boot:spring-boot-dependencies:2.4.11',
+            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.6.0',
             twContext                       : 'com.transferwise.common:tw-context:0.11.0',
             twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.0',
             twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.3.0',

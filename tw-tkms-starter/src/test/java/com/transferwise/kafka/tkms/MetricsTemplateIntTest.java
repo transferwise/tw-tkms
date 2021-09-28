@@ -7,7 +7,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class MetricsTemplateIntTest extends BaseIntTest {
+class MetricsTemplateIntTest extends BaseIntTest {
 
   @Autowired
   private ITkmsMetricsTemplate metricsTemplate;

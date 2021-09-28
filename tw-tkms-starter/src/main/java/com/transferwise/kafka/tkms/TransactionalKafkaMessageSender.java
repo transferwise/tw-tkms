@@ -54,7 +54,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   public void init() {
     environmentValidator.validate();
 
-    metricsTemplate.registerLibrary();
     for (String topic : properties.getTopics()) {
       validateTopic(properties.getDefaultShard(), topic);
     }

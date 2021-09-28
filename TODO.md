@@ -4,3 +4,5 @@
 
 3. Avoid engineers creating tables manually. Provide at least Flyway auto configuration.
 
+5. Add hierarchical Valid annotations for TkmsProperties.
+

@@ -130,7 +130,7 @@ public class TkmsProperties {
 
   /**
    * Minimum polling interval, overrides all other relevant settings.
-   * 
+   *
    * <p>Can be useful in development environments, where environment owner wants to restrict resource usages globally.
    */
   private Duration minPollingInterval;
@@ -143,6 +143,8 @@ public class TkmsProperties {
    * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
    */
   private List<String> topics = new ArrayList<>();
+
+  private EarliestVisibleMessages earliestVisibleMessages = new EarliestVisibleMessages();
 
   /**
    * Additional or overridden properties for kafka consumers.
@@ -160,6 +162,8 @@ public class TkmsProperties {
 
   private Environment environment = new Environment();
 
+  private Monitoring monitoring = new Monitoring();
+
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {
@@ -171,6 +175,7 @@ public class TkmsProperties {
     private Integer insertBatchSize;
     private boolean compressionOverridden;
     private Compression compression = new Compression();
+    private EarliestVisibleMessages earliestVisibleMessages;
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -223,6 +228,14 @@ public class TkmsProperties {
     return compression;
   }
 
+  public EarliestVisibleMessages getEarliestVisibleMessages(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getEarliestVisibleMessages() != null) {
+      return shardProperties.getEarliestVisibleMessages();
+    }
+    return earliestVisibleMessages;
+  }
+
   public enum DatabaseDialect {
     POSTGRES,
     MYSQL
@@ -251,5 +264,27 @@ public class TkmsProperties {
   public static class Environment {
 
     private String previousVersion;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class EarliestVisibleMessages {
+
+    private boolean enabled = false;
+
+    private String tableName = "tw_tkms_earliest_visible_messages";
+
+    private Duration lookBackPeriod = Duration.ofMinutes(5);
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class Monitoring {
+
+    private Duration interval = Duration.ofSeconds(30);
+    private Duration startDelay = Duration.ofSeconds(30);
+    
+    private Duration leftOverMessagesCheckInterval = Duration.ofHours(1);
+    private Duration leftOverMessagesCheckStartDelay = Duration.ofHours(1);
   }
 }
