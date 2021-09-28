@@ -46,7 +46,7 @@ public class TkmsPostgresDao extends TkmsDao {
   @Override
   protected void validateEngineSpecificSchema() {
     for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(); p++) {
+      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
         long distinctIdsCount = getDistinctIdsCount(sp);

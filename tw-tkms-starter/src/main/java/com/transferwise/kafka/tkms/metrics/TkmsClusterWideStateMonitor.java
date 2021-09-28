@@ -75,7 +75,7 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
                 continue;
               }
 
-              for (int p = 0; p < properties.getShardsCount(); p++) {
+              for (int p = 0; p < properties.getPartitionsCount(s); p++) {
                 TkmsShardPartition sp = TkmsShardPartition.of(s, p);
                 long startDelayMs =
                     (long) (ThreadLocalRandom.current().nextDouble(0.25) * monitoring.getLeftOverMessagesCheckStartDelay().toMillis());

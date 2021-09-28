@@ -61,7 +61,7 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
     sendMessageAndWaitForArrival(4);
     assertThat(earliestMessageIdGauge.value()).isGreaterThan(previousValue);
 
-    long committedValue =
+    Long committedValue =
         jdbcTemplate.queryForObject("select message_id from earliestmessage.tw_tkms_earliest_visible_messages where shard=? and part=?", Long.class,
             0, 0);
     assertThat(committedValue).isGreaterThanOrEqualTo((long) previousValue);
