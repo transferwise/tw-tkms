@@ -98,18 +98,18 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
           AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
 
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
-              () -> {
-                try {
-                  log.info("Starting to proxy {}.", shardPartition);
-                  poll(control, shardPartition);
-                  return true;
-                } catch (Throwable t) {
-                  log.error(t.getMessage(), t);
-                  return false;
-                } finally {
-                  control.yield();
-                }
-              })),
+                  () -> {
+                    try {
+                      log.info("Starting to proxy {}.", shardPartition);
+                      poll(control, shardPartition);
+                      return true;
+                    } catch (Throwable t) {
+                      log.error(t.getMessage(), t);
+                      return false;
+                    } finally {
+                      control.yield();
+                    }
+                  })),
               () -> {
                 log.info("Stopping proxying for {}.", shardPartition);
 

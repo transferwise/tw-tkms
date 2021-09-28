@@ -21,7 +21,7 @@ import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @Disabled("Not meant to be automatically run.")
-public class ComplexRealTest {
+class ComplexRealTest {
 
   private final RestTemplate restTemplate = new RestTemplate();
 

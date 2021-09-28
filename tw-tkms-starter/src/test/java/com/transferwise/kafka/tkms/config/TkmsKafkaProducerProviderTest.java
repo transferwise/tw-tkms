@@ -9,16 +9,15 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class TkmsKafkaProducerProviderTest extends BaseIntTest {
+class TkmsKafkaProducerProviderTest extends BaseIntTest {
 
   @Autowired
   private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
 
   @Test
-  public void shardKafkaPropertiesAreApplied() throws Exception {
+  void shardKafkaPropertiesAreApplied() throws Exception {
     KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(1);
 
-    
     Field producerConfigField = kafkaProducer.getClass().getDeclaredField("producerConfig");
     producerConfigField.setAccessible(true);
     ProducerConfig producerConfig = (ProducerConfig) producerConfigField.get(kafkaProducer);

@@ -26,9 +26,9 @@ public class V1__Init extends BaseJavaMigration {
       }
     }
   }
-  
+
   @Override
-  public boolean canExecuteInTransaction(){
+  public boolean canExecuteInTransaction() {
     return false;
   }
 }

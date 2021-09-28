@@ -389,12 +389,12 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier) {
     return registerGauge(DAO_APPROXIMATE_MESSAGES_COUNT, supplier, shardTag(sp), partitionTag(sp));
   }
-  
+
   @Override
-  public void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition){
-    meterCache.counter(DAO_EARLIEST_MESSAGE_ID_COMMIT, TagsSet.of(shardTag(shardPartition), partitionTag(shardPartition)))        .increment();
+  public void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition) {
+    meterCache.counter(DAO_EARLIEST_MESSAGE_ID_COMMIT, TagsSet.of(shardTag(shardPartition), partitionTag(shardPartition))).increment();
   }
-  
+
   protected MetricHandle registerGauge(String name, Supplier<Number> supplier, Tag... tags) {
     return new MetricHandle().setMeter(Gauge.builder(name, supplier)
         .tags(Tags.of(tags)).register(meterCache.getMeterRegistry()));

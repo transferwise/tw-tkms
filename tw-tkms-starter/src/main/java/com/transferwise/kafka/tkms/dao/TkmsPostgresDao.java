@@ -73,19 +73,21 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   protected long getDistinctIdsCount(TkmsShardPartition sp) {
-    String relOptions =
-        jdbcTemplate.queryForObject("select attoptions from pg_attribute, pg_class, pg_namespace where pg_class.oid = pg_attribute.attrelid "
+    List<String> relOptionsList =
+        jdbcTemplate.queryForList("select attoptions from pg_attribute, pg_class, pg_namespace where pg_class.oid = pg_attribute.attrelid "
             + "and pg_class.relnamespace = pg_namespace.oid "
             + "and pg_namespace.nspname=? and pg_class.relname=? and attname='id'", String.class, getSchemaName(sp), getTableNameWithoutSchema(sp));
 
-    if (relOptions == null) {
+    if (relOptionsList.isEmpty()) {
       return -1;
     }
+
+    String relOptions = relOptionsList.get(0);
 
     Matcher m = N_DISTINCT_PATTERN.matcher(relOptions);
 
     if (m.find()) {
-      Long value =  Longs.tryParse(relOptions.substring(m.start(1), m.end(1)));
+      Long value = Longs.tryParse(relOptions.substring(m.start(1), m.end(1)));
       return value == null ? -1 : value;
     } else {
       return -1;

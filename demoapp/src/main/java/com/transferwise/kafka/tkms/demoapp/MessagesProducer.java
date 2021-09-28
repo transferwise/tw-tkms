@@ -45,7 +45,7 @@ public class MessagesProducer {
         try {
           for (long i = 0; i < batchCount; i++) {
             long finalI = i;
-            transactionTemplate.executeWithoutResult((status) -> {
+            transactionTemplate.executeWithoutResult(status -> {
               for (long j = 0; j < batchSize; j++) {
                 String key = String.valueOf(finalT * batchCount * batchSize + finalI * batchSize + j);
 

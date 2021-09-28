@@ -64,9 +64,9 @@ public class EarliestMessageTracker {
 
     earliestMessageSlidingWindow.register(id);
 
-    long earliestMessageId = earliestMessageSlidingWindow.getEarliestMessageId();
-    if (earliestMessageId != -1) {
-      this.earliestMessageId = earliestMessageId;
+    long earliestMessageIdInWindow = earliestMessageSlidingWindow.getEarliestMessageId();
+    if (earliestMessageIdInWindow != -1) {
+      this.earliestMessageId = earliestMessageIdInWindow;
     }
 
     commitIfFeasible();

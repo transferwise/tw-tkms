@@ -21,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class TkmsDaoIntTest extends BaseIntTest {
+class TkmsDaoIntTest extends BaseIntTest {
 
   @Autowired
   private ITkmsDao tkmsDao;
@@ -63,6 +63,6 @@ public class TkmsDaoIntTest extends BaseIntTest {
     assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "4").counter().count()).isEqualTo(2);
     assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "1").counter().count()).isEqualTo(1);
 
-    assertThat(new JdbcTemplate(dataSource).queryForObject("select count(*) from outgoing_message_0_0", Integer.class)).isEqualTo(0);
+    assertThat(new JdbcTemplate(dataSource).queryForObject("select count(*) from outgoing_message_0_0", Integer.class)).isZero();
   }
 }

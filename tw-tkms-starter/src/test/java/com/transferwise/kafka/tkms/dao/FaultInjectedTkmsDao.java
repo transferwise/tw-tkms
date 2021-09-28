@@ -60,5 +60,5 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   public boolean insertEarliestMessageId(TkmsShardPartition shardPartition) {
     return delegate.insertEarliestMessageId(shardPartition);
   }
-  
+
 }

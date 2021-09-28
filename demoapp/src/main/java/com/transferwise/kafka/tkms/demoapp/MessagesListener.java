@@ -20,7 +20,7 @@ public class MessagesListener {
 
   @Autowired
   private PaceTracker paceTracker;
-  
+
   @KafkaListener(topics = "MyTopic", containerFactory = "kafkaListenerContainerFactory")
   @SneakyThrows
   public void listen(List<ConsumerRecord<String, byte[]>> consumerRecords) {

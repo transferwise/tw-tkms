@@ -33,7 +33,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
           "Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
     }
     messagesCount.incrementAndGet();
-    messages.computeIfAbsent(event.getMessage().getTopic(), (k) -> Collections.synchronizedMap(new LinkedHashMap<>()))
+    messages.computeIfAbsent(event.getMessage().getTopic(), k -> Collections.synchronizedMap(new LinkedHashMap<>()))
         .put(Pair.of(event.getShardPartition(), event.getStorageId()),
             new RegisteredMessage().setShardPartition(event.getShardPartition()).setStorageId(event.getStorageId()).setMessage(event.getMessage()));
   }

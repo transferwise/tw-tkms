@@ -9,13 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
-public class TkmsMessageValidationIntTest {
+class TkmsMessageValidationIntTest {
 
   @Autowired
   private ITransactionalKafkaMessageSender transactionalKafkaMessageSender;
 
   @Test
-  public void invalidMessagesDoNotPassValidation() {
+  void invalidMessagesDoNotPassValidation() {
     assertThatThrownBy(() -> transactionalKafkaMessageSender.sendMessage(new TkmsMessage())).isInstanceOf(IllegalArgumentException.class)
         .hasMessage("0: No topic provided.");
   }

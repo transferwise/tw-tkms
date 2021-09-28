@@ -15,7 +15,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +70,15 @@ public class TkmsDao implements ITkmsDao {
 
     currentSchema = getCurrentSchema();
 
+    createInsertMessagesSqls();
+    createGetMessagesSqls();
+    createDeleteMessagesSqls();
+
+    validateSchema();
+    validateEngineSpecificSchema();
+  }
+
+  protected void createInsertMessagesSqls() {
     Map<TkmsShardPartition, String> map = new HashMap<>();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
@@ -79,7 +87,10 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     insertMessageSqls = ImmutableMap.copyOf(map);
+  }
 
+  protected void createGetMessagesSqls() {
+    Map<TkmsShardPartition, String> map = new HashMap<>();
     map.clear();
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
@@ -88,7 +99,9 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     getMessagesSqls = ImmutableMap.copyOf(map);
+  }
 
+  protected void createDeleteMessagesSqls() {
     deleteSqlsMap = new HashMap<>();
 
     for (int s = 0; s < properties.getShardsCount(); s++) {
@@ -108,8 +121,6 @@ public class TkmsDao implements ITkmsDao {
       }
     }
     deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
-
-    validateSchema();
   }
 
   protected void validateSchema() {
@@ -134,8 +145,6 @@ public class TkmsDao implements ITkmsDao {
         }
       }
     }
-
-    validateEngineSpecificSchema();
   }
 
   protected void validateEngineSpecificSchema() {
@@ -303,7 +312,7 @@ public class TkmsDao implements ITkmsDao {
     var ids =
         jdbcTemplate.queryForList("select message_id from " + earliestVisibleMessages.getTableName() + " where shard=? and part=?", Long.class,
             shardPartition.getShard(), shardPartition.getPartition());
-    return ids.size() == 0 ? null : ids.get(0);
+    return ids.isEmpty() ? null : ids.get(0);
   }
 
   @Override

@@ -4,9 +4,7 @@ import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.Data;
 import lombok.experimental.Accessors;
 

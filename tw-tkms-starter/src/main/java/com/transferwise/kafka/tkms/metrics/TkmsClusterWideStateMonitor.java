@@ -130,9 +130,9 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
 
         long count = tkmsDao.getApproximateMessagesCount(sp);
 
-        approximateMessagesCount.computeIfAbsent(sp, (k) -> {
+        approximateMessagesCount.computeIfAbsent(sp, k -> {
           AtomicLong counter = new AtomicLong(count);
-          registeredMetricHandles.add(coreMetricsTemplate.registerApproximateMessagesCount(sp, () -> counter.get()));
+          registeredMetricHandles.add(coreMetricsTemplate.registerApproximateMessagesCount(sp, counter::get));
           return counter;
         }).set(count);
       }

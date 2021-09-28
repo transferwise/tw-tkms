@@ -17,4 +17,8 @@ public class TkmsClockHolder {
   public static Clock getClock() {
     return clock;
   }
+
+  private TkmsClockHolder() {
+    
+  }
 }

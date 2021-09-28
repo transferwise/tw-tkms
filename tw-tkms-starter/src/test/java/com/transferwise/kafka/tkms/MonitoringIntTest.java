@@ -5,8 +5,8 @@ import io.micrometer.core.instrument.Gauge;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
-public class MonitoringIntTest extends BaseIntTest {
-  
+class MonitoringIntTest extends BaseIntTest {
+
   @Test
   void testThatMonitoringMetricsArePresent() {
     Awaitility.await().until(() -> {
