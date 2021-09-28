@@ -139,145 +139,154 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
     final Map<Integer, ProducerRecord<String, byte[]>> producerRecordMap = new HashMap<>();
 
-    while (!control.shouldStop()) {
-      if (pauseRequested) {
-        paused = true;
-        tkmsPaceMaker.doSmallPause(shardPartition.getShard());
-        return;
-      }
+    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(shardPartition, dao, properties, metricsTemplate);
+    earliestMessageTracker.init();
 
-      if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
-        // Poor man's balancer. Allow other nodes a chance to get a leader as well.
-        // TODO: investigate how Kafka client does it and replicate.
-        if (log.isDebugEnabled()) {
-          log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
+    try {
+      while (!control.shouldStop()) {
+        if (pauseRequested) {
+          paused = true;
+          tkmsPaceMaker.doSmallPause(shardPartition.getShard());
+          return;
         }
-        return;
-      }
-      unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
-          .execute(() -> {
-            long cycleStartNanoTime = System.nanoTime();
-            int polledRecordsCount = 0;
-            AtomicInteger failedSendsCount = new AtomicInteger();
-            try {
-              List<MessageRecord> records = dao.getMessages(shardPartition, pollerBatchSize);
-              polledRecordsCount = records.size();
-              if (polledRecordsCount == 0) {
-                metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
-                tkmsPaceMaker.doSmallPause(shardPartition.getShard());
-                return;
-              }
-              metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
 
-              MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];
+        if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
+          // Poor man's balancer. Allow other nodes a chance to get a leader as well.
+          // TODO: investigate how Kafka client does it and replicate.
+          if (log.isDebugEnabled()) {
+            log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
+          }
+          return;
+        }
+        unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
+            .execute(() -> {
+              long cycleStartNanoTime = System.nanoTime();
+              int polledRecordsCount = 0;
+              AtomicInteger failedSendsCount = new AtomicInteger();
+              try {
+                List<MessageRecord> records = dao.getMessages(shardPartition, earliestMessageTracker.getEarliestMessageId(), pollerBatchSize);
+                polledRecordsCount = records.size();
+                if (polledRecordsCount == 0) {
+                  metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
+                  tkmsPaceMaker.doSmallPause(shardPartition.getShard());
+                  return;
+                }
+                metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
+                earliestMessageTracker.register(records.get(0).getId());
 
-              final long kafkaSendStartNanoTime = System.nanoTime();
-              KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
-              boolean atLeastOneSendDone = false;
+                MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];
 
-              producerRecordMap.clear();
-              Map<Integer, MessageInterceptionDecision> interceptionDecisions = null;
-              if (messageIntereceptors.hasInterceptors()) {
+                final long kafkaSendStartNanoTime = System.nanoTime();
+                KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
+                boolean atLeastOneSendDone = false;
+
+                producerRecordMap.clear();
+                Map<Integer, MessageInterceptionDecision> interceptionDecisions = null;
+                if (messageIntereceptors.hasInterceptors()) {
+                  for (int i = 0; i < records.size(); i++) {
+                    MessageRecord messageRecord = records.get(i);
+                    producerRecordMap.put(i, toProducerRecord(messageRecord));
+                  }
+                  interceptionDecisions = messageIntereceptors.beforeSendingToKafka(shardPartition, producerRecordMap);
+                }
+
                 for (int i = 0; i < records.size(); i++) {
                   MessageRecord messageRecord = records.get(i);
-                  producerRecordMap.put(i, toProducerRecord(messageRecord));
-                }
-                interceptionDecisions = messageIntereceptors.beforeSendingToKafka(shardPartition, producerRecordMap);
-              }
+                  ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
+                  ProducerRecord<String, byte[]> producerRecord =
+                      preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
+                  contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
+                      .setShardPartition(shardPartition);
+                  MessageProcessingContext context = contexts[i];
 
-              for (int i = 0; i < records.size(); i++) {
-                MessageRecord messageRecord = records.get(i);
-                ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
-                ProducerRecord<String, byte[]> producerRecord =
-                    preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
-                contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
-                    .setShardPartition(shardPartition);
-                MessageProcessingContext context = contexts[i];
-
-                MessageInterceptionDecision interceptionDecision = interceptionDecisions == null ? null : interceptionDecisions.get(i);
-                if (interceptionDecision != null) {
-                  if (interceptionDecision == MessageInterceptionDecision.DISCARD) {
-                    log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
-                    context.setAcked(true);
-                    continue;
-                  } else if (interceptionDecision == MessageInterceptionDecision.RETRY) {
-                    // In this context retry means - allowing interceptors to try to execute their logic again.
-                    continue;
-                  }
-                }
-
-                try {
-                  // Theoretically, to be absolutely sure, about the ordering, we would need to wait for the future result immediately.
-                  // But it would not be practical. I mean we could send one message from each partitions concurrently, but
-                  // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
-                  // TODO: Consider transactions. They would need heavy performance testing though.
-                  Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
-                    if (exception == null) {
+                  MessageInterceptionDecision interceptionDecision = interceptionDecisions == null ? null : interceptionDecisions.get(i);
+                  if (interceptionDecision != null) {
+                    if (interceptionDecision == MessageInterceptionDecision.DISCARD) {
+                      log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
                       context.setAcked(true);
-                      fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
-                      Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
-                          ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
-                      metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
-                    } else {
-                      failedSendsCount.incrementAndGet();
-                      handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception,
-                          context);
-                      metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
+                      continue;
+                    } else if (interceptionDecision == MessageInterceptionDecision.RETRY) {
+                      // In this context retry means - allowing interceptors to try to execute their logic again.
+                      continue;
                     }
-                  });
-                  atLeastOneSendDone = true;
+                  }
 
-                  contexts[i].setKafkaSenderFuture(future);
-                } catch (Throwable t) {
-                  failedSendsCount.incrementAndGet();
-                  handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
-                }
-              }
-
-              if (atLeastOneSendDone) {
-                kafkaProducer.flush();
-              }
-
-              for (int i = 0; i < records.size(); i++) {
-                MessageProcessingContext context = contexts[i];
-                if (context.getKafkaSenderFuture() != null) {
                   try {
-                    context.getKafkaSenderFuture().get();
+                    // Theoretically, to be absolutely sure, about the ordering, we would need to wait for the future result immediately.
+                    // But it would not be practical. I mean we could send one message from each partitions concurrently, but
+                    // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
+                    // TODO: Consider transactions. They would need heavy performance testing though.
+                    Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
+                      if (exception == null) {
+                        context.setAcked(true);
+                        fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
+                        Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
+                            ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
+                        metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
+                      } else {
+                        failedSendsCount.incrementAndGet();
+                        handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception,
+                            context);
+                        metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
+                      }
+                    });
+                    atLeastOneSendDone = true;
+
+                    contexts[i].setKafkaSenderFuture(future);
                   } catch (Throwable t) {
-                    handleKafkaError(shardPartition, "Sending message in " + shardPartition + " failed.", t, context);
+                    failedSendsCount.incrementAndGet();
+                    handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
                   }
                 }
-              }
 
-              metricsTemplate.recordProxyKafkaMessagesSend(shardPartition, kafkaSendStartNanoTime);
-
-              List<Long> successIds = new ArrayList<>();
-
-              for (int i = 0; i < records.size(); i++) {
-                MessageProcessingContext context = contexts[i];
-                if (context.isAcked()) {
-                  successIds.add(records.get(i).getId());
+                if (atLeastOneSendDone) {
+                  kafkaProducer.flush();
                 }
-              }
-              //TODO: In current implementation this can create latency (but not reduce total throughput).
-              // In the future we may provide more algorithms here.
-              //   For example we want to probably offload deleting into a separate thread(s)
-              //   Select would need id>X, which probably would not be too bad.
-              long deleteStartNanoTime = System.nanoTime();
-              dao.deleteMessages(shardPartition, successIds);
 
-              metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
+                for (int i = 0; i < records.size(); i++) {
+                  MessageProcessingContext context = contexts[i];
+                  if (context.getKafkaSenderFuture() != null) {
+                    try {
+                      context.getKafkaSenderFuture().get();
+                    } catch (Throwable t) {
+                      handleKafkaError(shardPartition, "Sending message in " + shardPartition + " failed.", t, context);
+                    }
+                  }
+                }
 
-              if (failedSendsCount.get() > 0) {
+                metricsTemplate.recordProxyKafkaMessagesSend(shardPartition, kafkaSendStartNanoTime);
+
+                List<Long> successIds = new ArrayList<>();
+
+                for (int i = 0; i < records.size(); i++) {
+                  MessageProcessingContext context = contexts[i];
+                  if (context.isAcked()) {
+                    successIds.add(records.get(i).getId());
+                  }
+                }
+                //TODO: In current implementation this can create latency (but not reduce total throughput).
+                // In the future we may provide more algorithms here.
+                //   For example we want to probably offload deleting into a separate thread(s)
+                //   Select would need id>X, which probably would not be too bad.
+                long deleteStartNanoTime = System.nanoTime();
+                dao.deleteMessages(shardPartition, successIds);
+
+                metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
+
+                if (failedSendsCount.get() > 0) {
+                  tkmsPaceMaker.pauseOnError(shardPartition.getShard());
+                }
+
+              } catch (Throwable t) {
+                log.error(t.getMessage(), t);
                 tkmsPaceMaker.pauseOnError(shardPartition.getShard());
+              } finally {
+                metricsTemplate.recordProxyCycle(shardPartition, polledRecordsCount, cycleStartNanoTime);
               }
-            } catch (Throwable t) {
-              log.error(t.getMessage(), t);
-              tkmsPaceMaker.pauseOnError(shardPartition.getShard());
-            } finally {
-              metricsTemplate.recordProxyCycle(shardPartition, polledRecordsCount, cycleStartNanoTime);
-            }
-          });
+            });
+      }
+    } finally {
+      earliestMessageTracker.shutdown();
     }
   }
 

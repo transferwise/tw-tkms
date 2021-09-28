@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Type;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import java.time.Instant;
@@ -16,8 +17,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import javax.annotation.PostConstruct;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
 /*
   A bit over engineering, but:
@@ -47,11 +51,16 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final String DAO_POLL_ALL_RESULTS = PREFIX_DAO + ".poll.all.results";
   public static final String DAO_POLL_ALL_RESULTS_COUNT = PREFIX_DAO + ".poll.all.results.count";
   public static final String DAO_INVALID_GENERATED_KEYS_COUNT = PREFIX_DAO + ".insert.invalid.generated.keys.count";
+  public static final String DAO_ROWS_IN_TABLE_STATS = PREFIX_DAO + ".rows.in.table.stats";
+  public static final String DAO_ROWS_IN_INDEX_STATS = PREFIX_DAO + ".rows.in.index.stats";
+  public static final String DAO_APPROXIMATE_MESSAGES_COUNT = PREFIX_DAO + ".approximate.messages.count";
   public static final String STORED_MESSAGE_PARSING = PREFIX + ".stored.message.parsing";
   public static final String MESSAGE_INSERT_TO_ACK = PREFIX + ".message.insert.to.ack";
-  public static final String COMPRESSION_RATIO_ACHIEVED = PREFIX_DAO + ".serialization.compression.ratio";
-  public static final String ORIGINAL_SIZE_BYTES = PREFIX_DAO + ".serialization.original.size.bytes";
-  public static final String SERIALIZED_SIZE_BYTES = PREFIX_DAO + ".serialization.serialized.size.bytes";
+  public static final String DAO_COMPRESSION_RATIO_ACHIEVED = PREFIX_DAO + ".serialization.compression.ratio";
+  public static final String DAO_ORIGINAL_SIZE_BYTES = PREFIX_DAO + ".serialization.original.size.bytes";
+  public static final String DAO_SERIALIZED_SIZE_BYTES = PREFIX_DAO + ".serialization.serialized.size.bytes";
+  public static final String DAO_EARLIEST_MESSAGE_ID = PREFIX_DAO + ".earliest.message.id";
+  public static final String DAO_EARLIEST_MESSAGE_ID_COMMIT = PROXY_POLL + ".earliest.message.id.poll";
 
   public static final Tag NA_SHARD_TAG = Tag.of("shard", "N/A");
   public static final Tag NA_PARTITION_TAG = Tag.of("partition", "N/A");
@@ -76,7 +85,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     slos.put(STORED_MESSAGE_PARSING, defaultSlos);
     slos.put(DAO_POLL_ALL_RESULTS_COUNT, defaultSlos);
     slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 3125 * 5});
-    slos.put(COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
+    slos.put(DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
 
     meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
       @Override
@@ -84,11 +93,9 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         double[] sloConfigValues = slos.get(id.getName());
         if (sloConfigValues != null) {
           double[] sloValues = Arrays.copyOf(sloConfigValues, sloConfigValues.length);
-          for (int i = 0; i < sloValues.length; i++) {
-            if (id.getType() == Type.TIMER) {
+          if (id.getType() == Type.TIMER) {
+            for (int i = 0; i < sloValues.length; i++) {
               sloValues[i] = sloValues[i] * 1_000_000L;
-            } else {
-              sloValues[i] = sloValues[i];
             }
           }
           return DistributionStatisticConfig.builder()
@@ -260,19 +267,19 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
       long serializedSizeBytes) {
     double ratio = (double) originalSizeBytes / serializedSizeBytes;
     meterCache
-        .summary(COMPRESSION_RATIO_ACHIEVED, TagsSet.of(
+        .summary(DAO_COMPRESSION_RATIO_ACHIEVED, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .record(ratio);
     meterCache
-        .counter(ORIGINAL_SIZE_BYTES, TagsSet.of(
+        .counter(DAO_ORIGINAL_SIZE_BYTES, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
         .increment(originalSizeBytes);
     meterCache
-        .counter(SERIALIZED_SIZE_BYTES, TagsSet.of(
+        .counter(DAO_SERIALIZED_SIZE_BYTES, TagsSet.of(
             algorithmTag(algorithm),
             partitionTag(shardPartition),
             shardTag(shardPartition)))
@@ -297,6 +304,28 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
     Gauge.builder(METRIC_LIBRARY_INFO, () -> 1d).tags("version", version, "library", "tw-tkms")
         .description("Provides metadata about the library, for example the version.")
+        .register(meterCache.getMeterRegistry());
+  }
+
+  @Override
+  public Object registerEarliestMessageId(TkmsShardPartition shardPartition, Supplier<Number> supplier) {
+    return registerGauge(DAO_EARLIEST_MESSAGE_ID, supplier, shardTag(shardPartition), partitionTag(shardPartition));
+  }
+
+  @Override
+  public void deRegisterEarliestMessageId(Object handle) {
+    unregisterMetric(handle);
+  }
+
+  @Override
+  public void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats) {
+    Gauge.builder(DAO_ROWS_IN_TABLE_STATS, () -> rowsInTableStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))
+        .register(meterCache.getMeterRegistry());
+  }
+
+  @Override
+  public void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats) {
+    Gauge.builder(DAO_ROWS_IN_INDEX_STATS, () -> rowsInIndexStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))
         .register(meterCache.getMeterRegistry());
   }
 
@@ -344,5 +373,40 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   protected Tag algorithmTag(CompressionAlgorithm algorithm) {
     return algorithm.getMicrometerTag();
+  }
+
+  @Override
+  public void unregisterMetric(Object rawMetricHandle) {
+    MetricHandle metricHandle = (MetricHandle) rawMetricHandle;
+
+    if (metricHandle.cached) {
+      meterCache.removeMeter(metricHandle.getMeter().getId().getName(), metricHandle.getTags());
+    }
+    meterCache.getMeterRegistry().remove(metricHandle.getMeter());
+  }
+
+  @Override
+  public Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier) {
+    return registerGauge(DAO_APPROXIMATE_MESSAGES_COUNT, supplier, shardTag(sp), partitionTag(sp));
+  }
+  
+  @Override
+  public void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition){
+    meterCache.counter(DAO_EARLIEST_MESSAGE_ID_COMMIT, TagsSet.of(shardTag(shardPartition), partitionTag(shardPartition)))        .increment();
+  }
+  
+  protected MetricHandle registerGauge(String name, Supplier<Number> supplier, Tag... tags) {
+    return new MetricHandle().setMeter(Gauge.builder(name, supplier)
+        .tags(Tags.of(tags)).register(meterCache.getMeterRegistry()));
+  }
+
+  @Data
+  @Accessors(chain = true)
+  protected static class MetricHandle {
+
+    private boolean cached;
+    private TagsSet tags;
+    private Meter meter;
+
   }
 }

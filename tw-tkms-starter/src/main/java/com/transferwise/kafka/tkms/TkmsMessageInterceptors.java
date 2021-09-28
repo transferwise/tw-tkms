@@ -43,7 +43,7 @@ public class TkmsMessageInterceptors implements ITkmsMessageInterceptors {
       Map<Integer, MessageInterceptionDecision> decisions = interceptor.beforeSendingToKafka(shardPartition, producerRecords);
       if (decisions != null) {
         result.forEach((k, v) -> {
-          if (result.get(k) == MessageInterceptionDecision.NEUTRAL) {
+          if (v == MessageInterceptionDecision.NEUTRAL) {
             MessageInterceptionDecision decision = decisions.get(k);
             if (decision != null && decision != MessageInterceptionDecision.NEUTRAL) {
               result.put(k, decision);

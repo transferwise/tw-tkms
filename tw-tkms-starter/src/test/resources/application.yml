@@ -38,12 +38,16 @@ tw-tkms:
       kafka:
         linger:
           ms: 7
+      earliest-visible-messages:
+        enabled: true
   debug-enabled: true
   compression:
     algorithm: random
     min-size: 10
   environment:
     previous-version: 0.7.3
+  monitoring:
+    start-delay: 0s
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
@@ -66,5 +70,6 @@ spring:
 
 tw-tkms:
   database-dialect: POSTGRES
+
 tw-tkms-test:
   test-topic: TestTopicPostgres

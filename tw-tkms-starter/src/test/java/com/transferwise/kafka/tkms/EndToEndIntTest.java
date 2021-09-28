@@ -522,7 +522,7 @@ public class EndToEndIntTest extends BaseIntTest {
       }
     });
 
-    Counter counter = meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
+    Counter counter = meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
     double startingSerializedSizeBytes = counter == null ? 0 : counter.count();
 
     testMessagesListener.registerConsumer(messageCounter);
@@ -535,7 +535,7 @@ public class EndToEndIntTest extends BaseIntTest {
 
       await().until(() -> receivedCount.get() > 0);
 
-      assertThat(meterRegistry.find(TkmsMetricsTemplate.SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
+      assertThat(meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
           - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());

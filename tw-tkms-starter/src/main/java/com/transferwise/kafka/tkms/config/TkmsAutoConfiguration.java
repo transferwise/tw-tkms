@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Import;
 
 @Configuration
@@ -29,10 +30,11 @@ public class TkmsAutoConfiguration {
   public IMeterCache twDefaultMeterCache(MeterRegistry meterRegistry) {
     return new MeterCache(meterRegistry);
   }
-  
+
   @Bean
   @ConditionalOnMissingBean(ITransactionsHelper.class)
   public TransactionsHelper twTransactionsHelper() {
     return new TransactionsHelper();
   }
+
 }

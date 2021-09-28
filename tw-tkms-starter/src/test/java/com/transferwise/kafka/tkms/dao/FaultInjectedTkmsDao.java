@@ -28,8 +28,13 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   }
 
   @Override
-  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, int maxCount) {
-    return delegate.getMessages(shardPartition, maxCount);
+  public long getApproximateMessagesCount(TkmsShardPartition sp) {
+    return delegate.getApproximateMessagesCount(sp);
+  }
+
+  @Override
+  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount) {
+    return delegate.getMessages(shardPartition, earliestMessageId, maxCount);
   }
 
   @Override
@@ -40,4 +45,20 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
       delegate.deleteMessages(shardPartition, records);
     }
   }
+
+  @Override
+  public Long getEarliestMessageId(TkmsShardPartition shardPartition) {
+    return delegate.getEarliestMessageId(shardPartition);
+  }
+
+  @Override
+  public void saveEarliestMessageId(TkmsShardPartition shardPartition, long messageId) {
+    delegate.saveEarliestMessageId(shardPartition, messageId);
+  }
+
+  @Override
+  public boolean insertEarliestMessageId(TkmsShardPartition shardPartition) {
+    return delegate.insertEarliestMessageId(shardPartition);
+  }
+  
 }

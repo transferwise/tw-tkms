@@ -1,8 +1,13 @@
 package com.transferwise.kafka.tkms.metrics;
 
+import com.transferwise.common.baseutils.meters.cache.TagsSet;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import io.micrometer.core.instrument.Meter;
 import java.time.Instant;
+import java.util.function.Supplier;
+import lombok.Data;
+import lombok.experimental.Accessors;
 
 public interface ITkmsMetricsTemplate {
 
@@ -38,4 +43,18 @@ public interface ITkmsMetricsTemplate {
       long serializedSizeBytes);
 
   void recordDaoInvalidGeneratedKeysCount(TkmsShardPartition shardPartition);
+
+  Object registerEarliestMessageId(TkmsShardPartition shardPartition, Supplier<Number> supplier);
+
+  void deRegisterEarliestMessageId(Object handle);
+
+  void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats);
+
+  void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats);
+  
+  void unregisterMetric(Object rawMetricHandle);
+
+  Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier);
+
+  void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition);
 }

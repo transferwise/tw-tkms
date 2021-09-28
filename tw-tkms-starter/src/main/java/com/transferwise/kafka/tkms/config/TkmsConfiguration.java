@@ -23,6 +23,7 @@ import com.transferwise.kafka.tkms.dao.TkmsDao;
 import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
 import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.TkmsClusterWideStateMonitor;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.env.Environment;
 
 /**
@@ -98,6 +100,7 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsDataSourceProvider.class)
+  @DependsOn({"flywayInitializer", "flyway"})
   public TkmsDataSourceProvider tkmsDataSourceProvider(
       @Autowired(required = false) @Tkms DataSource dataSource, ConfigurableListableBeanFactory beanFactory) {
     if (dataSource == null) {
@@ -147,4 +150,11 @@ public class TkmsConfiguration {
   public EnvironmentValidator tkmsMigrationHandler() {
     return new EnvironmentValidator();
   }
+
+  @Bean
+  @ConditionalOnMissingBean(TkmsClusterWideStateMonitor.class)
+  public TkmsClusterWideStateMonitor tkmsClusterWideStateMonitor() {
+    return new TkmsClusterWideStateMonitor();
+  }
+
 }

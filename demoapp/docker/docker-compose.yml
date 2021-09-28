@@ -42,7 +42,7 @@ services:
       KAFKA_JVM_PERFORMANCE_OPTS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20 -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses
 #      KAFKA_CREATE_TOPICS: "MyTopic:10:1"
   mariadb:
-    image: mariadb:10.3
+    image: mariadb:10.4
     hostname: mysql
     ports:
       - "13306:3306"
@@ -60,9 +60,7 @@ services:
     --innodb_sync_array_size=16
     --innodb_log_file_size=10g
     --query_cache_type=0
-    --innodb_adaptive_hash_index=0
-    --binlog_commit_wait_count=10
-    --binlog_commit_wait_usec=1000000"
+    --innodb_adaptive_hash_index=0"
 
   #    --innodb_flush_log_at_trx_commit=1 --innodb_flush_method=O_DIRECT_NO_FSYNC
 
