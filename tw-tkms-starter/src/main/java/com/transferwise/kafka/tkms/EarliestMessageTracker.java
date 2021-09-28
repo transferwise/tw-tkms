@@ -18,7 +18,7 @@ public class EarliestMessageTracker {
   private boolean enabled;
   private Object earliestMessageIdGauge;
 
-  private long earliestMessageId = -1;
+  private volatile long earliestMessageId = -1;
 
   private long lastCommitMs = -1;
 
@@ -32,14 +32,14 @@ public class EarliestMessageTracker {
   }
 
   public void init() {
-    earliestMessageIdGauge = metricsTemplate.registerEarliestMessageId(shardPartition, () -> earliestMessageId);
-
     EarliestVisibleMessages earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
     enabled = earliestVisibleMessages.isEnabled();
 
     if (!enabled) {
       return;
     }
+
+    earliestMessageIdGauge = metricsTemplate.registerEarliestMessageId(shardPartition, () -> earliestMessageId);
 
     earliestMessageSlidingWindow = new EarliestMessageSlidingWindow(earliestVisibleMessages.getLookBackPeriod());
     Long earliestMessageIdFromDb = dao.getEarliestMessageId(shardPartition);
@@ -68,14 +68,15 @@ public class EarliestMessageTracker {
 
     long earliestMessageIdInWindow = earliestMessageSlidingWindow.getEarliestMessageId();
     if (earliestMessageIdInWindow != -1) {
-      this.earliestMessageId = earliestMessageIdInWindow;
+      if (this.earliestMessageId != earliestMessageIdInWindow) {
+        this.earliestMessageId = earliestMessageIdInWindow;
+        commitIfFeasible();
+      }
     }
-
-    commitIfFeasible();
   }
 
   private void commitIfFeasible() {
-    if (lastCommitMs == -1 || TkmsClockHolder.getClock().millis() - lastCommitMs > 5000) {
+    if (lastCommitMs == -1 || TkmsClockHolder.getClock().millis() - lastCommitMs > 5_000) {
       commit();
     }
   }
