@@ -42,8 +42,6 @@ public interface ITkmsMetricsTemplate {
 
   Object registerEarliestMessageId(TkmsShardPartition shardPartition, Supplier<Number> supplier);
 
-  void deRegisterEarliestMessageId(Object handle);
-
   void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats);
 
   void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats);

@@ -1,7 +1,9 @@
 package com.transferwise.kafka.tkms;
 
 import java.time.Duration;
+import javax.annotation.concurrent.NotThreadSafe;
 
+@NotThreadSafe
 public class EarliestMessageSlidingWindow {
 
   private static final int BUCKETS_COUNT = 100;
@@ -17,11 +19,8 @@ public class EarliestMessageSlidingWindow {
     buckets = new long[BUCKETS_COUNT];
     periodMs = lookBackPeriod.toMillis();
     stepMs = periodMs / BUCKETS_COUNT;
-    for (int i = 0; i < BUCKETS_COUNT; i++) {
-      buckets[i] = Long.MAX_VALUE;
-    }
 
-    idxMs = TkmsClockHolder.getClock().millis();
+    resetBuckets(TkmsClockHolder.getClock().millis());
   }
 
   public void register(long id) {
@@ -36,15 +35,16 @@ public class EarliestMessageSlidingWindow {
     }
   }
 
+  /*
+   * Moving the bucket index forward and emptying slots which will be skipped.
+   */
   private void scroll() {
     long timeMs = TkmsClockHolder.getClock().millis();
 
+    // Too much time has passed, it is most optimal to reset everything.
     if (timeMs > idxMs + BUCKETS_COUNT * stepMs) {
-      idxMs = timeMs;
-      idx = 0;
-      for (int i = 0; i < BUCKETS_COUNT; i++) {
-        buckets[i] = Long.MAX_VALUE;
-      }
+      resetBuckets(timeMs);
+      return;
     }
 
     while (timeMs > idxMs + stepMs) {
@@ -59,9 +59,18 @@ public class EarliestMessageSlidingWindow {
     }
   }
 
+  private void resetBuckets(long timeMs) {
+    idxMs = timeMs;
+    idx = 0;
+    for (int i = 0; i < BUCKETS_COUNT; i++) {
+      buckets[i] = Long.MAX_VALUE;
+    }
+  }
+
   public long getEarliestMessageId() {
     if (TkmsClockHolder.getClock().millis() - initializationMs <= periodMs) {
-      // We can't return an id, before first period finishes.
+      // We can't return an id, before first period finishes. We don't know what happened in the whole period yet,
+      // maybe there was a smaller id present.
       return -1;
     }
 

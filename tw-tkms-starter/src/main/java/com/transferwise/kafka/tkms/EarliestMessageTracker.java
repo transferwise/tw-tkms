@@ -5,7 +5,9 @@ import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.EarliestVisibleMessages;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
+import javax.annotation.concurrent.NotThreadSafe;
 
+@NotThreadSafe
 public class EarliestMessageTracker {
 
   private ITkmsDao dao;
@@ -45,7 +47,7 @@ public class EarliestMessageTracker {
   }
 
   public void shutdown() {
-    metricsTemplate.deRegisterEarliestMessageId(earliestMessageIdGauge);
+    metricsTemplate.unregisterMetric(earliestMessageIdGauge);
     if (!enabled) {
       return;
     }

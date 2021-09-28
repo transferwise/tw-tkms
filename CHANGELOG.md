@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.0] - 2021-05-31
 ### Changed
-* Handling a case, where Postgres database has long running transactions preventing dead tuples being cleared for tw-tkms tables.
+* Handling a case, where Postgres database has long running transactions, and those are preventing dead tuples being cleared for tw-tkms tables,
+  resulting in massive tw-tkms slow down and database overload. 
   More detailed info [here](docs/postgres_with_long_transactions.md).
 
 ## [0.13.0] - 2021-05-31

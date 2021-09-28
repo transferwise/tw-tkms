@@ -29,7 +29,9 @@ over all those million dead tuples and then return 1 record.
 It can be described with the following pseudocode:
 
 ```
-record = findARecordFromPrimaryIndexVisibleForAnyTransaction() -- 0
+record = findARecordFromPrimaryIndexVisibleForAnyTransaction()
+
+// record value is #0
 
 do{
     if (record.isVisibleToCurrentTransaction()){
@@ -39,16 +41,19 @@ do{
 until record.nextInPrimaryIndex() == nil
 ```
 
+The same situation can happen also when autovacuum is not well tuned and/or just too slow. Make sure your DBAs are paying attention on tuning that
+properly.
+
 ## The solution
 
 In the previous case, if we could also add a clause `where id >= 1000000`, the `findARecordFromPrimaryIndexVisibleForAnyTransaction`
-can find the right record to start looping from instantly and the whole query will be fast.
+can find the right record to start looping from, instantly, and the whole query will be again very fast.
 
-What `tw-tkms` can do, is to track ids it has loaded from the database in a sliding window, let's say 5 minutes long by default.
+What `tw-tkms` can do for you, is to track ids it has loaded from the database in a sliding window, let's say 5 minutes long by default.
 
 And, then add `where id >= [earliest id in 5 minute period]` clause to every polling query.
 
-To enabling it you need to create a tracking table and then turn it on from config.
+To enable it, you need to create a tracking table and then turn it on from config.
 
 ```postgresql
 CREATE TABLE tw_tkms_earliest_visible_messages
@@ -70,14 +75,16 @@ tw-tkms:
 ## The risk
 
 If you configure the `look-back-period` too small, you may have longer transactions adding messages too late and
-`tw-tkms` will not see them anymore.
+`tw-tkms` will not see those anymore. I.e. you will end up messages in database which nothing is sending out.
 
-You should be really sure about that how long transactions, in which you are sending out tw-tkms messages, your application  
-creates and protect yourself against it. 
+You should be really sure about how long transactions, in which you are sending out tw-tkms messages, your application  
+creates and protect yourself against having longer ones. 
 
 Postgres lacks a way to directly set a maximum timeout for a transaction, but you can use `tw-reliable-jdbc`, which
 at least helps to keep `statement_timeout` and `idle_in_transaction_session_timeout` small, making longer than expected
 transactions highly improbable.
+
+> It is highly recommended to run this solution together with tw-reliable-jdbc integration.
 
 If the worst case happens and some messages are left behind into the outbox tables, you can turn the
 `tw-tkms.earliest-visible-message.enabled` to `false` and do a temporary deployment. 

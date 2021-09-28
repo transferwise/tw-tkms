@@ -16,6 +16,7 @@ class EarliestMessageSlidingWindowTest extends BaseIntTest {
 
     EarliestMessageSlidingWindow slidingWindow = new EarliestMessageSlidingWindow(Duration.ofSeconds(10));
 
+    // tick, current message id, expected earliest message id.
     long[][] values = new long[][]{
         {0, 9, -1},
         {1, 12, -1},

@@ -313,11 +313,6 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   }
 
   @Override
-  public void deRegisterEarliestMessageId(Object handle) {
-    unregisterMetric(handle);
-  }
-
-  @Override
   public void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats) {
     Gauge.builder(DAO_ROWS_IN_TABLE_STATS, () -> rowsInTableStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))
         .register(meterCache.getMeterRegistry());

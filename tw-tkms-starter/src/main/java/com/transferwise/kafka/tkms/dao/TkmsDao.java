@@ -34,6 +34,10 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * READ_UNCOMMITTED isolation level is to speed up queries against information schema in databases with high number of tenants. E.g. Custom
+ * environments.
+ */
 @Slf4j
 public class TkmsDao implements ITkmsDao {
 
@@ -68,14 +72,16 @@ public class TkmsDao implements ITkmsDao {
   public void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
-    currentSchema = getCurrentSchema();
+    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> currentSchema = getCurrentSchema());
 
     createInsertMessagesSqls();
     createGetMessagesSqls();
     createDeleteMessagesSqls();
 
-    validateSchema();
-    validateEngineSpecificSchema();
+    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
+      validateSchema();
+      validateEngineSpecificSchema();
+    });
   }
 
   protected void createInsertMessagesSqls() {
