@@ -33,6 +33,11 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   }
 
   @Override
+  public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
+    return delegate.hasMessagesBeforeId(sp, messageId);
+  }
+
+  @Override
   public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount) {
     return delegate.getMessages(shardPartition, earliestMessageId, maxCount);
   }

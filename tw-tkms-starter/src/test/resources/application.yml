@@ -95,6 +95,8 @@ tw-tkms:
     table-name: earliestmessage.tw_tkms_earliest_visible_messages 
   shards-count: 1
   table-base-name: earliestmessage.outgoing_message
+  monitoring:
+    left-over-messages-check-start-delay: 1s
     
 tw-tkms-test:
   test-topic: TestTopicEarliestMessage

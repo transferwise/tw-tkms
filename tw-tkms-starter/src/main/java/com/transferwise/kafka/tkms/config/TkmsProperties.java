@@ -283,5 +283,8 @@ public class TkmsProperties {
 
     private Duration interval = Duration.ofSeconds(30);
     private Duration startDelay = Duration.ofSeconds(30);
+    
+    private Duration leftOverMessagesCheckInterval = Duration.ofHours(1);
+    private Duration leftOverMessagesCheckStartDelay = Duration.ofHours(1);
   }
 }

@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms.dao;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
 import java.util.List;
 import lombok.Data;
@@ -14,7 +15,11 @@ public interface ITkmsDao {
 
   List<InsertMessageResult> insertMessages(TkmsShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages);
 
+  @MonitoringQuery
   long getApproximateMessagesCount(TkmsShardPartition sp);
+
+  @MonitoringQuery
+  boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId);
 
   @Data
   @Accessors(chain = true)

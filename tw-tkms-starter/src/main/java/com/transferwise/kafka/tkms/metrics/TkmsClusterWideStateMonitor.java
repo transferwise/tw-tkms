@@ -11,6 +11,7 @@ import com.transferwise.common.leaderselector.LeaderSelectorV2;
 import com.transferwise.common.leaderselector.SharedReentrantLockBuilderFactory;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.config.TkmsProperties.EarliestVisibleMessages;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -58,22 +60,49 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
     leaderSelector = new LeaderSelectorV2.Builder().setLock(lock).setExecutorService(executorService).setLeader(control -> {
       ScheduledTaskExecutor scheduledTaskExecutor = executorServicesProvider.getGlobalScheduledTaskExecutor();
       MutableObject<TaskHandle> taskHandleHolder = new MutableObject<>();
+      List<TaskHandle> leftOverMessagesTaskHandleHolders = new ArrayList<>();
 
       control.workAsyncUntilShouldStop(
           () -> {
             resetState(true);
             TkmsProperties.Monitoring monitoring = properties.getMonitoring();
             taskHandleHolder.setValue(scheduledTaskExecutor
-                .scheduleAtFixedInterval(this::check, monitoring.getStartDelay(),
-                    monitoring.getInterval()));
-            log.info("Started to monitor tasks state for '" + properties.getGroupId() + "'.");
+                .scheduleAtFixedInterval(this::check, monitoring.getStartDelay(), monitoring.getInterval()));
+
+            for (int s = 0; s < properties.getShardsCount(); s++) {
+              EarliestVisibleMessages earliestVisibleMessages = properties.getEarliestVisibleMessages(s);
+              if (!earliestVisibleMessages.isEnabled()) {
+                continue;
+              }
+
+              for (int p = 0; p < properties.getShardsCount(); p++) {
+                TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+                long startDelayMs =
+                    (long) (ThreadLocalRandom.current().nextDouble(0.25) * monitoring.getLeftOverMessagesCheckStartDelay().toMillis());
+                long intervalMs = (long) (ThreadLocalRandom.current().nextDouble(0.25) * monitoring.getLeftOverMessagesCheckInterval().toMillis());
+                leftOverMessagesTaskHandleHolders.add(scheduledTaskExecutor
+                    .scheduleAtFixedInterval(() -> checkLeftOverMessages(sp), Duration.ofMillis(startDelayMs), Duration.ofMillis(intervalMs)));
+
+                log.info("Started to check left over message for " + sp + ".");
+              }
+            }
+
+            log.info("Started to monitor tkms state for '" + properties.getGroupId() + "'.");
           },
           () -> {
-            log.info("Stopping monitoring of tasks state for '" + properties.getGroupId() + "'.");
+            log.info("Stopping monitoring of tkms state for '" + properties.getGroupId() + "'.");
+            for (TaskHandle taskHandle : leftOverMessagesTaskHandleHolders) {
+              taskHandle.stop();
+            }
             if (taskHandleHolder.getValue() != null) {
               taskHandleHolder.getValue().stop();
               taskHandleHolder.getValue().waitUntilStopped(Duration.ofMinutes(1));
             }
+            for (TaskHandle taskHandle : leftOverMessagesTaskHandleHolders) {
+              taskHandle.waitUntilStopped(Duration.ofMinutes(1));
+            }
+            log.info("Stopped to check left over messages.");
+
             resetState(false);
             log.info("Monitoring of tasks state stopped.");
           });
@@ -136,6 +165,17 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
           return counter;
         }).set(count);
       }
+    }
+  }
+
+  /*
+   * Checks if there are any forgotten messages, when earliest message system is enabled.
+   */
+  protected void checkLeftOverMessages(TkmsShardPartition sp) {
+    Long earliestMessageId = tkmsDao.getEarliestMessageId(sp);
+    if (tkmsDao.hasMessagesBeforeId(sp, earliestMessageId)) {
+      log.error("Forgotten message detected in " + sp
+          + ". You may want to turn earliest visible message system off temporarily, so it gets picked up.");
     }
   }
 

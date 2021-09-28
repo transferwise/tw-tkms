@@ -9,6 +9,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
+import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -346,12 +347,20 @@ public class TkmsDao implements ITkmsDao {
 
   @Override
   @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
+  @MonitoringQuery
   public long getApproximateMessagesCount(TkmsShardPartition sp) {
     List<Long> rows =
         jdbcTemplate.queryForList("select table_rows from information_schema.tables where table_schema=? and table_name = ?", Long.class,
             getSchemaName(sp), getTableNameWithoutSchema(sp));
 
     return rows.isEmpty() ? -1 : rows.get(0);
+  }
+
+  @Override
+  @MonitoringQuery
+  public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
+    List<Long> exists = jdbcTemplate.queryForList("select 1 from " + getTableName(sp) + " where id < ? limit 1", Long.class, messageId);
+    return !exists.isEmpty();
   }
 
   protected boolean doesEarliestVisibleMessagesTableExist() {
