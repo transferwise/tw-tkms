@@ -1,0 +1,1 @@
+CREATE schema if not exists earliestmessage;

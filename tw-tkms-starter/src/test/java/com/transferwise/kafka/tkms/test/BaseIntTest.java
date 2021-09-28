@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @BaseTestEnvironment
 public class BaseIntTest {
@@ -22,6 +23,9 @@ public class BaseIntTest {
 
   @Autowired
   protected IMeterCache meterCache;
+  
+  @Autowired
+  protected JdbcTemplate jdbcTemplate;
 
   @AfterEach
   public void cleanup() {

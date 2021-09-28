@@ -12,7 +12,7 @@ The longer the transactions take, the worse it gets.
 
 The problem comes from the fact, that Postgres can not remove dead tuples, until the last transaction possibly needing those has finished.
 
-So if we look at the messages polling with `select id, message from outgoing_message_0,0 order by id limit 1000`, it starts to look
+So if we look at the messages polling with `select id, message from outgoing_message_0,0 order by id`, it starts to look
 like following on database side, for new transactions.
 
 ```
@@ -24,7 +24,7 @@ message #1000001 (live tuple)
 ```
 
 A person without understanding about Postgres internals, would assume the query above would be lightning fast, but it is not. It actually iterates
-over all those million dead tuples and then return 1 record.
+over all those million dead tuples and then returns 1 record.
 
 It can be described with the following pseudocode:
 

@@ -73,3 +73,28 @@ tw-tkms:
 
 tw-tkms-test:
   test-topic: TestTopicPostgres
+
+---
+
+spring:
+  profiles: earliest-message
+  application.name: tw-tkms-earliest-message
+  datasource:
+    url: "jdbc:postgresql://localhost:${POSTGRES_TCP_5432}/postgres"
+    username: "postgres"
+  flyway:
+    locations: "classpath:db/migration/earliestmessage"
+    default-schema: "earliestmessage"
+    schemas:
+      - "earliestmessage"
+tw-tkms:
+  database-dialect: POSTGRES
+  earliest-visible-messages:
+    enabled: true
+    look-back-period: 10
+    table-name: earliestmessage.tw_tkms_earliest_visible_messages 
+  shards-count: 1
+  table-base-name: earliestmessage.outgoing_message
+    
+tw-tkms-test:
+  test-topic: TestTopicEarliestMessage
