@@ -176,8 +176,7 @@ public class TkmsDao implements ITkmsDao {
           metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
         }
       }
-    }
-    catch (Throwable t){
+    } catch (Throwable t) {
       log.error("Validating table and index stats failed. Will still continue with the initialization.", t);
     }
   }
