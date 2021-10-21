@@ -155,6 +155,10 @@ public class TkmsDao implements ITkmsDao {
   }
 
   protected void validateEngineSpecificSchema() {
+    if (!properties.isTableStatsValidationEnabled()) {
+      return;
+    }
+
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         TkmsShardPartition sp = TkmsShardPartition.of(s, p);

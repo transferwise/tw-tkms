@@ -47,10 +47,11 @@ public class EarliestMessageTracker {
   }
 
   public void shutdown() {
-    metricsTemplate.unregisterMetric(earliestMessageIdGauge);
     if (!enabled) {
       return;
     }
+
+    metricsTemplate.unregisterMetric(earliestMessageIdGauge);
 
     commit();
   }
