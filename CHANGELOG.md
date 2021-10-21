@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.14.0] - 2021-05-31
+## [0.14.1] - 2021-10-21
+### Fixed
+* Nullpointer when trying to unregister earliest message tracker metric, even when the system is not enabled.
+
+### Added
+* `tableStatsValidationEnabled` property.
+Some older databases may not have enough privileges for those checks yet.
+So while a team waits behind DBAs to add those privileges, they can temporarily turn those checks off.
+
+## [0.14.0] - 2021-09-28
 ### Changed
 * Handling a case, where Postgres database has long running transactions, and those are preventing dead tuples being cleared for tw-tkms tables,
   resulting in massive tw-tkms slow down and database overload. 

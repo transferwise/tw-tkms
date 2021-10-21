@@ -84,7 +84,9 @@ Postgres lacks a way to directly set a maximum timeout for a transaction, but yo
 at least helps to keep `statement_timeout` and `idle_in_transaction_session_timeout` small, making longer than expected
 transactions highly improbable.
 
-> It is highly recommended to run this solution together with tw-reliable-jdbc integration.
+> It is highly recommended running this solution together with tw-reliable-jdbc integration.
 
 If the worst case happens and some messages are left behind into the outbox tables, you can turn the
 `tw-tkms.earliest-visible-message.enabled` to `false` and do a temporary deployment. 
+
+> But notice in this case, ordering guarantees for those left-over messages are not met anymore.

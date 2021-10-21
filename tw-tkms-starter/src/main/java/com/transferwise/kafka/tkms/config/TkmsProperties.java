@@ -164,6 +164,12 @@ public class TkmsProperties {
 
   private Monitoring monitoring = new Monitoring();
 
+  /**
+   * Validation requires quite specific privileges in database.
+   * Some teams may need to turn it off.
+   */
+  private boolean tableStatsValidationEnabled = true;
+
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {

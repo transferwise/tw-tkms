@@ -22,6 +22,7 @@ import javax.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /*
   A bit over engineering, but:
@@ -29,6 +30,7 @@ import lombok.experimental.Accessors;
     - avoid `Tags.and()` to create less objects/arrays.
  */
 @RequiredArgsConstructor
+@Slf4j
 public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   public static final String PREFIX = "tw.tkms";
@@ -372,6 +374,11 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   @Override
   public void unregisterMetric(Object rawMetricHandle) {
+    if (rawMetricHandle == null) {
+      log.error("Algorithm error detected, metricHandle is null.", new Exception("Algorithm error detected, metricHandle is null."));
+      return;
+    }
+
     MetricHandle metricHandle = (MetricHandle) rawMetricHandle;
 
     if (metricHandle.cached) {
