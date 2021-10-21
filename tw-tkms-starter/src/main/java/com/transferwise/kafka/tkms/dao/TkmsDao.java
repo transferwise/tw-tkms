@@ -159,21 +159,25 @@ public class TkmsDao implements ITkmsDao {
       return;
     }
 
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+    try {
+      for (int s = 0; s < properties.getShardsCount(); s++) {
+        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
+          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
-        long rowsInTableStats = getRowsFromTableStats(sp);
-        long rowsInIndexStats = getRowsFromIndexStats(sp);
+          long rowsInTableStats = getRowsFromTableStats(sp);
+          long rowsInIndexStats = getRowsFromIndexStats(sp);
 
-        if (rowsInTableStats < 100000 || rowsInIndexStats < 100000) {
-          log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats
-              + ", rows in index stats is " + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
+          if (rowsInTableStats < 100000 || rowsInIndexStats < 100000) {
+            log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats
+                + ", rows in index stats is " + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
+          }
+
+          metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
+          metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
         }
-
-        metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
-        metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
       }
+    } catch (Throwable t) {
+      log.error("Validating table and index stats failed. Will still continue with the initialization.", t);
     }
   }
 

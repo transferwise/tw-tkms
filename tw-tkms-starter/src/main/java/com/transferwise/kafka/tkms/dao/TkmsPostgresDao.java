@@ -49,19 +49,23 @@ public class TkmsPostgresDao extends TkmsDao {
       return;
     }
 
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+    try {
+      for (int s = 0; s < properties.getShardsCount(); s++) {
+        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
+          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
-        long distinctIdsCount = getDistinctIdsCount(sp);
+          long distinctIdsCount = getDistinctIdsCount(sp);
 
-        if (distinctIdsCount < 100000) {
-          log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + distinctIdsCount
-              + ". This can greatly affect performance during peaks or database slownesses.");
+          if (distinctIdsCount < 100000) {
+            log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + distinctIdsCount
+                + ". This can greatly affect performance during peaks or database slownesses.");
+          }
+
+          metricsTemplate.registerRowsInTableStats(sp, distinctIdsCount);
         }
-
-        metricsTemplate.registerRowsInTableStats(sp, distinctIdsCount);
       }
+    } catch (Throwable t) {
+      log.error("Validating table and index stats failed. Will still continue with the initialization.", t);
     }
   }
 
