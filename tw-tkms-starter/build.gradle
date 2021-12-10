@@ -38,7 +38,7 @@ dependencies {
     runtimeOnly libraries.twGracefulShutdown
     runtimeOnly libraries.twLeaderSelectorStarter
     runtimeOnly libraries.micrometerRegistryPrometheus
-    
+
     testCompileOnly libraries.spotbugsAnnotations
 
     testImplementation project(":tw-tkms-test-starter")
@@ -68,6 +68,7 @@ if (System.getenv("IN_CIRCLE") != "true") {
 
 dockerCompose {
     useComposeFiles = ["src/test/resources/docker-compose.yml"]
+    projectName = "tw-tkms-starter"
     // Create some flakiness on slower comps
     // waitForTcpPorts = false
 
