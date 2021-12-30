@@ -60,13 +60,15 @@ tw-tkms-test:
 ---
 
 spring:
-  profiles: postgres
   application.name: tw-tkms-test-postgres
   datasource:
     url: "jdbc:postgresql://${POSTGRES_TCP_HOST:localhost}:${POSTGRES_TCP_5432}/postgres"
     username: "postgres"
   flyway:
     locations: "classpath:db/migration/postgres"
+  config:
+    activate:
+      on-profile: postgres
 
 tw-tkms:
   database-dialect: POSTGRES
@@ -77,7 +79,6 @@ tw-tkms-test:
 ---
 
 spring:
-  profiles: earliest-message
   application.name: tw-tkms-earliest-message
   datasource:
     url: "jdbc:postgresql://${POSTGRES_TCP_HOST:localhost}:${POSTGRES_TCP_5432}/postgres"
@@ -87,6 +88,9 @@ spring:
     default-schema: "earliestmessage"
     schemas:
       - "earliestmessage"
+  config:
+    activate:
+      on-profile: earliest-message
 
 tw-tkms:
   database-dialect: POSTGRES
@@ -98,6 +102,10 @@ tw-tkms:
   table-base-name: earliestmessage.outgoing_message
   monitoring:
     left-over-messages-check-start-delay: 1s
-    
+  shards:
+    1:
+      earliest-visible-messages:
+        table-name: earliestmessage.tw_tkms_earliest_visible_messages
+        
 tw-tkms-test:
   test-topic: TestTopicEarliestMessage
