@@ -31,11 +31,10 @@ jobs:
         image: mariadb:10.4
         env:
           MYSQL_ROOT_PASSWORD: example-password-change-me
-          MYSQL_DATABASE: tw-tasks-test
+          MYSQL_DATABASE: tkms
       postgres1:
         image: postgres:12
         env:
-          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: example-password-change-me
       zk-service1:
         image: bitnami/zookeeper:3.5.5
