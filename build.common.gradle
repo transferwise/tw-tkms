@@ -61,8 +61,8 @@ tasks.withType(Checkstyle) {
     maxWarnings = 0
 
     reports {
-        xml.enabled false
-        html.enabled true
+        xml.required = true
+        html.required = true
     }
 }
 
@@ -96,8 +96,8 @@ tasks.findAll { it.name.startsWith("spotbugs") }*.configure {
     excludeFilter = file('../spotbugs-exclude.xml')
 
     reports {
-        xml.enabled false
-        html.enabled true
+        xml.required = true
+        html.required = true
     }
 }
 

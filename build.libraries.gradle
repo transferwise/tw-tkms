@@ -2,7 +2,7 @@ ext {
     protobufVersion = "3.18.0"
     libraries = [
             // version defined
-            awaitility                      : 'org.awaitility:awaitility:4.1.0',
+            awaitility                      : 'org.awaitility:awaitility:4.1.1',
             commonsIo                       : 'commons-io:commons-io:2.11.0', // TODO: Try to remove, we have JDK 11 requirement now
             curatorFramework                : 'org.apache.curator:curator-framework:5.2.0',
             curatorRecipes                  : 'org.apache.curator:curator-recipes:5.2.0',
@@ -11,7 +11,7 @@ ext {
             protobufJava                    : "com.google.protobuf:protobuf-java:${protobufVersion}",
             semver4j                        : "com.vdurmont:semver4j:3.1.0",
             spotbugsAnnotations             : 'com.github.spotbugs:spotbugs-annotations:4.4.1',
-            springBootDependencies          : 'org.springframework.boot:spring-boot-dependencies:2.4.11',
+            springBootDependencies          : 'org.springframework.boot:spring-boot-dependencies:2.5.8',
             twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.6.0',
             twContext                       : 'com.transferwise.common:tw-context:0.11.0',
             twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.0',

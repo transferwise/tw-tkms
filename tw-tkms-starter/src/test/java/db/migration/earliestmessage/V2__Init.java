@@ -12,7 +12,8 @@ public class V2__Init extends BaseJavaMigration {
   public void migrate(Context context) throws Exception {
     for (int s = 0; s < 5; s++) {
       for (int p = 0; p < 10; p++) {
-        try (Statement stmt = context.getConnection().createStatement()) {
+        Statement stmt = context.getConnection().createStatement();
+        try {
           String tableName = "earliestmessage.outgoing_message_" + s + "_" + p;
           stmt.execute("CREATE TABLE " + tableName + " (\n"
               + "  id BIGSERIAL PRIMARY KEY,\n"
@@ -23,6 +24,9 @@ public class V2__Init extends BaseJavaMigration {
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN id SET (n_distinct=1000000);");
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN message SET STORAGE EXTERNAL");
           stmt.executeUpdate("VACUUM FULL " + tableName);
+        }
+        finally{
+          stmt.close();
         }
       }
     }

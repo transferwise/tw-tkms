@@ -62,7 +62,7 @@ protobuf {
     }
 }
 
-if (System.getenv("IN_CIRCLE") != "true") {
+if (System.getenv("IN_CI") != "true") {
     dockerCompose.isRequiredBy(test)
 }
 
