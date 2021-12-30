@@ -2,7 +2,7 @@ spring:
   application:
     name: tw-tkms-test
   datasource:
-    url: "jdbc:mariadb://localhost:${MARIADB_TCP_3306}/tkms"
+    url: "jdbc:mariadb://${MARIADB_TCP_HOST:localhost}:${MARIADB_TCP_3306}/tkms"
     password: "example-password-change-me"
     username: "root"
     hikari:
@@ -12,7 +12,7 @@ spring:
       transaction-isolation: 2
 
   kafka:
-    bootstrap-servers: "localhost:${KAFKA_TCP_9092}"
+    bootstrap-servers: "${KAFKA_TCP_HOST:localhost}:${KAFKA_TCP_9092}"
     consumer:
       group-id: ${spring.application.name}
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -24,14 +24,14 @@ spring:
     locations: "classpath:db/migration/mysql"
 
 tw-curator:
-  zookeeper-connect-string: "localhost:${ZOOKEEPER_TCP_2181}"
+  zookeeper-connect-string: "${ZOOKEEPER_TCP_HOST:localhost}:${ZOOKEEPER_TCP_2181}"
 
 tw-tkms:
   polling-interval: 5ms
   shards-count: 2
   insert-batch-size: 2
   kafka:
-    bootstrap.servers: "localhost:${KAFKA_TCP_9092}"
+    bootstrap.servers: "${KAFKA_TCP_HOST:localhost}:${KAFKA_TCP_9092}"
   shards:
     1:
       polling-interval: 6ms
@@ -60,13 +60,15 @@ tw-tkms-test:
 ---
 
 spring:
-  profiles: postgres
   application.name: tw-tkms-test-postgres
   datasource:
-    url: "jdbc:postgresql://localhost:${POSTGRES_TCP_5432}/postgres"
+    url: "jdbc:postgresql://${POSTGRES_TCP_HOST:localhost}:${POSTGRES_TCP_5432}/postgres"
     username: "postgres"
   flyway:
     locations: "classpath:db/migration/postgres"
+  config:
+    activate:
+      on-profile: postgres
 
 tw-tkms:
   database-dialect: POSTGRES
@@ -77,16 +79,18 @@ tw-tkms-test:
 ---
 
 spring:
-  profiles: earliest-message
   application.name: tw-tkms-earliest-message
   datasource:
-    url: "jdbc:postgresql://localhost:${POSTGRES_TCP_5432}/postgres"
+    url: "jdbc:postgresql://${POSTGRES_TCP_HOST:localhost}:${POSTGRES_TCP_5432}/postgres"
     username: "postgres"
   flyway:
     locations: "classpath:db/migration/earliestmessage"
     default-schema: "earliestmessage"
     schemas:
       - "earliestmessage"
+  config:
+    activate:
+      on-profile: earliest-message
 
 tw-tkms:
   database-dialect: POSTGRES
@@ -98,6 +102,10 @@ tw-tkms:
   table-base-name: earliestmessage.outgoing_message
   monitoring:
     left-over-messages-check-start-delay: 1s
-    
+  shards:
+    1:
+      earliest-visible-messages:
+        table-name: earliestmessage.tw_tkms_earliest_visible_messages
+        
 tw-tkms-test:
   test-topic: TestTopicEarliestMessage

@@ -20,4 +20,7 @@
     <Class name="db.migration.postgres.V1__Init"/>
   </Match>
 
+  <Match>
+    <Bug code="EI,EI2,MS"/>
+  </Match>
 </FindBugsFilter>
