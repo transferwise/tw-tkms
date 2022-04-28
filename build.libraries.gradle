@@ -1,5 +1,5 @@
 ext {
-    protobufVersion = "3.18.0"
+    protobufVersion = "3.20.1"
     libraries = [
             // version defined
             awaitility                      : 'org.awaitility:awaitility:4.1.1',
