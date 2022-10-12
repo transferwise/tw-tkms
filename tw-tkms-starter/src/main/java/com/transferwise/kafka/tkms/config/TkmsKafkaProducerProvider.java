@@ -6,6 +6,9 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -19,7 +22,12 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   @Autowired
   private TkmsProperties tkmsProperties;
 
+  @Autowired
+  private MeterRegistry meterRegistry;
+
   private Map<Integer, KafkaProducer<String, byte[]>> kafkaProducers = new ConcurrentHashMap<>();
+
+  private Map<Integer, KafkaClientMetrics> kafkaClientMetrics = new HashMap<>();
 
   @Override
   public KafkaProducer<String, byte[]> getKafkaProducer(int shard) {
@@ -45,12 +53,20 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
         configs.putAll(shardProperties.getKafka());
       }
 
-      return new KafkaProducer<>(configs);
+      KafkaProducer<String, byte[]> kafkaProducer = new KafkaProducer<>(configs);
+      kafkaClientMetrics.put(shard, new KafkaClientMetrics(kafkaProducer));
+      kafkaClientMetrics.get(shard).bindTo(meterRegistry);
+      return kafkaProducer;
     });
   }
 
   @Override
   public void closeKafkaProducer(int shard) {
+    KafkaClientMetrics kafkaClientMetric = kafkaClientMetrics.remove(shard);
+    if (kafkaClientMetric != null) {
+      kafkaClientMetric.close();
+    }
+
     KafkaProducer<String, byte[]> producer = kafkaProducers.remove(shard);
     if (producer != null) {
       try {
@@ -64,6 +80,11 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   @Override
   public void applicationTerminating() {
     kafkaProducers.forEach((shard, producer) -> {
+      KafkaClientMetrics kafkaClientMetric = kafkaClientMetrics.remove(shard);
+      if (kafkaClientMetric != null) {
+        kafkaClientMetric.close();
+      }
+
       try {
         producer.close(Duration.ofSeconds(5));
       } catch (Throwable t) {
