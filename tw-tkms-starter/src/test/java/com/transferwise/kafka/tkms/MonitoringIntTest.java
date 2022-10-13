@@ -11,14 +11,13 @@ import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestProperties;
 import io.micrometer.core.instrument.Gauge;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 @Slf4j
 class MonitoringIntTest extends BaseIntTest {
@@ -97,8 +96,11 @@ class MonitoringIntTest extends BaseIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    assertThat(meterRegistry.find("kafka.producer.record.send.total").tags("client.id", "producer-1", "kafka.version", "2.7.2").functionCounter().count())
-            .as("Producer's metric shows one message sent.").isEqualTo(1L);
+    assertThat(meterRegistry.find("kafka.producer.record.send.total")
+                .tags("client.id", "producer-1", "kafka.version", "2.7.2")
+                .functionCounter().count())
+            .as("Producer's metric shows one message sent.")
+            .isEqualTo(1L);
   }
 
 }
