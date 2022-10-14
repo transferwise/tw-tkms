@@ -33,12 +33,16 @@ public class BaseIntTest {
     tkmsSentMessagesCollector.clear();
 
     for (Meter meter : meterRegistry.getMeters()) {
-      if (!(meter instanceof Gauge)) {
+      if (!(meter instanceof Gauge) && !(isKafkaProducerMeter(meter))) {
         meterRegistry.remove(meter);
       }
     }
     meterCache.clear();
 
     TkmsClockHolder.reset();
+  }
+
+  private boolean isKafkaProducerMeter(Meter meter) {
+    return meter.getId().getName().startsWith("kafka.producer.");
   }
 }
