@@ -4,11 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import io.micrometer.core.instrument.Gauge;
-import lombok.extern.slf4j.Slf4j;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
-@Slf4j
 class MonitoringIntTest extends BaseIntTest {
 
   @Test
