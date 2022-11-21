@@ -11,16 +11,7 @@ import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
@@ -35,42 +26,54 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * READ_UNCOMMITTED isolation level is to speed up queries against information schema in databases with high number of tenants. E.g. Custom
  * environments.
  */
 @Slf4j
-public class TkmsDao implements ITkmsDao {
+@RequiredArgsConstructor
+public abstract class TkmsDao implements ITkmsDao {
 
   private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
 
-  protected Map<TkmsShardPartition, String> insertMessageSqls;
+  private Map<TkmsShardPartition, String> insertMessageSqls;
 
-  protected Map<TkmsShardPartition, String> getMessagesSqls;
+  private Map<TkmsShardPartition, String> getMessagesSqls;
 
   private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap;
 
   @Autowired
-  protected ITkmsDataSourceProvider dataSourceProvider;
+  private final ITkmsDataSourceProvider dataSourceProvider;
 
   @Autowired
-  protected TkmsProperties properties;
+  protected final TkmsProperties properties;
 
   @Autowired
-  protected ITkmsMetricsTemplate metricsTemplate;
+  protected final ITkmsMetricsTemplate metricsTemplate;
 
   @Autowired
-  protected ITkmsMessageSerializer messageSerializer;
+  private final ITkmsMessageSerializer messageSerializer;
 
   @Autowired
-  protected ITransactionsHelper transactionsHelper;
+  private final ITransactionsHelper transactionsHelper;
 
   protected JdbcTemplate jdbcTemplate;
 
   protected String currentSchema;
 
   @PostConstruct
-  public void init() {
+  protected void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
     transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> currentSchema = getCurrentSchema());
@@ -154,32 +157,7 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
-  protected void validateEngineSpecificSchema() {
-    if (!properties.isTableStatsValidationEnabled()) {
-      return;
-    }
-
-    try {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
-        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-
-          long rowsInTableStats = getRowsFromTableStats(sp);
-          long rowsInIndexStats = getRowsFromIndexStats(sp);
-
-          if (rowsInTableStats < 100000 || rowsInIndexStats < 100000) {
-            log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats
-                + ", rows in index stats is " + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
-          }
-
-          metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
-          metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
-        }
-      }
-    } catch (Throwable t) {
-      log.error("Validating table and index stats failed. Will still continue with the initialization.", t);
-    }
-  }
+  protected abstract void validateEngineSpecificSchema();
 
   @Transactional(rollbackFor = Exception.class)
   @Override
@@ -354,55 +332,13 @@ public class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
-  @MonitoringQuery
-  public long getApproximateMessagesCount(TkmsShardPartition sp) {
-    List<Long> rows =
-        jdbcTemplate.queryForList("select table_rows from information_schema.tables where table_schema=? and table_name = ?", Long.class,
-            getSchemaName(sp), getTableNameWithoutSchema(sp));
-
-    return rows.isEmpty() ? -1 : rows.get(0);
-  }
-
-  @Override
   @MonitoringQuery
   public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
     List<Long> exists = jdbcTemplate.queryForList("select 1 from " + getTableName(sp) + " where id < ? limit 1", Long.class, messageId);
     return !exists.isEmpty();
   }
 
-  protected boolean doesEarliestVisibleMessagesTableExist() {
-    String schema = currentSchema;
-    String table = properties.getEarliestVisibleMessages().getTableName();
-    if (StringUtils.contains(table, ".")) {
-      schema = StringUtils.substringBefore(table, ".");
-      table = StringUtils.substringAfter(table, ".");
-    }
-
-    return !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
-        schema, table).isEmpty();
-  }
-
-  protected long getRowsFromTableStats(TkmsShardPartition shardPartition) {
-    List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?",
-        Long.class, getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
-
-    if (stats.isEmpty()) {
-      return -1;
-    }
-    return stats.get(0);
-  }
-
-  protected long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
-    List<Long> stats =
-        jdbcTemplate.queryForList("select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and "
-            + "table_name=?", Long.class, getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
-
-    if (stats.isEmpty()) {
-      return -1;
-    }
-    return stats.get(0);
-  }
+  protected abstract boolean doesEarliestVisibleMessagesTableExist();
 
   protected void deleteMessages0(TkmsShardPartition shardPartition, List<Long> ids) {
     int processedCount = 0;
@@ -427,13 +363,9 @@ public class TkmsDao implements ITkmsDao {
     }
   }
 
-  protected String getInsertSql(TkmsShardPartition shardPartition) {
-    return "insert into " + getTableName(shardPartition) + " (message) values (?)";
-  }
+  protected abstract String getInsertSql(TkmsShardPartition shardPartition);
 
-  protected String getSelectSql(TkmsShardPartition shardPartition) {
-    return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) where id >= ? order by id limit ?";
-  }
+  protected abstract String getSelectSql(TkmsShardPartition shardPartition);
 
   /**
    * String manipulation is one of the most expensive operations, but we don't do caching here.
@@ -462,7 +394,5 @@ public class TkmsDao implements ITkmsDao {
     return currentSchema;
   }
 
-  protected String getCurrentSchema() {
-    return jdbcTemplate.queryForObject("select DATABASE()", String.class);
-  }
+  protected abstract String getCurrentSchema();
 }

@@ -1,31 +1,18 @@
 package com.transferwise.kafka.tkms.config;
 
 import com.transferwise.common.baseutils.meters.cache.IMeterCache;
-import com.transferwise.kafka.tkms.EnvironmentValidator;
-import com.transferwise.kafka.tkms.IEnvironmentValidator;
-import com.transferwise.kafka.tkms.ITkmsPaceMaker;
-import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
-import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
-import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
-import com.transferwise.kafka.tkms.TkmsPaceMaker;
-import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
-import com.transferwise.kafka.tkms.TkmsZookeeperOperations;
-import com.transferwise.kafka.tkms.TransactionalKafkaMessageSender;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
+import com.transferwise.kafka.tkms.*;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
 import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
 import com.transferwise.kafka.tkms.api.helpers.TkmsMessageFactory;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
-import com.transferwise.kafka.tkms.dao.ITkmsMessageSerializer;
-import com.transferwise.kafka.tkms.dao.TkmsDao;
-import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
-import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
+import com.transferwise.kafka.tkms.dao.*;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsClusterWideStateMonitor;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
-import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -35,6 +22,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+
+import javax.sql.DataSource;
 
 /**
  * Separated things here, which can be included in non spring-boot application without modification.
@@ -63,11 +52,13 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsDao.class)
-  public TkmsDao tkmsDao(TkmsProperties tkmsProperties) {
+  public TkmsDao tkmsDao(ITkmsDataSourceProvider dataSourceProvider, TkmsProperties tkmsProperties,
+                         ITkmsMetricsTemplate metricsTemplate, ITkmsMessageSerializer messageSerializer,
+                         ITransactionsHelper transactionsHelper) {
     if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.POSTGRES) {
-      return new TkmsPostgresDao();
+      return new TkmsPostgresDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer,transactionsHelper);
     }
-    return new TkmsDao();
+    return new TkmsMariaDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer,transactionsHelper);
   }
 
   @Bean

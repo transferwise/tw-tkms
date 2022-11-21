@@ -1,10 +1,15 @@
 package com.transferwise.kafka.tkms.dao;
 
 import com.google.common.primitives.Longs;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
+import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.annotation.Isolation;
@@ -12,6 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 public class TkmsPostgresDao extends TkmsDao {
+
+  public TkmsPostgresDao(ITkmsDataSourceProvider dataSourceProvider, TkmsProperties properties,
+                         ITkmsMetricsTemplate metricsTemplate, ITkmsMessageSerializer messageSerializer,
+                         ITransactionsHelper transactionsHelper
+  ) {
+    super(dataSourceProvider, properties, metricsTemplate, messageSerializer, transactionsHelper);
+  }
 
   public static final Pattern N_DISTINCT_PATTERN = Pattern.compile("n_distinct=(.*)[,}]");
 
