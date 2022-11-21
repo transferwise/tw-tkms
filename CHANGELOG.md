@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2022-11-28
+### Changed
+* Make TkmsDao abstract and provide two implementations TkmsMariaDao and TkmsPostgresDao.
+* Allow override of database dialect for a shard.
+
 ## [0.17.0] - 2022-11-28
 
 ### Changed
@@ -27,12 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.3] - 2021-12-10
 ### Changed
-* Removed explicit dependency on flyway beans, while making sure it's configured before tkms if provided. 
+* Removed explicit dependency on flyway beans, while making sure it's configured before tkms if provided.
 
 
 ## [0.14.2] - 2021-10-21
 ### Fixed
-* When table and index statistics validation fails, we log it as an error, but continue. 
+* When table and index statistics validation fails, we log it as an error, but continue.
 
 ## [0.14.1] - 2021-10-21
 ### Fixed
@@ -46,7 +51,7 @@ So while a team waits behind DBAs to add those privileges, they can temporarily 
 ## [0.14.0] - 2021-09-28
 ### Changed
 * Handling a case, where Postgres database has long running transactions, and those are preventing dead tuples being cleared for tw-tkms tables,
-  resulting in massive tw-tkms slow down and database overload. 
+  resulting in massive tw-tkms slow down and database overload.
   More detailed info [here](docs/postgres_with_long_transactions.md).
 
 ## [0.13.0] - 2021-05-31
@@ -93,7 +98,7 @@ It is most appropriate for typical Transferwise messages.
 ### Added
 * A mechanism to force specific migration paths.
 Service owner can specify which version is running in production by `TkmsProperties.Environment.previousVersion`.
-If the version is too old, the service will refuse to start. It can be fixed by doing upgrades to intermediate versions.  
+If the version is too old, the service will refuse to start. It can be fixed by doing upgrades to intermediate versions.
 
 * Metrics
 `tw_tkms_dao_serialization_original_size_bytes {shard, partition, algorithm}`
@@ -121,7 +126,7 @@ If the version is too old, the service will refuse to start. It can be fixed by 
 
 ## [0.6.2] - 2020-12-17
 ### Fixed
-* Registering a metric for failed kafka send resulted in error because of wrong set of tags being used. 
+* Registering a metric for failed kafka send resulted in error because of wrong set of tags being used.
 
 ## [0.6.1] - 2020-11-13
 ### Fixed
