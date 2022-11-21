@@ -11,6 +11,16 @@ import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -25,17 +35,6 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.annotation.PostConstruct;
-import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * READ_UNCOMMITTED isolation level is to speed up queries against information schema in databases with high number of tenants. E.g. Custom
@@ -304,7 +303,7 @@ public abstract class TkmsDao implements ITkmsDao {
     var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
     var ids =
         jdbcTemplate.queryForList("select message_id from " + earliestVisibleMessages.getTableName() + " where shard=? and part=?", Long.class,
-            shardPartition.getShard(), shardPartition.getPartition());
+        shardPartition.getShard(), shardPartition.getPartition());
     return ids.isEmpty() ? null : ids.get(0);
   }
 
@@ -312,9 +311,8 @@ public abstract class TkmsDao implements ITkmsDao {
   public void saveEarliestMessageId(TkmsShardPartition shardPartition, long messageId) {
     var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
 
-    if (jdbcTemplate
-        .update("update " + earliestVisibleMessages.getTableName() + " set message_id=? where shard=? and part=?", messageId,
-            shardPartition.getShard(), shardPartition.getPartition()) != 1) {
+    if (jdbcTemplate.update("update " + earliestVisibleMessages.getTableName() + " set message_id=? where shard=? and part=?", messageId,
+        shardPartition.getShard(), shardPartition.getPartition()) != 1) {
       throw new IllegalStateException("Could not update earliest visible message id for '" + shardPartition + "'.");
     }
   }

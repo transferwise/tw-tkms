@@ -6,18 +6,22 @@ import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Slf4j
 public class TkmsMariaDao extends TkmsDao {
 
-  public TkmsMariaDao(ITkmsDataSourceProvider dataSourceProvider, TkmsProperties properties, ITkmsMetricsTemplate metricsTemplate,
-    ITkmsMessageSerializer messageSerializer, ITransactionsHelper transactionsHelper) {
+  public TkmsMariaDao(
+      ITkmsDataSourceProvider dataSourceProvider,
+      TkmsProperties properties,
+      ITkmsMetricsTemplate metricsTemplate,
+      ITkmsMessageSerializer messageSerializer,
+      ITransactionsHelper transactionsHelper
+  ) {
     super(dataSourceProvider, properties, metricsTemplate, messageSerializer, transactionsHelper);
   }
 
@@ -26,7 +30,7 @@ public class TkmsMariaDao extends TkmsDao {
   @MonitoringQuery
   public long getApproximateMessagesCount(TkmsShardPartition sp) {
     List<Long> rows =
-      jdbcTemplate.queryForList("select table_rows from information_schema.tables where table_schema=? and table_name = ?", Long.class,
+        jdbcTemplate.queryForList("select table_rows from information_schema.tables where table_schema=? and table_name = ?", Long.class,
         getSchemaName(sp), getTableNameWithoutSchema(sp));
 
     return rows.isEmpty() ? -1 : rows.get(0);
@@ -47,7 +51,7 @@ public class TkmsMariaDao extends TkmsDao {
 
           if (rowsInTableStats < 100000 || rowsInIndexStats < 100000) {
             log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + ", rows in index stats is "
-              + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
+                + rowsInIndexStats + ". This can greatly affect performance during peaks or database slownesses.");
           }
 
           metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
@@ -61,7 +65,7 @@ public class TkmsMariaDao extends TkmsDao {
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {
     List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
-      getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
     if (stats.isEmpty()) {
       return -1;
@@ -71,8 +75,8 @@ public class TkmsMariaDao extends TkmsDao {
 
   private long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
     List<Long> stats = jdbcTemplate.queryForList(
-      "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
-      getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+        "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
     if (stats.isEmpty()) {
       return -1;
