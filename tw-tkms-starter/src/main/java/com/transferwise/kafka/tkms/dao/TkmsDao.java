@@ -265,7 +265,7 @@ public class TkmsDao implements ITkmsDao {
 
   @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
   protected long keyToLong(KeyHolder keyHolder) {
-    return (long) keyHolder.getKey();
+    return keyHolder.getKey().longValue();
   }
 
   @Override
