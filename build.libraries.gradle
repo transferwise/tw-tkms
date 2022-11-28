@@ -1,28 +1,33 @@
 ext {
     protobufVersion = "3.21.9"
+    springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '2.6.14'}"
     libraries = [
             // version defined
-            awaitility                      : 'org.awaitility:awaitility:4.1.1',
+            awaitility                      : 'org.awaitility:awaitility:4.2.0',
             commonsIo                       : 'commons-io:commons-io:2.11.0', // TODO: Try to remove, we have JDK 11 requirement now
-            curatorFramework                : 'org.apache.curator:curator-framework:5.2.0',
-            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.2.0',
-            guava                           : 'com.google.guava:guava:30.1.1-jre',
-            kafkaStreams                    : 'org.apache.kafka:kafka-streams:2.6.2',
+            curatorFramework                : 'org.apache.curator:curator-framework:5.4.0',
+            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.4.0',
+            guava                           : 'com.google.guava:guava:31.1-jre',
+            kafkaStreams                    : 'org.apache.kafka:kafka-streams:3.3.1',
+            lz4Java                         : 'org.lz4:lz4-java:1.8.0',
             protobufJava                    : "com.google.protobuf:protobuf-java:${protobufVersion}",
             semver4j                        : "com.vdurmont:semver4j:3.1.0",
-            spotbugsAnnotations             : 'com.github.spotbugs:spotbugs-annotations:4.4.1',
-            springBootDependencies          : 'org.springframework.boot:spring-boot-dependencies:2.5.8',
-            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.6.0',
-            twContext                       : 'com.transferwise.common:tw-context:0.11.0',
-            twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.0',
-            twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.3.0',
-            twGracefulShutdownInterfaces    : 'com.transferwise.common:tw-graceful-shutdown-interfaces:2.3.0',
-            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.6.0',
-            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.6.0',
+            snappyJava                      : 'org.xerial.snappy:snappy-java:1.1.8.4',
+            spotbugsAnnotations             : 'com.github.spotbugs:spotbugs-annotations:4.7.3',
+            springBootDependencies          : "org.springframework.boot:spring-boot-dependencies:${springBootVersion}",
+            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.8.1',
+            twContext                       : 'com.transferwise.common:tw-context:0.11.1',
+            twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.1',
+            twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.8.0',
+            twGracefulShutdownInterfaces    : 'com.transferwise.common:tw-graceful-shutdown-interfaces:2.8.0',
+            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.8.0',
+            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.8.0',
+            zstdJni                         : 'com.github.luben:zstd-jni:1.5.0-4',
 
             // versions managed by spring-boot-dependencies platform
             commonsLang3                    : 'org.apache.commons:commons-lang3',
             flywayCore                      : 'org.flywaydb:flyway-core',
+            flywayMysql                     : 'org.flywaydb:flyway-mysql',
             jacksonDatabind                 : 'com.fasterxml.jackson.core:jackson-databind',
             jakartaValidationApi            : 'jakarta.validation:jakarta.validation-api',
             kafkaClients                    : 'org.apache.kafka:kafka-clients',

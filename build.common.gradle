@@ -16,6 +16,31 @@ repositories {
 
 apply from: "../build.libraries.gradle"
 
+configurations {
+    local {
+        canBeResolved(false)
+        canBeConsumed(false)
+    }
+    compileClasspath {
+        extendsFrom(local)
+    }
+    runtimeClasspath {
+        extendsFrom(local)
+    }
+    testCompileClasspath {
+        extendsFrom(local)
+    }
+    testRuntimeClasspath {
+        extendsFrom(local)
+    }
+    annotationProcessor {
+        extendsFrom(local)
+    }
+    testAnnotationProcessor {
+        extendsFrom(local)
+    }
+}
+
 dependencies {
     annotationProcessor platform(libraries.springBootDependencies)
     implementation platform(libraries.springBootDependencies)
