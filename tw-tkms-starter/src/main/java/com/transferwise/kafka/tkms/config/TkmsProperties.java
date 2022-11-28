@@ -174,6 +174,7 @@ public class TkmsProperties {
   @Accessors(chain = true)
   public static class ShardProperties {
 
+    private DatabaseDialect databaseDialect;
     private Integer partitionsCount;
     private Integer pollerBatchSize;
     private Duration pollingInterval;
@@ -184,6 +185,14 @@ public class TkmsProperties {
     private EarliestVisibleMessages earliestVisibleMessages;
 
     private Map<String, String> kafka = new HashMap<>();
+  }
+
+  public DatabaseDialect getDatabaseDialect(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getDatabaseDialect() != null) {
+      return shardProperties.getDatabaseDialect();
+    }
+    return databaseDialect;
   }
 
   public int getPartitionsCount(int shard) {
@@ -289,7 +298,7 @@ public class TkmsProperties {
 
     private Duration interval = Duration.ofSeconds(30);
     private Duration startDelay = Duration.ofSeconds(30);
-    
+
     private Duration leftOverMessagesCheckInterval = Duration.ofHours(1);
     private Duration leftOverMessagesCheckStartDelay = Duration.ofHours(1);
   }
