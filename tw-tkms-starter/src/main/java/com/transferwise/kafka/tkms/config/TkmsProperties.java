@@ -174,6 +174,7 @@ public class TkmsProperties {
   @Accessors(chain = true)
   public static class ShardProperties {
 
+    private String tableBaseName;
     private DatabaseDialect databaseDialect;
     private Integer partitionsCount;
     private Integer pollerBatchSize;
@@ -185,6 +186,14 @@ public class TkmsProperties {
     private EarliestVisibleMessages earliestVisibleMessages;
 
     private Map<String, String> kafka = new HashMap<>();
+  }
+
+  public String getTableBaseName(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getTableBaseName() != null) {
+      return shardProperties.getTableBaseName();
+    }
+    return tableBaseName;
   }
 
   public DatabaseDialect getDatabaseDialect(int shard) {

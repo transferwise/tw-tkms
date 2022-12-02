@@ -33,6 +33,6 @@ public class TkmsTestDao implements ITkmsTestDao {
 
 
   protected String getTableName(TkmsShardPartition shardPartition) {
-    return properties.getTableBaseName() + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
+    return properties.getTableBaseName(shardPartition.getShard()) + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
 }
