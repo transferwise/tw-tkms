@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.19.1] - 2022-12-05
 ### Changed
-* @PostConstruct init() method is now `public`.
+* `@PostConstruct init()` method is now `public`.
 
 ## [0.19.0] - 2022-12-02
 ### Changed
