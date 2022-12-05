@@ -72,7 +72,7 @@ public abstract class TkmsDao implements ITkmsDao {
   protected String currentSchema;
 
   @PostConstruct
-  protected void init() {
+  public void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
     transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> currentSchema = getCurrentSchema());
