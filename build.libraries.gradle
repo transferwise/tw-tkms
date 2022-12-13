@@ -1,5 +1,5 @@
 ext {
-    protobufVersion = "3.21.9"
+    protobufVersion = "3.21.10"
     springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '2.6.14'}"
     libraries = [
             // version defined
