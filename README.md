@@ -2,6 +2,9 @@
 ![Apache 2](https://img.shields.io/hexpm/l/plug.svg)
 ![Java 11](https://img.shields.io/badge/Java-11-blue.svg)
 ![Maven Central](https://badgen.net/maven/v/maven-central/com.transferwise.kafka/tw-tkms-starter)
+[![Owners](https://img.shields.io/badge/team-AppEng-blueviolet.svg?logo=wise)](https://transferwise.atlassian.net/wiki/spaces/EKB/pages/2520812116/Application+Engineering+Team) [![Slack](https://img.shields.io/badge/slack-sre--guild-blue.svg?logo=slack)](https://app.slack.com/client/T026FB76G/CLR1U8SNS)
+> Use the `@application-engineering-on-call` handle on Slack for help.
+---
 
 A library for sending Kafka messages according to the [Transactional Outbox Pattern](https://microservices.io/patterns/data/transactional-outbox.html)
 
@@ -20,7 +23,7 @@ Do not use this library
 * If you do not need atomic transactions around your business data and Kafka messages.
   * For example:
     * You are just converting incoming Kafka messages into messages for another topic.
-    * The only thing your logic does is send out Kafka messages and it does not change the main database. 
+    * The only thing your logic does is send out Kafka messages and it does not change the main database.
 
 You would probably want to start by going over the [main concepts](docs/concepts.md).
 
@@ -28,7 +31,7 @@ First, you need to [set it up](docs/setup.md).
 
 Then you can [start using it](docs/usage.md).
 
-Of course, the library can be used in your service's [integration tests](docs/testing.md) 
+Of course, the library can be used in your service's [integration tests](docs/testing.md)
 
 [Performance considerations](docs/performance.md) can be quite useful to check out.
 
@@ -36,7 +39,7 @@ If there's any [trouble](docs/troubleshooting.md), you will be prepared.
 
 The library also provides [observability](docs/observability.md).
 
-At TransferWise we are "enhancing and fixing a flying airplane", so make sure you will not cause any incidents while 
+At TransferWise we are "enhancing and fixing a flying airplane", so make sure you will not cause any incidents while
 [migrating](docs/migration.md) to the library.
 
 Feel free to [contribute](docs/contributing.md) and come and chat in the #tw-task-exec Slack channel.
