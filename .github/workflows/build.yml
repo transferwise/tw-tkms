@@ -37,7 +37,7 @@ jobs:
       image: azul/zulu-openjdk:11
     services:
       mysql1:
-        image: mariadb:10.4
+        image: mariadb:10.6
         env:
           MYSQL_ROOT_PASSWORD: example-password-change-me
           MYSQL_DATABASE: tkms
@@ -115,7 +115,7 @@ jobs:
           name: all-test-reports-${{ matrix.spring_boot_version }}
           path: all-test-reports-${{ matrix.spring_boot_version }}.tar.gz
           retention-days: 7
-        
+
   build:
     name: "Build and Test"
     runs-on:
