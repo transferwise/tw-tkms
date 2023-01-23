@@ -136,6 +136,8 @@ jobs:
     runs-on:
       - ubuntu-latest
     needs: matrix_build
+    container:
+      image: azul/zulu-openjdk:11
     steps:
       # Needed hacks to properly fail the build when one matrix build fails.
       - name: Do something so that GHA is happy
