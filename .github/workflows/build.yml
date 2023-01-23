@@ -69,7 +69,7 @@ jobs:
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     steps:
       - name: "Install packages"
-        run: apt-get update && apt-get install -y git
+        run: apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
@@ -135,6 +135,8 @@ jobs:
       - name: Verify matrix jobs succeeded
         if: ${{ needs.matrix_build.result != 'success' }}
         run: exit 1
+      - name: "Install packages"
+        run: apt-get update && apt-get install -y unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
