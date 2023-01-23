@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.transferwise.common.baseutils.clock.TestClock;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -29,7 +30,8 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
   private TkmsProperties properties;
   @Autowired
   private ITkmsMetricsTemplate metricsTemplate;
-
+  @Autowired
+  private ITransactionsHelper transactionsHelper;
 
   @Value("${tw-tkms-test.test-topic}")
   private String testTopic;
@@ -68,12 +70,15 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
 
     EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(TkmsShardPartition.of(0, 0), dao, properties, metricsTemplate);
     earliestMessageTracker.init();
-    
+
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);
   }
 
   protected void sendMessageAndWaitForArrival(int cnt) {
-    tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello World!".getBytes(StandardCharsets.UTF_8)));
+    transactionsHelper.withTransaction().run(() ->
+        tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello World!".getBytes(StandardCharsets.UTF_8)))
+    );
+    
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(testTopic).size() == cnt);
   }
 }

@@ -85,7 +85,7 @@ class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  void testThatJsonStringMessageCanBeSentAndRetrieved() throws Exception {
+  void testThatJsonStringMessageCanBeSentAndRetrieved() {
     var messagePart = "Hello World!";
     int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
@@ -113,9 +113,9 @@ class EndToEndIntTest extends BaseIntTest {
     try {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
-      transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent))
-              .addHeader(new Header().setKey("x-tw-criticality").setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8))));
+      transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))
+              .addHeader(new Header().setKey("x-tw-criticality").setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8)))));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -206,7 +206,7 @@ class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  void testThatMessagesWithSameKeyEndUpInOnePartition() throws Exception {
+  void testThatMessagesWithSameKeyEndUpInOnePartition() {
     String message = "Hello World!";
     String key = "GrailsRocks";
     int n = 20;
@@ -223,8 +223,9 @@ class EndToEndIntTest extends BaseIntTest {
       for (int i = 0; i < n; i++) {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
-        transactionalKafkaMessageSender
-            .sendMessage(new TkmsMessage().setKey(key).setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+        transactionsHelper.withTransaction().run(() ->
+            transactionalKafkaMessageSender
+                .sendMessage(new TkmsMessage().setKey(key).setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -239,7 +240,7 @@ class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
-  void testThatMessagesWithSamePartitionEndUpInOnePartition() throws Exception {
+  void testThatMessagesWithSamePartitionEndUpInOnePartition() {
     String message = "Hello World!";
     int partition = 3;
     int n = 20;
@@ -256,10 +257,11 @@ class EndToEndIntTest extends BaseIntTest {
       for (int i = 0; i < n; i++) {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
-        transactionalKafkaMessageSender
-            .sendMessage(
-                new TkmsMessage().setPartition(partition).setTopic(testProperties.getTestTopic())
-                    .setValue(objectMapper.writeValueAsBytes(testEvent)));
+        transactionsHelper.withTransaction().run(() ->
+            transactionalKafkaMessageSender
+                .sendMessage(
+                    new TkmsMessage().setPartition(partition).setTopic(testProperties.getTestTopic())
+                        .setValue(toJsonBytes(testEvent))));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -299,11 +301,10 @@ class EndToEndIntTest extends BaseIntTest {
           for (long i = 0; i < entityEventsCount; i++) {
             long id = finalE * entityEventsCount + i;
             TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalE).setMessage(message);
-            ExceptionUtils.doUnchecked(() -> {
-              transactionalKafkaMessageSender
-                  .sendMessage(new TkmsMessage().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
-                      .setValue(objectMapper.writeValueAsBytes(testEvent)));
-            });
+            transactionsHelper.withTransaction().run(() ->
+                transactionalKafkaMessageSender
+                    .sendMessage(new TkmsMessage().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
+                        .setValue(toJsonBytes(testEvent))));
           }
         });
       }
@@ -338,9 +339,17 @@ class EndToEndIntTest extends BaseIntTest {
   @Test
   @SneakyThrows
   void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
+    assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+        .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
+        .hasMessageContaining("Topic NotExistingTopic not present in metadata");
+  }
+
+  @Test
+  void sendingOutMessagesWithoutActiveTransactionsWillFail() {
     assertThatThrownBy(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
-        .hasMessageContaining("Topic NotExistingTopic not present in metadata");
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("No active transaction detected.");
   }
 
   @Test
@@ -354,12 +363,14 @@ class EndToEndIntTest extends BaseIntTest {
     testMessagesListener.registerConsumer(messageCounter);
 
     String topic = testProperties.getTestTopic();
-    SendMessagesResult sendMessagesResult = transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
-    );
+
+    SendMessagesResult sendMessagesResult =
+        transactionsHelper.withTransaction().call(() -> transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
+        ));
 
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
     assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
@@ -405,22 +416,26 @@ class EndToEndIntTest extends BaseIntTest {
     testMessagesListener.registerConsumer(messageCounter);
     try {
       assertThatThrownBy(() ->
-          transactionalKafkaMessageSender
-              .sendMessage(
-                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))))
+          transactionsHelper.withTransaction().call(() ->
+              transactionalKafkaMessageSender
+                  .sendMessage(
+                      new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)))))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       assertThatThrownBy(() ->
-          transactionalKafkaMessageSender
-              .sendMessages(new SendMessagesRequest().addTkmsMessage(
-                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)))))
+          transactionsHelper.withTransaction().call(() ->
+              transactionalKafkaMessageSender
+                  .sendMessages(new SendMessagesRequest().addTkmsMessage(
+                      new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))))))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       message.setValue(message.getValue().substring(0, 10484000));
-      transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)));
+      transactionsHelper.withTransaction().run(() ->
+          transactionalKafkaMessageSender
+              .sendMessage(
+                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -438,7 +453,7 @@ class EndToEndIntTest extends BaseIntTest {
    * If `TkmsStorageToKafkaProxy has some important lines switched around "lastId" logic, the test will start failing.
    */
   @Test
-  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() throws Exception {
+  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() {
     String message = "Hello World!";
     int messagesCount = 1000;
 
@@ -457,8 +472,8 @@ class EndToEndIntTest extends BaseIntTest {
     try {
       for (int i = 0; i < messagesCount; i++) {
         TestEvent testEvent = new TestEvent().setId((long) i).setMessage(message);
-        transactionalKafkaMessageSender
-            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+        transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))));
       }
 
       await().until(() -> receivedCount.get() >= messagesCount);
@@ -472,6 +487,11 @@ class EndToEndIntTest extends BaseIntTest {
       faultInjectedTkmsDao.setDeleteMessagesFails(false);
       testMessagesListener.unregisterConsumer(messageCounter);
     }
+  }
+
+  @SneakyThrows
+  protected byte[] toJsonBytes(Object value) {
+    return objectMapper.writeValueAsBytes(value);
   }
 
   protected void assertThatTablesAreEmpty() {
@@ -529,9 +549,10 @@ class EndToEndIntTest extends BaseIntTest {
     try {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
-      transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent))
-              .setCompression(new Compression().setAlgorithm(algorithm)));
+      transactionsHelper.withTransaction().run(() ->
+          transactionalKafkaMessageSender
+              .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))
+                  .setCompression(new Compression().setAlgorithm(algorithm))));
 
       await().until(() -> receivedCount.get() > 0);
 

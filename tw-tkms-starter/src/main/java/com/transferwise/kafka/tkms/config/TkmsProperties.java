@@ -136,6 +136,11 @@ public class TkmsProperties {
   private Duration minPollingInterval;
 
   /**
+   * Throws an exception when an active transaction is not present whiles messages are tried to be registered.
+   */
+  private boolean requireTransactionOnMessagesRegistering = true;
+
+  /**
    * List topics used by the lib.
    *
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
@@ -165,8 +170,7 @@ public class TkmsProperties {
   private Monitoring monitoring = new Monitoring();
 
   /**
-   * Validation requires quite specific privileges in database.
-   * Some teams may need to turn it off.
+   * Validation requires quite specific privileges in database. Some teams may need to turn it off.
    */
   private boolean tableStatsValidationEnabled = true;
 
@@ -184,6 +188,7 @@ public class TkmsProperties {
     private boolean compressionOverridden;
     private Compression compression = new Compression();
     private EarliestVisibleMessages earliestVisibleMessages;
+    private Boolean requireTransactionOnMessagesRegistering;
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -258,6 +263,14 @@ public class TkmsProperties {
       return shardProperties.getEarliestVisibleMessages();
     }
     return earliestVisibleMessages;
+  }
+
+  public boolean isRequireTransactionOnMessagesRegistering(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.requireTransactionOnMessagesRegistering != null) {
+      return shardProperties.requireTransactionOnMessagesRegistering;
+    }
+    return requireTransactionOnMessagesRegistering;
   }
 
   public enum DatabaseDialect {

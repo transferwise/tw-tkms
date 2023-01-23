@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
 public class KafkaMetricsIntTest {
+
   @Autowired
   private ObjectMapper objectMapper;
 
@@ -42,6 +44,9 @@ public class KafkaMetricsIntTest {
 
   @Autowired
   protected MeterRegistry meterRegistry;
+
+  @Autowired
+  protected ITransactionsHelper transactionsHelper;
 
   @AfterEach
   public void cleanup() {
@@ -70,8 +75,10 @@ public class KafkaMetricsIntTest {
     try {
       TestMessagesListener.TestEvent testEvent = new TestMessagesListener.TestEvent().setId(1L).setMessage(message);
 
-      transactionalKafkaMessageSender
-        .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
+      transactionsHelper.withTransaction().run(() ->
+          transactionalKafkaMessageSender
+              .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic())
+                  .setValue(ExceptionUtils.doUnchecked(() -> objectMapper.writeValueAsBytes(testEvent)))));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -80,6 +87,6 @@ public class KafkaMetricsIntTest {
     }
 
     assertThat(meterRegistry.find("kafka.producer.record.send.total").tags().functionCounter().count())
-      .as("Producer's metric shows one message sent.").isGreaterThan(0L);
+        .as("Producer's metric shows one message sent.").isGreaterThan(0L);
   }
 }
