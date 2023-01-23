@@ -91,6 +91,9 @@ tasks.withType(Checkstyle) {
     }
 }
 
+// Exclude generated sources
+checkstyleMain.source = "src/main/java"
+
 jar {
     manifest {
         attributes(
