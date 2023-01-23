@@ -72,18 +72,25 @@ jobs:
         run: apt-get update && apt-get install -y git
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: "Gradle cache"
-        uses: actions/cache@v3
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
         with:
-          path: |
-            ~/.gradle
-          key: gradle-v1-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', '**/*.gradle*') }}
+          gradle-version: current
+          gradle-home-cache-cleanup: true
+          # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
+          # cache-read-only: false
       - name: "Assemble jar"
-        run: GRADLE_USER_HOME=$HOME/.gradle ./gradlew assemble --console=plain --no-daemon
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: assemble --console=plain --info --stacktrace --parallel
       - name: "Run tests"
-        run: GRADLE_USER_HOME=$HOME/.gradle ./gradlew -Dspring.profiles.include=continuous-integration check --console=plain --no-daemon --stacktrace
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: -Dspring.profiles.include=continuous-integration check --console=plain --info --stacktrace
       - name: "Test if publishing works"
-        run: GRADLE_USER_HOME=$HOME/.gradle ./gradlew publishToMavenLocal --console=plain --no-daemon --stacktrace
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: publishToMavenLocal --console=plain --info --stacktrace
       - name: "Publish Test Report"
         uses: mikepenz/action-junit-report@v3
         if: always()
@@ -130,12 +137,15 @@ jobs:
         run: exit 1
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: "Gradle cache"
-        uses: actions/cache@v3
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
         with:
-          path: |
-            ~/.gradle
-          key: gradle-v1-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', '**/*.gradle*') }}
+          gradle-version: current
+          gradle-home-cache-cleanup: true
+          # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
+          # cache-read-only: false
       - name: "Tag release"
         if: github.ref == 'refs/heads/master'
-        run: GRADLE_USER_HOME=$HOME/.gradle ./gradlew tagRelease --console=plain --info --stacktrace
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: tagRelease --console=plain --info --stacktrace
