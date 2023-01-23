@@ -83,10 +83,18 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: assemble --console=plain --info --stacktrace --parallel
+      - name: "Compile tests"
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: testCompile --console=plain --info --stacktrace --parallel
+      - name: "Run checks"
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: check -x test --console=plain --stacktrace
       - name: "Run tests"
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: -Dspring.profiles.include=continuous-integration check --console=plain --info --stacktrace
+          arguments: -Dspring.profiles.include=continuous-integration test --console=plain --info --stacktrace
       - name: "Test if publishing works"
         uses: gradle/gradle-build-action@v2
         with:
