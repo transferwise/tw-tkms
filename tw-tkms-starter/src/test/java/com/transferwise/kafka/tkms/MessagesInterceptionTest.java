@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -28,6 +29,8 @@ class MessagesInterceptionTest extends BaseIntTest {
   private TransactionalKafkaMessageSender transactionalKafkaMessageSender;
   @Autowired
   private TestProperties testProperties;
+  @Autowired
+  private ITransactionsHelper transactionsHelper;
 
   @AfterEach
   void cleanupTest() {
@@ -63,11 +66,13 @@ class MessagesInterceptionTest extends BaseIntTest {
     });
 
     String topic = testProperties.getTestTopic();
-    transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("A").setValue(someValue))
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("B").setValue(someValue))
-        .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("C").setValue(someValue))
-    );
+
+    transactionsHelper.withTransaction().run(() ->
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("A").setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("B").setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("C").setValue(someValue))
+        ));
 
     await().atMost(Duration.ofMinutes(5)).until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
 
