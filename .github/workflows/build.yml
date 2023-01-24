@@ -146,7 +146,7 @@ jobs:
         if: ${{ needs.matrix_build.result != 'success' }}
         run: exit 1
       - name: "Install packages"
-        run: apt-get update && apt-get install -y unzip
+        run: apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
