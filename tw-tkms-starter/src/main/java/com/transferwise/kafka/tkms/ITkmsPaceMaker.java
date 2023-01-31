@@ -6,7 +6,7 @@ import java.time.Duration;
 public interface ITkmsPaceMaker {
 
   void doSmallPause(int shard);
-  
+
   Duration getLongWaitTime(int shard);
 
   Duration getPollingPause(TkmsShardPartition tkmsShardPartition, int pollingBatchSize, int polledMessagesCount);

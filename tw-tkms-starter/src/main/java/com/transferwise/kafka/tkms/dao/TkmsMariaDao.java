@@ -50,8 +50,8 @@ public class TkmsMariaDao extends TkmsDao {
       return;
     }
 
-    try {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      try {
         for (int p = 0; p < properties.getPartitionsCount(s); p++) {
           TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
@@ -59,8 +59,8 @@ public class TkmsMariaDao extends TkmsDao {
           metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
 
           // Default log level should be at least error, because misconfiguration here can take down your database.
-          if (rowsInTableStats < 1000000) {
-            problemNotifier.notify(Notifications.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+          if (rowsInTableStats < 1_000_000) {
+            problemNotifier.notify(s, Notifications.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
                     + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix table stats."
@@ -70,18 +70,18 @@ public class TkmsMariaDao extends TkmsDao {
           long rowsInIndexStats = getRowsFromIndexStats(sp);
           metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
 
-          if (rowsInIndexStats < 1000000) {
-            problemNotifier.notify(Notifications.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+          if (rowsInIndexStats < 1_000_000) {
+            problemNotifier.notify(s, Notifications.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
                     + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix index stats."
             );
           }
         }
+      } catch (DataAccessException dae) {
+        problemNotifier.notify(s, Notifications.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+            "Validating table and index stats failed. Will still continue with the initialization.", dae);
       }
-    } catch (DataAccessException dae) {
-      problemNotifier.notify(Notifications.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.BLOCK, () ->
-          "Validating table and index stats failed. Will still continue with the initialization.", dae);
     }
   }
 

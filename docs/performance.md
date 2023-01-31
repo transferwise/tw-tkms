@@ -36,7 +36,7 @@ tune according to your monitoring results.
 > a similar systems in place and may need a simple rate limiter around the sender.
 
 To increase the throughput, you can configure more partitions (and create additional tables), but this is usually not needed in a typical
-TransferWise service. 
+Wise service. 
 
 Consider batching of messages. The most beneficial is to make sure, that there is a single transaction around multiple messages sending.
 As the library is used for Transactional Outbox Pattern, we can assume, this is mostly the case.

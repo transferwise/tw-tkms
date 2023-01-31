@@ -1,8 +1,6 @@
 # Setup
 
-We are assuming you are using Spring Boot, at least version 2.1.
-
-As usual, we can incorporate it into your Service through [tw-dependency](https://github.com/transferwise/tw-dependencies)
+We are assuming you are using Spring Boot, at least version 2.5.
 
 ```groovy
 implementation 'com.transferwise.kafka:tw-tkms-starter'

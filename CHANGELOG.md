@@ -11,32 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Messages polling interval is now more dynamic.
 
-We are pausing for (pollingInterval * (batchSize - polledRecords) / batchSize).
+We are pausing for `(pollingInterval * (batchSize - polledRecords) / batchSize)`, instead of just `pollingInteval`
+
 E.g.
 
 - when we poll a full batch, we will not wait at all and start the next cycle immediately.
 - when we poll zero records, we will wait the full polling interval.
 - when we get half-full batch, we will be waiting 50% from polling interval.
 
-This is most useful, for Postgres databases, where workloads are somewhat HTAP, or autovacuum is not snappy enough to clean dead tuples, which every
-poll has to visit.
+This would allow to reduce the amount of polling queries on Postgres databases for cases where message sending can be latency-tolerant.
+
+For example a Postgres database can have many dead tuples in `Tkms` tables, due to HTAP workloads or autovacuum not being snappy enough to keep those
+clean. Every poll query would need to traverse all the dead tuples, even if it would only return couple of records. See
+more [here](docs/postgres_with_long_transactions.md).
+
+Essentially it would allow to reduce Postgres database average CPU usage.
 
 The default logic can be overridden by custom implementation of `ITkmsPaceMaker`.
 
 `tw_tkms_proxy_cycle` timer does not include those pauses anymore.
 `tw_tkms_proxy_cycle_pause` timer is added to specifically measure those pauses.
 
+When upgrading to this version, it is recommended to take another fresh look of how long polling intervals you would like to use.
+
 #### Index hints for Postgres queries.
 
-It turned out, that the `n_distinct` trick we suggested in setup, did not actually apply in all scenarios. We still had an incident where delete
-queries started to do full sequential scans.
+It turned out, that the `n_distinct` trick we suggested in [setup](docs/setup.md), did not actually apply in all scenarios. We still had an incident
+where delete queries started to do full sequential scans.
 
-Now we will be relying on `pg_hint_plan` extension being available. Fortunately RDS is supporting it.
+With this version, we will be relying on `pg_hint_plan` extension being available. Fortunately RDS is supporting it, meaning it is considered quite
+stable.
 
-Some initialization validation routines were added checking if index hints actually do apply.
+Some initialization validation routines were added, checking if index hints actually do apply.
 
-Removed the recommendation of setting `autovacuum_vacuum_threshold=100000` for tkms tables. Auto vacuum has its own, database side, `naptime` setting
-to prevent it running in a tight loop.
+Removed the recommendation of setting `autovacuum_vacuum_threshold=100000` for tkms tables. Auto vacuum has its own, database side, `naptime` setting, 
+to prevent it running in a tight loop. Earlier, that fear of those tight loops were the motivation to recommend it.
 
 #### Configurable delete queries batch sizes.
 
@@ -51,7 +60,11 @@ Added more initialization validations around database performance.
 
 #### MariaDb fixed stats
 
-The stats value recommendations for `stat_value` and `n_rows` was 
+The stats value recommendations for `stat_value` and `n_rows` was increased to 1,000,000, just in case.
+
+### Docs
+
+Added [Database Statistics Bias](docs/database_statistics_bias.md) to describe the main motivation for this change.
 
 ## [0.20.0] - 2023-01-23
 

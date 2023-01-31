@@ -181,7 +181,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 polledRecordsCount = records.size();
                 if (polledRecordsCount == 0) {
                   metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
-                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, 0));
+                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, polledRecordsCount));
                   return;
                 }
 
@@ -289,6 +289,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
                 if (failedSendsCount.get() > 0) {
                   proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));
+                } else {
+                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, polledRecordsCount));
                 }
               } catch (Throwable t) {
                 log.error(t.getMessage(), t);

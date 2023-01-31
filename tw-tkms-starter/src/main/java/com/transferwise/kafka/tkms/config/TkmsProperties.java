@@ -23,7 +23,12 @@ public class TkmsProperties {
     TkmsShardPartition.init(this);
   }
 
-  private Map<String, NotificationLevel> notificationLevel = new HashMap<>();
+  /**
+   * Allows to set notification level for different problems the library is detecting.
+   *
+   * <p>The set of keys is described with Notifications class below.
+   */
+  private Map<String, NotificationLevel> notificationLevels = new HashMap<>();
 
   /**
    * Provides more metrics at performance penalty.
@@ -200,7 +205,8 @@ public class TkmsProperties {
     private Compression compression = new Compression();
     private EarliestVisibleMessages earliestVisibleMessages;
     private Boolean requireTransactionOnMessagesRegistering;
-    private List<Integer> deleteBatchSizes = List.of(1024, 256, 64, 16, 4, 1);
+    private List<Integer> deleteBatchSizes;
+    private Map<String, NotificationLevel> notificationLevels = new HashMap<>();
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -293,6 +299,14 @@ public class TkmsProperties {
 
     return deleteBatchSizes;
   }
+  
+  public NotificationLevel getNotificationLevels(int shard, String type) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties.notificationLevels.get(type) != null) {
+      return shardProperties.notificationLevels.get(type);
+    }
+    return notificationLevels.get(type);
+  }
 
   public enum DatabaseDialect {
     POSTGRES,
@@ -353,6 +367,9 @@ public class TkmsProperties {
     BLOCK
   }
 
+  /*
+    Basically similar idea, what Spotbugs/Checkstyle are using to "hide" unwanted warnings.
+   */
   public static class Notifications {
 
     public static final String INDEX_HINTS_NOT_AVAILABLE = "INDEX_HINTS_NOT_AVAILABLE";

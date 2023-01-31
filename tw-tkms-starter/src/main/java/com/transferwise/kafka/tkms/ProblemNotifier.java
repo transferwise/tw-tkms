@@ -13,8 +13,11 @@ public class ProblemNotifier implements IProblemNotifier {
   private TkmsProperties tkmsProperties;
 
   @Override
-  public void notify(String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider, Throwable t) {
-    var notificationLevel = tkmsProperties.getNotificationLevel().get(notificationType);
+  public void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider, Throwable t) {
+    var notificationLevel = shard == null ?
+        tkmsProperties.getNotificationLevels().get(notificationType)
+        : tkmsProperties.getNotificationLevels(shard, notificationType);
+
     if (notificationLevel == null) {
       notificationLevel = defaultLevel;
     }
@@ -32,7 +35,7 @@ public class ProblemNotifier implements IProblemNotifier {
   }
 
   @Override
-  public void notify(String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider) {
-    notify(notificationType, defaultLevel, messageProvider, null);
+  public void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider) {
+    notify(shard, notificationType, defaultLevel, messageProvider, null);
   }
 }

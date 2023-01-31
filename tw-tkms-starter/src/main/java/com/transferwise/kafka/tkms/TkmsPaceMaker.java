@@ -34,7 +34,10 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
   public Duration getPollingPause(TkmsShardPartition shardPartition, int pollingBatchSize, int polledMessagesCount) {
     long maxPollIntervalMs = properties.getPollingInterval(shardPartition.getShard()).toMillis();
 
-    return Duration.ofMillis(maxPollIntervalMs * (pollingBatchSize - polledMessagesCount) / pollingBatchSize);
+    var pollingPause = Duration.ofMillis(maxPollIntervalMs * (pollingBatchSize - polledMessagesCount) / pollingBatchSize);
+    var minPollingInterval = properties.getMinPollingInterval();
+
+    return minPollingInterval == null || minPollingInterval.compareTo(pollingPause) > 0 ? pollingPause : minPollingInterval;
   }
 
   @Override

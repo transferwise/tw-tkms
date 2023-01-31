@@ -42,9 +42,7 @@ jobs:
           MYSQL_ROOT_PASSWORD: example-password-change-me
           MYSQL_DATABASE: tkms
       postgres1:
-        image: postgres:12
-        env:
-          POSTGRES_PASSWORD: example-password-change-me
+        image: docker.tw.ee/postgres12
       zk-service1:
         image: bitnami/zookeeper:3.5.5
         env:

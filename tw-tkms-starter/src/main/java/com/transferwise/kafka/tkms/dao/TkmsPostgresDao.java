@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,22 +95,26 @@ public class TkmsPostgresDao extends TkmsDao {
       return;
     }
 
-    try {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      try {
         for (int p = 0; p < properties.getPartitionsCount(s); p++) {
           TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
           long distinctIdsCount = getDistinctIdsCount(sp);
-          if (distinctIdsCount < 100000) {
-            log.warn("Table for " + sp + " is not properly configured. Rows from table stats is " + distinctIdsCount
-                + ". This can greatly affect performance during peaks or database slowness.");
+          if (distinctIdsCount < 1_000_000) {
+            problemNotifier.notify(s, Notifications.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                "Table for " + sp + " is not properly configured. n_distinct is just set to " + distinctIdsCount + "."
+                    + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                    + "to fix table stats."
+            );
           }
 
           metricsTemplate.registerRowsInTableStats(sp, distinctIdsCount);
         }
+      } catch (DataAccessException dae) {
+        problemNotifier.notify(s, Notifications.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+            "Validating table and index stats failed. Will still continue with the initialization.", dae);
       }
-    } catch (Throwable t) {
-      log.error("Validating table and index stats failed. Will still continue with the initialization.", t);
     }
 
     validateIndexHints();
@@ -121,7 +126,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
     if (!seqScans || !indexOnlyScans) {
       // By default, logged as ERROR, as it can cause pretty serious problems.
-      problemNotifier.notify(Notifications.INDEX_HINTS_NOT_AVAILABLE, NotificationLevel.ERROR,
+      problemNotifier.notify(null, Notifications.INDEX_HINTS_NOT_AVAILABLE, NotificationLevel.ERROR,
           () -> "Query hints are not supported. This can greatly affect performance during peaks or database slowness. Make sure `pg_hint_plan` "
               + "extension is available.");
     }
@@ -184,7 +189,7 @@ public class TkmsPostgresDao extends TkmsDao {
   @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
   public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
     List<Long> exists =
-        jdbcTemplate.queryForList("select /*+ IndexOnlyScan */ 1 from " + getTableName(sp) + " om where id < ? limit 1", Long.class, messageId);
+        jdbcTemplate.queryForList("select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(sp) + " om where id < ? limit 1", Long.class, messageId);
     return !exists.isEmpty();
   }
 }
