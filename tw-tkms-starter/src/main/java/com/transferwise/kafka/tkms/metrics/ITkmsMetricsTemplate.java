@@ -51,4 +51,6 @@ public interface ITkmsMetricsTemplate {
   Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier);
 
   void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition);
+
+  void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
 }

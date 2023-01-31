@@ -4,9 +4,11 @@ import com.transferwise.common.baseutils.meters.cache.IMeterCache;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.EnvironmentValidator;
 import com.transferwise.kafka.tkms.IEnvironmentValidator;
+import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
+import com.transferwise.kafka.tkms.ProblemNotifier;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
@@ -66,12 +68,12 @@ public class TkmsConfiguration {
   @Bean
   @ConditionalOnMissingBean(ITkmsDao.class)
   public TkmsDao tkmsDao(ITkmsDataSourceProvider dataSourceProvider, TkmsProperties tkmsProperties,
-                         ITkmsMetricsTemplate metricsTemplate, ITkmsMessageSerializer messageSerializer,
-                         ITransactionsHelper transactionsHelper) {
+      ITkmsMetricsTemplate metricsTemplate, ITkmsMessageSerializer messageSerializer,
+      ITransactionsHelper transactionsHelper, IProblemNotifier problemNotifier) {
     if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.POSTGRES) {
-      return new TkmsPostgresDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer,transactionsHelper);
+      return new TkmsPostgresDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
     }
-    return new TkmsMariaDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer,transactionsHelper);
+    return new TkmsMariaDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
   }
 
   @Bean
@@ -159,4 +161,9 @@ public class TkmsConfiguration {
     return new TkmsClusterWideStateMonitor();
   }
 
+  @Bean
+  @ConditionalOnMissingBean(IProblemNotifier.class)
+  public ProblemNotifier tkmsProblemNotifier() {
+    return new ProblemNotifier();
+  }
 }

@@ -44,8 +44,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public abstract class TkmsDao implements ITkmsDao {
 
-  private static final int[] batchSizes = {1024, 256, 64, 16, 4, 1};
-
   private Map<TkmsShardPartition, String> insertMessageSqls;
 
   private Map<TkmsShardPartition, String> getMessagesSqls;
@@ -65,7 +63,7 @@ public abstract class TkmsDao implements ITkmsDao {
   private final ITkmsMessageSerializer messageSerializer;
 
   @Autowired
-  private final ITransactionsHelper transactionsHelper;
+  protected final ITransactionsHelper transactionsHelper;
 
   protected JdbcTemplate jdbcTemplate;
 
@@ -75,7 +73,7 @@ public abstract class TkmsDao implements ITkmsDao {
   public void init() {
     jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
 
-    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> currentSchema = getCurrentSchema());
+    currentSchema = getCurrentSchema();
 
     createInsertMessagesSqls();
     createGetMessagesSqls();
@@ -83,7 +81,7 @@ public abstract class TkmsDao implements ITkmsDao {
 
     transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
       validateSchema();
-      validateEngineSpecificSchema();
+      validateEngineSpecifics();
     });
   }
 
@@ -116,21 +114,16 @@ public abstract class TkmsDao implements ITkmsDao {
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        for (int batchSize : batchSizes) {
+        for (int batchSize : properties.getDeleteBatchSizes(s)) {
           Pair<TkmsShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
-          StringBuilder sb = new StringBuilder("delete from " + getTableName(sp) + " where id in (");
-          for (int j = 0; j < batchSize; j++) {
-            sb.append("?");
-            if (j < batchSize - 1) {
-              sb.append(",");
-            }
-          }
-          deleteSqlsMap.put(key, sb.append(")").toString());
+          deleteSqlsMap.put(key, getDeleteSql(sp, batchSize));
         }
       }
     }
     deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
   }
+
+  protected abstract String getDeleteSql(TkmsShardPartition shardPartition, int batchSize);
 
   protected void validateSchema() {
     if (!doesEarliestVisibleMessagesTableExist()) {
@@ -156,7 +149,7 @@ public abstract class TkmsDao implements ITkmsDao {
     }
   }
 
-  protected abstract void validateEngineSpecificSchema();
+  protected abstract void validateEngineSpecifics();
 
   @Transactional(rollbackFor = Exception.class)
   @Override
@@ -303,7 +296,7 @@ public abstract class TkmsDao implements ITkmsDao {
     var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
     var ids =
         jdbcTemplate.queryForList("select message_id from " + earliestVisibleMessages.getTableName() + " where shard=? and part=?", Long.class,
-        shardPartition.getShard(), shardPartition.getPartition());
+            shardPartition.getShard(), shardPartition.getPartition());
     return ids.isEmpty() ? null : ids.get(0);
   }
 
@@ -331,6 +324,7 @@ public abstract class TkmsDao implements ITkmsDao {
 
   @Override
   @MonitoringQuery
+  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
   public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
     List<Long> exists = jdbcTemplate.queryForList("select 1 from " + getTableName(sp) + " where id < ? limit 1", Long.class, messageId);
     return !exists.isEmpty();
@@ -341,7 +335,7 @@ public abstract class TkmsDao implements ITkmsDao {
   protected void deleteMessages0(TkmsShardPartition shardPartition, List<Long> ids) {
     int processedCount = 0;
 
-    for (int batchSize : batchSizes) {
+    for (int batchSize : properties.getDeleteBatchSizes(shardPartition.getShard())) {
       while (ids.size() - processedCount >= batchSize) {
         Pair<TkmsShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
         String sql = deleteSqlsMap.get(p);

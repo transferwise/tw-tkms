@@ -17,7 +17,7 @@ public class V1__Init extends BaseJavaMigration {
           stmt.execute("CREATE TABLE " + tableName + " (\n"
               + "  id BIGSERIAL PRIMARY KEY,\n"
               + "  message BYTEA NOT NULL\n"
-              + ") WITH (autovacuum_analyze_threshold=1000000000, autovacuum_vacuum_threshold=100000)");
+              + ") WITH (autovacuum_analyze_threshold=1000000000)");
           log.info("Create table `" + tableName + "'.");
 
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN id SET (n_distinct=1000000);");

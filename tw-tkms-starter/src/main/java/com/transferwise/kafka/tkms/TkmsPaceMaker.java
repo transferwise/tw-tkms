@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,12 +26,19 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
   }
 
   @Override
-  public void pauseOnError(int shard) {
-    ExceptionUtils.doUnchecked(() -> Thread.sleep(properties.getPauseTimeOnErrors(shard).toMillis()));
+  public Duration getLongWaitTime(int shard) {
+    return Duration.ofSeconds(15);
   }
 
   @Override
-  public Duration getLongWaitTime(int shard) {
-    return Duration.ofSeconds(15);
+  public Duration getPollingPause(TkmsShardPartition shardPartition, int pollingBatchSize, int polledMessagesCount) {
+    long maxPollIntervalMs = properties.getPollingInterval(shardPartition.getShard()).toMillis();
+
+    return Duration.ofMillis(maxPollIntervalMs * (pollingBatchSize - polledMessagesCount) / pollingBatchSize);
+  }
+
+  @Override
+  public Duration getPollingPauseOnError(TkmsShardPartition shardPartition) {
+    return properties.getPauseTimeOnErrors(shardPartition.getShard());
   }
 }

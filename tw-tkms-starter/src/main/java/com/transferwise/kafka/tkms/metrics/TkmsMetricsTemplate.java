@@ -33,36 +33,31 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
-  public static final String PREFIX = "tw.tkms";
-
-  public static final String PREFIX_PROXY = PREFIX + ".proxy";
-  public static final String PREFIX_INTERFACE = PREFIX + ".interface";
-  public static final String PREFIX_DAO = PREFIX + ".dao";
-
-  public static final String METRIC_LIBRARY_INFO = "tw.library.info";
-  public static final String PROXY_POLL = PREFIX_PROXY + ".poll";
-  public static final String PROXY_CYCLE = PREFIX_PROXY + ".cycle";
-  public static final String PROXY_MESSAGE_SEND = PREFIX_PROXY + ".message.send";
-  public static final String PROXY_KAFKA_MESSAGES_SEND = PREFIX_PROXY + ".kafka.messages.send";
-  public static final String PROXY_MESSAGES_DELETION = PREFIX_PROXY + ".messages.delete";
-  public static final String INTERFACE_MESSAGE_REGISTERED = PREFIX_INTERFACE + ".message.registration";
-  public static final String DAO_MESSAGE_INSERT = PREFIX_DAO + ".message.insert";
-  public static final String DAO_MESSAGES_DELETION = PREFIX_DAO + ".messages.delete";
-  public static final String DAO_POLL_FIRST_RESULT = PREFIX_DAO + ".poll.first.result";
-  public static final String DAO_POLL_GET_CONNECTION = PREFIX_DAO + ".poll.get.connection";
-  public static final String DAO_POLL_ALL_RESULTS = PREFIX_DAO + ".poll.all.results";
-  public static final String DAO_POLL_ALL_RESULTS_COUNT = PREFIX_DAO + ".poll.all.results.count";
-  public static final String DAO_INVALID_GENERATED_KEYS_COUNT = PREFIX_DAO + ".insert.invalid.generated.keys.count";
-  public static final String DAO_ROWS_IN_TABLE_STATS = PREFIX_DAO + ".rows.in.table.stats";
-  public static final String DAO_ROWS_IN_INDEX_STATS = PREFIX_DAO + ".rows.in.index.stats";
-  public static final String DAO_APPROXIMATE_MESSAGES_COUNT = PREFIX_DAO + ".approximate.messages.count";
-  public static final String STORED_MESSAGE_PARSING = PREFIX + ".stored.message.parsing";
-  public static final String MESSAGE_INSERT_TO_ACK = PREFIX + ".message.insert.to.ack";
-  public static final String DAO_COMPRESSION_RATIO_ACHIEVED = PREFIX_DAO + ".serialization.compression.ratio";
-  public static final String DAO_ORIGINAL_SIZE_BYTES = PREFIX_DAO + ".serialization.original.size.bytes";
-  public static final String DAO_SERIALIZED_SIZE_BYTES = PREFIX_DAO + ".serialization.serialized.size.bytes";
-  public static final String DAO_EARLIEST_MESSAGE_ID = PREFIX_DAO + ".earliest.message.id";
-  public static final String DAO_EARLIEST_MESSAGE_ID_COMMIT = PROXY_POLL + ".earliest.message.id.poll";
+  public static final String METRIC_LIBRARY_INFO = "tw_library_info";
+  public static final String PROXY_POLL = "tw_tkms_proxy_poll";
+  public static final String PROXY_CYCLE = "tw_tkms_proxy_cycle";
+  public static final String PROXY_CYCLE_PAUSE = "tw_tkms_proxy_cycle_pause";
+  public static final String PROXY_MESSAGE_SEND = "tw_tkms_proxy_message_send";
+  public static final String PROXY_KAFKA_MESSAGES_SEND = "tw_tkms_proxy_kafka_messages_send";
+  public static final String PROXY_MESSAGES_DELETION = "tw_tkms_proxy_messages_delete";
+  public static final String INTERFACE_MESSAGE_REGISTERED = "tw_tkms_interface_message_registration";
+  public static final String DAO_MESSAGE_INSERT = "tw_tkms_dao_message_insert";
+  public static final String DAO_MESSAGES_DELETION = "tw_tkms_dao_messages_delete";
+  public static final String DAO_POLL_FIRST_RESULT = "tw_tkms_dao_poll_first_result";
+  public static final String DAO_POLL_GET_CONNECTION = "tw_tkms_dao_poll_get_connection";
+  public static final String DAO_POLL_ALL_RESULTS = "tw_tkms_dao_poll_all_results";
+  public static final String DAO_POLL_ALL_RESULTS_COUNT = "tw_tkms_dao_poll_all_results_count";
+  public static final String DAO_INVALID_GENERATED_KEYS_COUNT = "tw_tkms_dao_insert_invalid_generated_keys_count";
+  public static final String DAO_ROWS_IN_TABLE_STATS = "tw_tkms_dao_rows_in_table_stats";
+  public static final String DAO_ROWS_IN_INDEX_STATS = "tw_tkms_dao_rows_in_index_stats";
+  public static final String DAO_APPROXIMATE_MESSAGES_COUNT = "tw_tkms_dao_approximate_messages_count";
+  public static final String STORED_MESSAGE_PARSING = "tw_tkms_stored_message_parsing";
+  public static final String MESSAGE_INSERT_TO_ACK = "tw_tkms_message_insert_to_ack";
+  public static final String DAO_COMPRESSION_RATIO_ACHIEVED = "tw_tkms_dao_serialization_compression_ratio";
+  public static final String DAO_ORIGINAL_SIZE_BYTES = "tw_tkms_dao_serialization_original_size_bytes";
+  public static final String DAO_SERIALIZED_SIZE_BYTES = "tw_tkms_dao_serialization_serialized_size_bytes";
+  public static final String DAO_EARLIEST_MESSAGE_ID = "tw_tkms_dao_earliest_message_id";
+  public static final String DAO_EARLIEST_MESSAGE_ID_COMMIT = "tw_tkms_proxy_poll_earliest_message_id_poll";
 
   public static final Tag NA_SHARD_TAG = Tag.of("shard", "N/A");
   public static final Tag NA_PARTITION_TAG = Tag.of("partition", "N/A");
@@ -76,9 +71,10 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   @PostConstruct
   public void init() {
     Map<String, double[]> slos = new HashMap<>();
-    double[] defaultSlos = new double[]{1, 5, 25, 125, 625, 3125};
+    double[] defaultSlos = new double[]{1, 5, 25, 125, 625, 3125, 15625};
     slos.put(PROXY_POLL, defaultSlos);
     slos.put(PROXY_CYCLE, defaultSlos);
+    slos.put(PROXY_CYCLE_PAUSE, defaultSlos);
     slos.put(DAO_POLL_FIRST_RESULT, defaultSlos);
     slos.put(DAO_POLL_ALL_RESULTS, defaultSlos);
     slos.put(DAO_POLL_GET_CONNECTION, defaultSlos);
@@ -86,8 +82,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     slos.put(PROXY_MESSAGES_DELETION, defaultSlos);
     slos.put(STORED_MESSAGE_PARSING, defaultSlos);
     slos.put(DAO_POLL_ALL_RESULTS_COUNT, defaultSlos);
-    slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 3125 * 5});
-    slos.put(DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2});
+    slos.put(MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 15625});
+    slos.put(DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2, 4});
 
     meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
       @Override
@@ -220,6 +216,15 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
             pollResultTag(recordsCount > 0),
             shardTag(shardPartition)))
         .record(System.nanoTime() - startNanoTime, TimeUnit.NANOSECONDS);
+  }
+
+  @Override
+  public void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs) {
+    meterCache
+        .timer(PROXY_CYCLE_PAUSE, TagsSet.of(
+            partitionTag(shardPartition),
+            shardTag(shardPartition)))
+        .record(durationMs, TimeUnit.MILLISECONDS);
   }
 
   @Override

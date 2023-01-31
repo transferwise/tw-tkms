@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.google.common.util.concurrent.RateLimiter;
+import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.concurrency.ThreadNamingExecutorServiceWrapper;
 import com.transferwise.common.context.UnitOfWorkManager;
@@ -20,6 +21,7 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -143,6 +146,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     earliestMessageTracker.init();
 
     try {
+      MutableObject<Duration> proxyCyclePauseRequest = new MutableObject<>();
+
       while (!control.shouldStop()) {
         if (pauseRequested) {
           paused = true;
@@ -151,13 +156,21 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
         }
 
         if (System.currentTimeMillis() - startTimeMs > timeToLiveMs) {
-          // Poor man's balancer. Allow other nodes a chance to get a leader as well.
+          // Poor man's load balancer. Allow other nodes a chance to get a leader as well.
           // TODO: investigate how Kafka client does it and replicate.
           if (log.isDebugEnabled()) {
             log.debug("Yielding control for " + shardPartition + ". " + (System.currentTimeMillis() - startTimeMs) + " has passed.");
           }
           return;
         }
+
+        if (proxyCyclePauseRequest.getValue() != null) {
+          long pauseStartTimeMs = System.currentTimeMillis();
+          ExceptionUtils.doUnchecked(() -> Thread.sleep(proxyCyclePauseRequest.getValue().toMillis()));
+          metricsTemplate.recordProxyCyclePause(shardPartition, System.currentTimeMillis() - pauseStartTimeMs);
+          proxyCyclePauseRequest.setValue(null);
+        }
+
         unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
             .execute(() -> {
               long cycleStartNanoTime = System.nanoTime();
@@ -168,9 +181,10 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 polledRecordsCount = records.size();
                 if (polledRecordsCount == 0) {
                   metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
-                  tkmsPaceMaker.doSmallPause(shardPartition.getShard());
+                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, 0));
                   return;
                 }
+
                 metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
                 earliestMessageTracker.register(records.get(0).getId());
 
@@ -274,12 +288,11 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
 
                 if (failedSendsCount.get() > 0) {
-                  tkmsPaceMaker.pauseOnError(shardPartition.getShard());
+                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));
                 }
-
               } catch (Throwable t) {
                 log.error(t.getMessage(), t);
-                tkmsPaceMaker.pauseOnError(shardPartition.getShard());
+                proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));
               } finally {
                 metricsTemplate.recordProxyCycle(shardPartition, polledRecordsCount, cycleStartNanoTime);
               }

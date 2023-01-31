@@ -53,7 +53,8 @@ tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
   strategies-check-interval-time-ms: 1000
 
-logging.level.org.apache.kafka.clients: WARN
+logging.level:
+  org.apache.kafka.clients: WARN
 
 tw-tkms-test:
   test-topic: TestTopic
@@ -69,9 +70,10 @@ spring:
   config:
     activate:
       on-profile: postgres
-
+  
 tw-tkms:
   database-dialect: POSTGRES
+  delete-batch-sizes: "51, 11, 5, 1"
 
 tw-tkms-test:
   test-topic: TestTopicPostgres

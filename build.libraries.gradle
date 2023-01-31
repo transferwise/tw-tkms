@@ -20,8 +20,8 @@ ext {
             twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.1',
             twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.8.0',
             twGracefulShutdownInterfaces    : 'com.transferwise.common:tw-graceful-shutdown-interfaces:2.8.0',
-            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.8.0',
-            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.8.0',
+            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.9.0',
+            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.9.0',
             zstdJni                         : 'com.github.luben:zstd-jni:1.5.0-4',
 
             // versions managed by spring-boot-dependencies platform

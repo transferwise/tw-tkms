@@ -49,7 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
 @Slf4j
-class EndToEndIntTest extends BaseIntTest {
+abstract class EndToEndIntTest extends BaseIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -529,7 +529,7 @@ class EndToEndIntTest extends BaseIntTest {
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
     var message = StringUtils.repeat("Hello World!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();

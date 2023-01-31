@@ -23,6 +23,8 @@ public class TkmsProperties {
     TkmsShardPartition.init(this);
   }
 
+  private Map<String, NotificationLevel> notificationLevel = new HashMap<>();
+
   /**
    * Provides more metrics at performance penalty.
    */
@@ -84,6 +86,15 @@ public class TkmsProperties {
    */
   @Positive
   private int pollerBatchSize = 1024;
+
+  /**
+   * Specifies the parameters counts used when executing messages deletions queries, right after successfully sending batch of messages out.
+   *
+   * <p>You may want/need to reduce the maximum batch sizes, in the case your database tries to execute queries in a very inefficent way. E.g. doing
+   * sequential scans on table containing 1 million messages.
+   */
+  @Positive
+  private List<Integer> deleteBatchSizes = List.of(1024, 256, 64, 16, 4, 1);
   /**
    * On batch messages registration, how large database batch size we are using for inserting those messages into the database.
    *
@@ -189,6 +200,7 @@ public class TkmsProperties {
     private Compression compression = new Compression();
     private EarliestVisibleMessages earliestVisibleMessages;
     private Boolean requireTransactionOnMessagesRegistering;
+    private List<Integer> deleteBatchSizes = List.of(1024, 256, 64, 16, 4, 1);
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -273,6 +285,15 @@ public class TkmsProperties {
     return requireTransactionOnMessagesRegistering;
   }
 
+  public List<Integer> getDeleteBatchSizes(int shard) {
+    ShardProperties shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.deleteBatchSizes != null && !shardProperties.deleteBatchSizes.isEmpty()) {
+      return shardProperties.deleteBatchSizes;
+    }
+
+    return deleteBatchSizes;
+  }
+
   public enum DatabaseDialect {
     POSTGRES,
     MYSQL
@@ -323,5 +344,22 @@ public class TkmsProperties {
 
     private Duration leftOverMessagesCheckInterval = Duration.ofHours(1);
     private Duration leftOverMessagesCheckStartDelay = Duration.ofHours(1);
+  }
+
+  public enum NotificationLevel {
+    INFO,
+    WARN,
+    ERROR,
+    BLOCK
+  }
+
+  public static class Notifications {
+
+    public static final String INDEX_HINTS_NOT_AVAILABLE = "INDEX_HINTS_NOT_AVAILABLE";
+    public static final String TABLE_STATS_NOT_FIXED = "TABLE_STATS_NOT_FIXED";
+    public static final String INDEX_STATS_NOT_FIXED = "INDEX_STATS_NOT_FIXED";
+    public static final String TABLE_INDEX_STATS_CHECK_ERROR = "TABLE_INDEX_STATS_CHECK_ERROR";
+    public static final String TOO_MANY_DELETE_BATCHES = "TOO_MANY_DELETE_BATCHES";
+    public static final String EARLIEST_MESSAGES_SYSTEM_DISABLED = "EARLIEST_MESSAGES_SYSTEM_DISABLED";
   }
 }

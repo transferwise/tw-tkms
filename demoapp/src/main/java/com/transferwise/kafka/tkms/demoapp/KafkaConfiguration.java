@@ -21,6 +21,8 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.kafka.listener.CommonErrorHandler;
+import org.springframework.kafka.listener.CommonLoggingErrorHandler;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -68,7 +70,7 @@ public class KafkaConfiguration {
     ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory());
     factory.setBatchListener(true);
-    factory.setBatchErrorHandler((e, data) -> log.error(e.getMessage(), e));
+    factory.setCommonErrorHandler(new CommonLoggingErrorHandler());
     return factory;
   }
 

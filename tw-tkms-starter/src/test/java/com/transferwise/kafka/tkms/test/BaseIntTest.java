@@ -23,7 +23,7 @@ public class BaseIntTest {
 
   @Autowired
   protected IMeterCache meterCache;
-  
+
   @Autowired
   protected JdbcTemplate jdbcTemplate;
 

@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.ProductionBug;
 import java.nio.charset.StandardCharsets;
@@ -57,12 +58,20 @@ class TkmsDaoIntTest extends BaseIntTest {
 
     tkmsDao.deleteMessages(TkmsShardPartition.of(0, 0), records);
 
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "256").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "64").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "16").counter().count()).isEqualTo(2);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "4").counter().count()).isEqualTo(2);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "1").counter().count()).isEqualTo(1);
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).counters()
+        .stream().map(c -> c.count() * Integer.parseInt(c.getId().getTag("batchSize"))).reduce(0d, Double::sum))
+        .isEqualTo(1001);
+
+    assertDeleteBucketsCounts();
 
     assertThat(new JdbcTemplate(dataSource).queryForObject("select count(*) from outgoing_message_0_0", Integer.class)).isZero();
+  }
+
+  protected void assertDeleteBucketsCounts() {
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "256").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "64").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "16").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "4").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "1").counter().count()).isEqualTo(1);
   }
 }
