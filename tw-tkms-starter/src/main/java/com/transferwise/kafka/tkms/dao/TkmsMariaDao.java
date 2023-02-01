@@ -6,7 +6,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Notifications;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import java.util.List;
@@ -60,7 +60,7 @@ public class TkmsMariaDao extends TkmsDao {
 
           // Default log level should be at least error, because misconfiguration here can take down your database.
           if (rowsInTableStats < 1_000_000) {
-            problemNotifier.notify(s, Notifications.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+            problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
                     + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix table stats."
@@ -71,39 +71,83 @@ public class TkmsMariaDao extends TkmsDao {
           metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
 
           if (rowsInIndexStats < 1_000_000) {
-            problemNotifier.notify(s, Notifications.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+            problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
                     + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix index stats."
             );
           }
+
+          long rowsInEngineIndependentTableStats = getRowsFromEngineIndependentTableStats(sp);
+          metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInTableStats);
+
+          if (rowsInEngineIndependentTableStats < 1_000_000) {
+            problemNotifier.notify(s, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                "Table for " + sp + " is not properly configured. Rows in engine independent table stats is " + rowsInEngineIndependentTableStats
+                    + ". This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                    + "to fix table stats."
+            );
+          }
         }
       } catch (DataAccessException dae) {
-        problemNotifier.notify(s, Notifications.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-            "Validating table and index stats failed. Will still continue with the initialization.", dae);
+        // TODO: Currently our database do not 
+        problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
+            "Validating table and index stats failed.", dae);
       }
+    }
+
+    try {
+      var userStatTables = getUserStatTablesVariable();
+      if (!userStatTables.equalsIgnoreCase("preferably") && !userStatTables.equalsIgnoreCase("preferably_for_queries")) {
+        problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
+            "Checking if engine independent statics are available and preferred, failed.");
+      }
+    } catch (DataAccessException dae) {
+      problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+          "Checking if engine independent stats are enabled, failed.", dae);
     }
   }
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {
-    List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
-        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
+      List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
+          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-    if (stats.isEmpty()) {
-      return -1;
-    }
-    return stats.get(0);
+      if (stats.isEmpty()) {
+        return -1L;
+      }
+      return stats.get(0);
+    });
+  }
+
+  private long getRowsFromEngineIndependentTableStats(TkmsShardPartition shardPartition) {
+    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
+      List<Long> stats = jdbcTemplate.queryForList("select cardinality from mysql.table_stats where db_name=? and table_name=?", Long.class,
+          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+
+      if (stats.isEmpty()) {
+        return -1L;
+      }
+      return stats.get(0);
+    });
+  }
+
+  private String getUserStatTablesVariable() {
+    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED)
+        .call(() -> jdbcTemplate.queryForObject("select @@use_stat_tables", String.class));
   }
 
   private long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
-    List<Long> stats = jdbcTemplate.queryForList(
-        "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
-        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
+      List<Long> stats = jdbcTemplate.queryForList(
+          "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
+          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-    if (stats.isEmpty()) {
-      return -1;
-    }
-    return stats.get(0);
+      if (stats.isEmpty()) {
+        return -1L;
+      }
+      return stats.get(0);
+    });
   }
 
   @Override

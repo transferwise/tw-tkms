@@ -37,14 +37,23 @@ CREATE TABLE outgoing_message_0_0 (
               message MEDIUMBLOB NOT NULL)
               stats_persistent=1, stats_auto_recalc=0 ENGINE=InnoDB;
 
+-- Set engine stats.
 update mysql.innodb_index_stats set stat_value=1000000 where table_name = "outgoing_message_0_0" and stat_description="id";
 update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoing_message_0_0";
-flush table outgoing_message_0_0;
+
+-- Set engine independent stats.
+insert into mysql.table_stats (db_name, table_name, cardinality) values(DATABASE(), "outgoing_message_0_0", 1000000)
+                                                                 on duplicate key update cardinality=1000000;
+
+-- Apply the stats to be used for next queries.
+flush tables;
 ```
 <!-- @formatter:on -->
 
-> Make sure you never run ANALYZE on those tables as it will overwrite those stats, and you will end up with database going crazy on certain
+> Make sure you **never** run ANALYZE on those tables as it will overwrite those stats, and you will end up with database going crazy on certain
 > situations.
+
+> We are setting engine independent stats as well, so that a simple ANALYZE would not mess things up.
 
 As some of those commands require specific permissions, you most likely will need some help from DBAs.
 

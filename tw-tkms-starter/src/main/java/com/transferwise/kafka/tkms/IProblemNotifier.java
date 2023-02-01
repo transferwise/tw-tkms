@@ -1,6 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import java.util.function.Supplier;
 
 /**
@@ -8,8 +9,8 @@ import java.util.function.Supplier;
  */
 public interface IProblemNotifier {
 
-  void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider);
+  void notify(Integer shard, NotificationType notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider);
 
-  void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider,
+  void notify(Integer shard, NotificationType notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider,
       Throwable t);
 }

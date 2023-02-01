@@ -28,7 +28,7 @@ public class TkmsProperties {
    *
    * <p>The set of keys is described with Notifications class below.
    */
-  private Map<String, NotificationLevel> notificationLevels = new HashMap<>();
+  private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
   /**
    * Provides more metrics at performance penalty.
@@ -206,7 +206,7 @@ public class TkmsProperties {
     private EarliestVisibleMessages earliestVisibleMessages;
     private Boolean requireTransactionOnMessagesRegistering;
     private List<Integer> deleteBatchSizes;
-    private Map<String, NotificationLevel> notificationLevels = new HashMap<>();
+    private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
     private Map<String, String> kafka = new HashMap<>();
   }
@@ -299,10 +299,10 @@ public class TkmsProperties {
 
     return deleteBatchSizes;
   }
-  
-  public NotificationLevel getNotificationLevels(int shard, String type) {
+
+  public NotificationLevel getNotificationLevels(int shard, NotificationType type) {
     ShardProperties shardProperties = shards.get(shard);
-    if (shardProperties.notificationLevels.get(type) != null) {
+    if (shardProperties != null && shardProperties.notificationLevels.get(type) != null) {
       return shardProperties.notificationLevels.get(type);
     }
     return notificationLevels.get(type);
@@ -370,13 +370,15 @@ public class TkmsProperties {
   /*
     Basically similar idea, what Spotbugs/Checkstyle are using to "hide" unwanted warnings.
    */
-  public static class Notifications {
+  public enum NotificationType {
 
-    public static final String INDEX_HINTS_NOT_AVAILABLE = "INDEX_HINTS_NOT_AVAILABLE";
-    public static final String TABLE_STATS_NOT_FIXED = "TABLE_STATS_NOT_FIXED";
-    public static final String INDEX_STATS_NOT_FIXED = "INDEX_STATS_NOT_FIXED";
-    public static final String TABLE_INDEX_STATS_CHECK_ERROR = "TABLE_INDEX_STATS_CHECK_ERROR";
-    public static final String TOO_MANY_DELETE_BATCHES = "TOO_MANY_DELETE_BATCHES";
-    public static final String EARLIEST_MESSAGES_SYSTEM_DISABLED = "EARLIEST_MESSAGES_SYSTEM_DISABLED";
+    INDEX_HINTS_NOT_AVAILABLE,
+    TABLE_STATS_NOT_FIXED,
+    ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED,
+    INDEX_STATS_NOT_FIXED,
+    TABLE_INDEX_STATS_CHECK_ERROR,
+    TOO_MANY_DELETE_BATCHES,
+    EARLIEST_MESSAGES_SYSTEM_DISABLED,
+    ENGINE_INDEPENDENT_STATS_NOT_ENABLED
   }
 }

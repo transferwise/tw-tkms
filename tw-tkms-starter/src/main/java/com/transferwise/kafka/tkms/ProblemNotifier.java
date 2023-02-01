@@ -2,6 +2,7 @@ package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +14,10 @@ public class ProblemNotifier implements IProblemNotifier {
   private TkmsProperties tkmsProperties;
 
   @Override
-  public void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider, Throwable t) {
-    var notificationLevel = shard == null ?
-        tkmsProperties.getNotificationLevels().get(notificationType)
+  public void notify(Integer shard, NotificationType notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider,
+      Throwable t) {
+    var notificationLevel = shard == null
+        ? tkmsProperties.getNotificationLevels().get(notificationType)
         : tkmsProperties.getNotificationLevels(shard, notificationType);
 
     if (notificationLevel == null) {
@@ -35,7 +37,7 @@ public class ProblemNotifier implements IProblemNotifier {
   }
 
   @Override
-  public void notify(Integer shard, String notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider) {
+  public void notify(Integer shard, NotificationType notificationType, NotificationLevel defaultLevel, Supplier<String> messageProvider) {
     notify(shard, notificationType, defaultLevel, messageProvider, null);
   }
 }

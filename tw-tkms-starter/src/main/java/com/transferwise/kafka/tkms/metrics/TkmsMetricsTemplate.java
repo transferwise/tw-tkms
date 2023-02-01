@@ -49,6 +49,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public static final String DAO_POLL_ALL_RESULTS_COUNT = "tw_tkms_dao_poll_all_results_count";
   public static final String DAO_INVALID_GENERATED_KEYS_COUNT = "tw_tkms_dao_insert_invalid_generated_keys_count";
   public static final String DAO_ROWS_IN_TABLE_STATS = "tw_tkms_dao_rows_in_table_stats";
+  public static final String DAO_ROWS_IN_ENGINE_INDEPENDENT_TABLE_STATS = "tw_tkms_dao_rows_in_engine_independent_table_stats";
   public static final String DAO_ROWS_IN_INDEX_STATS = "tw_tkms_dao_rows_in_index_stats";
   public static final String DAO_APPROXIMATE_MESSAGES_COUNT = "tw_tkms_dao_approximate_messages_count";
   public static final String STORED_MESSAGE_PARSING = "tw_tkms_stored_message_parsing";
@@ -325,6 +326,12 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
         .register(meterCache.getMeterRegistry());
   }
 
+  @Override
+  public void registerRowsInEngineIndependentTableStats(TkmsShardPartition sp, long rowsInTableStats) {
+    Gauge.builder(DAO_ROWS_IN_ENGINE_INDEPENDENT_TABLE_STATS, () -> rowsInTableStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))
+        .register(meterCache.getMeterRegistry());
+  }
+  
   @Override
   public void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats) {
     Gauge.builder(DAO_ROWS_IN_INDEX_STATS, () -> rowsInIndexStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))

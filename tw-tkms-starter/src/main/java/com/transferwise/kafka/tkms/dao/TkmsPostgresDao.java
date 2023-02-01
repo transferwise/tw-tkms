@@ -7,7 +7,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Notifications;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import java.util.List;
@@ -95,14 +95,16 @@ public class TkmsPostgresDao extends TkmsDao {
       return;
     }
 
+    var indexHintsEnabled = validateIndexHints();
+
     for (int s = 0; s < properties.getShardsCount(); s++) {
       try {
         for (int p = 0; p < properties.getPartitionsCount(s); p++) {
           TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
           long distinctIdsCount = getDistinctIdsCount(sp);
-          if (distinctIdsCount < 1_000_000) {
-            problemNotifier.notify(s, Notifications.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+          if (!indexHintsEnabled && distinctIdsCount < 1_000_000) {
+            problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. n_distinct is just set to " + distinctIdsCount + "."
                     + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix table stats."
@@ -112,24 +114,26 @@ public class TkmsPostgresDao extends TkmsDao {
           metricsTemplate.registerRowsInTableStats(sp, distinctIdsCount);
         }
       } catch (DataAccessException dae) {
-        problemNotifier.notify(s, Notifications.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-            "Validating table and index stats failed. Will still continue with the initialization.", dae);
+        problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+            "Validating table and index stats failed.", dae);
       }
     }
-
-    validateIndexHints();
   }
 
-  protected void validateIndexHints() {
+  protected boolean validateIndexHints() {
     var seqScans = doesRespectHint("SeqScan", "Seq Scan");
     var indexOnlyScans = doesRespectHint("IndexOnlyScan", "Index Only Scan");
 
     if (!seqScans || !indexOnlyScans) {
       // By default, logged as ERROR, as it can cause pretty serious problems.
-      problemNotifier.notify(null, Notifications.INDEX_HINTS_NOT_AVAILABLE, NotificationLevel.ERROR,
+      problemNotifier.notify(null, NotificationType.INDEX_HINTS_NOT_AVAILABLE, NotificationLevel.ERROR,
           () -> "Query hints are not supported. This can greatly affect performance during peaks or database slowness. Make sure `pg_hint_plan` "
               + "extension is available.");
+
+      return false;
     }
+
+    return true;
   }
 
   protected boolean doesRespectHint(String hint, String expectedPlan) {

@@ -14,7 +14,7 @@ import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
-import com.transferwise.kafka.tkms.config.TkmsProperties.Notifications;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
@@ -75,7 +75,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       if (properties.getDatabaseDialect(s) == DatabaseDialect.POSTGRES) {
         if (!properties.getEarliestVisibleMessages(s).isEnabled()) {
           int shard = s;
-          problemNotifier.notify(s, Notifications.EARLIEST_MESSAGES_SYSTEM_DISABLED, NotificationLevel.ERROR, () ->
+          problemNotifier.notify(s, NotificationType.EARLIEST_MESSAGES_SYSTEM_DISABLED, NotificationLevel.ERROR, () ->
               "Earliest messages system is not enabled for a Postgres database on shard " + shard + ". This can create a serious"
                   + " performance issue when autovacuum gets behind."
           );
@@ -100,7 +100,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
 
     if (batchSizes.size() > 10) {
-      problemNotifier.notify(shard, Notifications.TOO_MANY_DELETE_BATCHES, NotificationLevel.WARN,
+      problemNotifier.notify(shard, NotificationType.TOO_MANY_DELETE_BATCHES, NotificationLevel.WARN,
           () -> "Too many delete batches (" + batchSizes.size() + ") can create metrics with too high cardinality.");
     }
 
