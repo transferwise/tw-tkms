@@ -50,7 +50,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
-    return "select /*+ IndexScan(om) 1 from " + getTableName(shardPartition) + " om where id < ? limit 1";
+    return "select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? limit 1";
   }
 
   @Override
@@ -205,13 +205,4 @@ public class TkmsPostgresDao extends TkmsDao {
     }
   }
 
-  @Override
-  @MonitoringQuery
-  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
-  public boolean hasMessagesBeforeId(TkmsShardPartition shardPartition, Long messageId) {
-    List<Long> exists =
-        jdbcTemplate.queryForList("select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? limit 1", Long.class,
-            messageId);
-    return !exists.isEmpty();
-  }
 }
