@@ -49,6 +49,21 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
+  protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexScan(om) 1 from " + getTableName(shardPartition) + " om where id < ? limit 1";
+  }
+
+  @Override
+  protected String getExplainClause() {
+    return "EXPLAIN";
+  }
+
+  @Override
+  protected boolean isUsingIndexScan(String sql) {
+    return sql.contains("Index Scan using");
+  }
+
+  @Override
   protected String getDeleteSql(TkmsShardPartition shardPartition, int batchSize) {
     var sb = new StringBuilder("delete /*+ IndexScan(om) */ from " + getTableName(shardPartition) + " om where id in (");
     for (int j = 0; j < batchSize; j++) {
@@ -144,14 +159,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   protected String getExplainResult(String sql) {
     var rows = jdbcTemplate.queryForList("EXPLAIN " + sql, String.class);
-    var sb = new StringBuilder();
-    for (int i = 0; i < rows.size(); i++) {
-      if (i > 0) {
-        sb.append("\n");
-      }
-      sb.append(rows.get(i));
-    }
-    return sb.toString();
+    return concatStringRows(rows);
   }
 
   @Override
@@ -163,6 +171,12 @@ public class TkmsPostgresDao extends TkmsDao {
             getSchemaName(sp), getTableNameWithoutSchema(sp));
 
     return rows.isEmpty() ? -1 : rows.get(0);
+  }
+
+  @Override
+  protected String getEarliestMessageIdSql(TkmsShardPartition shardPartition) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+    return "select /*+ IndexOnlyScan(om) */ message_id from " + earliestVisibleMessages.getTableName() + " om where shard=? and part=?";
   }
 
   protected long getDistinctIdsCount(TkmsShardPartition sp) {
@@ -177,6 +191,9 @@ public class TkmsPostgresDao extends TkmsDao {
     }
 
     String relOptions = relOptionsList.get(0);
+    if (relOptions == null) {
+      return -1;
+    }
 
     Matcher m = N_DISTINCT_PATTERN.matcher(relOptions);
 
@@ -191,9 +208,10 @@ public class TkmsPostgresDao extends TkmsDao {
   @Override
   @MonitoringQuery
   @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
-  public boolean hasMessagesBeforeId(TkmsShardPartition sp, Long messageId) {
+  public boolean hasMessagesBeforeId(TkmsShardPartition shardPartition, Long messageId) {
     List<Long> exists =
-        jdbcTemplate.queryForList("select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(sp) + " om where id < ? limit 1", Long.class, messageId);
+        jdbcTemplate.queryForList("select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? limit 1", Long.class,
+            messageId);
     return !exists.isEmpty();
   }
 }

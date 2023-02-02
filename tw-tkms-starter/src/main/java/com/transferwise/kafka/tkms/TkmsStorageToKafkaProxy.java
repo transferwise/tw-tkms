@@ -165,9 +165,11 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
         }
 
         if (proxyCyclePauseRequest.getValue() != null) {
-          long pauseStartTimeMs = System.currentTimeMillis();
-          ExceptionUtils.doUnchecked(() -> Thread.sleep(proxyCyclePauseRequest.getValue().toMillis()));
-          metricsTemplate.recordProxyCyclePause(shardPartition, System.currentTimeMillis() - pauseStartTimeMs);
+          var pauseTimeMs = proxyCyclePauseRequest.getValue().toMillis();
+          if (pauseTimeMs > 0) {
+            ExceptionUtils.doUnchecked(() -> Thread.sleep(pauseTimeMs));
+            metricsTemplate.recordProxyCyclePause(shardPartition, pauseTimeMs);
+          }
           proxyCyclePauseRequest.setValue(null);
         }
 
@@ -179,13 +181,14 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               try {
                 List<MessageRecord> records = dao.getMessages(shardPartition, earliestMessageTracker.getEarliestMessageId(), pollerBatchSize);
                 polledRecordsCount = records.size();
+
+                metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
+                proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, polledRecordsCount));
+
                 if (polledRecordsCount == 0) {
-                  metricsTemplate.recordProxyPoll(shardPartition, 0, cycleStartNanoTime);
-                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, polledRecordsCount));
                   return;
                 }
 
-                metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
                 earliestMessageTracker.register(records.get(0).getId());
 
                 MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];
@@ -289,8 +292,6 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
                 if (failedSendsCount.get() > 0) {
                   proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));
-                } else {
-                  proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPause(shardPartition, pollerBatchSize, polledRecordsCount));
                 }
               } catch (Throwable t) {
                 log.error(t.getMessage(), t);

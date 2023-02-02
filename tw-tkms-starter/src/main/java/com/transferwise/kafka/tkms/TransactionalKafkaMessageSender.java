@@ -59,6 +59,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @PostConstruct
   public void init() {
+    Assertions.setLevel(properties.getInternals().getAssertionLevel());
+
     environmentValidator.validate();
 
     for (String topic : properties.getTopics()) {
@@ -108,13 +110,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       int size = batchSizes.get(i);
 
       if (size < 1) {
-        throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + size + "<1 .");
+        throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + size + "<1.");
       }
 
       if (i > 0) {
         int prevSize = batchSizes.get(i - 1);
         if (prevSize <= size) {
-          throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + prevSize + "<=" + size + " .");
+          throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + prevSize + "<=" + size + ".");
         }
       }
     }

@@ -43,7 +43,7 @@ public interface ITkmsMetricsTemplate {
   Object registerEarliestMessageId(TkmsShardPartition shardPartition, Supplier<Number> supplier);
 
   void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats);
-  
+
   void registerRowsInEngineIndependentTableStats(TkmsShardPartition sp, long rowsInTableStats);
 
   void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats);

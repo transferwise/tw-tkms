@@ -331,7 +331,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     Gauge.builder(DAO_ROWS_IN_ENGINE_INDEPENDENT_TABLE_STATS, () -> rowsInTableStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))
         .register(meterCache.getMeterRegistry());
   }
-  
+
   @Override
   public void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats) {
     Gauge.builder(DAO_ROWS_IN_INDEX_STATS, () -> rowsInIndexStats).tags(Tags.of(shardTag(sp), partitionTag(sp)))

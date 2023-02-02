@@ -175,8 +175,29 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   @Override
+  protected String getEarliestMessageIdSql(TkmsShardPartition shardPartition) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+    return "select message_id from " + earliestVisibleMessages.getTableName() + " use index(PRIMARY) where shard=? and part=?";
+  }
+
+  @Override
   protected String getSelectSql(TkmsShardPartition shardPartition) {
     return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) where id >= ? order by id limit ?";
+  }
+
+  @Override
+  protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
+    return "select 1 from " + getTableName(shardPartition) + " use index(PRIMARY) where id < ? limit 1";
+  }
+
+  @Override
+  protected String getExplainClause() {
+    return "EXPLAIN FORMAT=JSON";
+  }
+
+  @Override
+  protected boolean isUsingIndexScan(String sql) {
+    return sql.contains("\"key\": \"PRIMARY\"");
   }
 
   @Override

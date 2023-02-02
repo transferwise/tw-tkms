@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.PostConstruct;
+import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
@@ -24,9 +25,9 @@ public class TkmsProperties {
   }
 
   /**
-   * Allows to set notification level for different problems the library is detecting.
+   * Allows to set notification level or even block the startup, for different problems the library is detecting.
    *
-   * <p>The set of keys is described with Notifications class below.
+   * <p>The set of keys is described with NotificationType class below.
    */
   private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
@@ -189,6 +190,10 @@ public class TkmsProperties {
    * Validation requires quite specific privileges in database. Some teams may need to turn it off.
    */
   private boolean tableStatsValidationEnabled = true;
+
+  @Valid
+  @NotNull
+  private Internals internals = new Internals();
 
   @Data
   @Accessors(chain = true)
@@ -360,6 +365,18 @@ public class TkmsProperties {
     private Duration leftOverMessagesCheckStartDelay = Duration.ofHours(1);
   }
 
+  /**
+   * Internal toggles for fine-tuning and debugging/testing reasons.
+   *
+   * <p>Do not touch!
+   */
+  @Data
+  @Accessors(chain = true)
+  public static class Internals {
+
+    private int assertionLevel = 0;
+  }
+
   public enum NotificationLevel {
     INFO,
     WARN,
@@ -368,7 +385,7 @@ public class TkmsProperties {
   }
 
   /*
-    Basically similar idea, what Spotbugs/Checkstyle are using to "hide" unwanted warnings.
+    Basically similar idea, what Spotbugs/Checkstyle use to "hide" unwanted warnings.
    */
   public enum NotificationType {
 

@@ -22,7 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("earliest-message")
-public class EarliestMessageTrackingIntTest extends BaseIntTest {
+class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Autowired
   private TransactionalKafkaMessageSender tkms;

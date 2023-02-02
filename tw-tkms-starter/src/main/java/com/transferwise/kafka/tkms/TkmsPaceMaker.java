@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class TkmsPaceMaker implements ITkmsPaceMaker {
 
   @Autowired
-  private TkmsProperties properties;
+  protected TkmsProperties properties;
 
   @Override
   public void doSmallPause(int shard) {
@@ -32,12 +32,14 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
 
   @Override
   public Duration getPollingPause(TkmsShardPartition shardPartition, int pollingBatchSize, int polledMessagesCount) {
-    long maxPollIntervalMs = properties.getPollingInterval(shardPartition.getShard()).toMillis();
+    var maxPollInterval = properties.getPollingInterval(shardPartition.getShard());
 
-    var pollingPause = Duration.ofMillis(maxPollIntervalMs * (pollingBatchSize - polledMessagesCount) / pollingBatchSize);
     var minPollingInterval = properties.getMinPollingInterval();
+    if (minPollingInterval != null && minPollingInterval.compareTo(maxPollInterval) > 0) {
+      maxPollInterval = minPollingInterval;
+    }
 
-    return minPollingInterval == null || minPollingInterval.compareTo(pollingPause) > 0 ? pollingPause : minPollingInterval;
+    return Duration.ofMillis(maxPollInterval.toMillis() * (pollingBatchSize - polledMessagesCount) / pollingBatchSize);
   }
 
   @Override

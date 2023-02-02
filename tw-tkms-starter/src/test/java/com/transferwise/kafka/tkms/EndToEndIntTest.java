@@ -85,6 +85,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
+  @SneakyThrows
   void testThatJsonStringMessageCanBeSentAndRetrieved() {
     var messagePart = "Hello World!";
     int messageMultiplier = 100;

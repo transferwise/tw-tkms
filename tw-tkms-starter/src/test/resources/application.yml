@@ -48,6 +48,8 @@ tw-tkms:
     previous-version: 0.7.3
   monitoring:
     start-delay: 0s
+  internals:
+    assertion-level: 1
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
