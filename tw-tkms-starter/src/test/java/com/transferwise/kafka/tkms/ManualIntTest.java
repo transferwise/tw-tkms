@@ -64,7 +64,7 @@ class ManualIntTest extends BaseIntTest {
 
     var batches = 100;
     var batchSize = 100_000;
-    var startTimeMs = System.currentTimeMillis();
+    final var startTimeMs = System.currentTimeMillis();
 
     var executors = Executors.newFixedThreadPool(25);
 

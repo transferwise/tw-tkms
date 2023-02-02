@@ -288,7 +288,7 @@ public abstract class TkmsDao implements ITkmsDao {
         ps.setLong(2, maxCount);
       }, (rs, rowNum) -> rs.getString(1));
       var explainPlan = concatStringRows(explainPlanRows);
-      Assertions.assertAlgorithm(isUsingIndexScan(explainPlan), "index hints are not respected.");
+      Assertions.assertAlgorithm(isUsingIndexScan(explainPlan), "inefficient query plan is used.");
     }
 
     return result;
@@ -349,7 +349,15 @@ public abstract class TkmsDao implements ITkmsDao {
   public boolean hasMessagesBeforeId(TkmsShardPartition shardPartition, Long messageId) {
     var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "hasMessagesBeforeId"), k -> getHasMessagesBeforeIdSql(shardPartition));
     List<Long> exists = jdbcTemplate.queryForList(sql, Long.class, messageId);
-    return !exists.isEmpty();
+    var result = !exists.isEmpty();
+
+    if (Assertions.isLevel1()) {
+      var rows = jdbcTemplate.queryForList(getExplainClause() + " " + sql, String.class, messageId);
+      var explainPlan = concatStringRows(rows);
+      Assertions.assertAlgorithm(isUsingIndexScan(explainPlan), "inefficient query plan is used.");
+    }
+
+    return result;
   }
 
   protected abstract String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition);
@@ -381,7 +389,7 @@ public abstract class TkmsDao implements ITkmsDao {
             }
           }, (rs, rowNum) -> rs.getString(1));
           var explainPlan = concatStringRows(explainPlanRows);
-          Assertions.assertAlgorithm(isUsingIndexScan(explainPlan), "index hints are not respected.");
+          Assertions.assertAlgorithm(isUsingIndexScan(explainPlan), "inefficient query plan is used.");
         }
 
         processedCount += batchSize;
