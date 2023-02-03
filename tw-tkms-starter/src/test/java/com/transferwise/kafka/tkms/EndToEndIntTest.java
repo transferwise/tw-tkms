@@ -125,6 +125,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
+    await().until(this::areTablesEmpty);
+    // Provides good cause message
     assertThatTablesAreEmpty();
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
@@ -493,6 +495,19 @@ abstract class EndToEndIntTest extends BaseIntTest {
   @SneakyThrows
   protected byte[] toJsonBytes(Object value) {
     return objectMapper.writeValueAsBytes(value);
+  }
+
+  protected boolean areTablesEmpty() {
+    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
+      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
+        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+        int rowsCount = tkmsTestDao.getMessagesCount(sp);
+        if (rowsCount > 0) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   protected void assertThatTablesAreEmpty() {
