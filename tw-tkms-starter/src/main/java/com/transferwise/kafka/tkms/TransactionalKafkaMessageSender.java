@@ -12,6 +12,9 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
+import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
@@ -48,16 +51,74 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private IEnvironmentValidator environmentValidator;
   @Autowired
   private ITransactionsHelper transactionsHelper;
+  @Autowired
+  private IProblemNotifier problemNotifier;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
   @PostConstruct
   public void init() {
+    Assertions.setLevel(properties.getInternals().getAssertionLevel());
+
     environmentValidator.validate();
 
     for (String topic : properties.getTopics()) {
       validateTopic(properties.getDefaultShard(), topic);
+    }
+
+    validateDeleteBatchSizes();
+
+    validateEarliestVisibleMessages();
+  }
+
+  protected void validateEarliestVisibleMessages() {
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      if (properties.getDatabaseDialect(s) == DatabaseDialect.POSTGRES) {
+        if (!properties.getEarliestVisibleMessages(s).isEnabled()) {
+          int shard = s;
+          problemNotifier.notify(s, NotificationType.EARLIEST_MESSAGES_SYSTEM_DISABLED, NotificationLevel.ERROR, () ->
+              "Earliest messages system is not enabled for a Postgres database on shard " + shard + ". This can create a serious"
+                  + " performance issue when autovacuum gets behind."
+          );
+        }
+      }
+    }
+  }
+
+  protected void validateDeleteBatchSizes() {
+    for (int s = 0; s < properties.getShardsCount(); s++) {
+      validateDeleteBatchSize(s, properties.getDeleteBatchSizes(s), "shard " + s);
+    }
+  }
+
+  protected void validateDeleteBatchSize(int shard, List<Integer> batchSizes, String subject) {
+    if (batchSizes == null || batchSizes.isEmpty()) {
+      throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', no batches provided.");
+    }
+
+    if (batchSizes.get(batchSizes.size() - 1) != 1) {
+      throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', last element has to be 1.");
+    }
+
+    if (batchSizes.size() > 10) {
+      problemNotifier.notify(shard, NotificationType.TOO_MANY_DELETE_BATCHES, NotificationLevel.WARN,
+          () -> "Too many delete batches (" + batchSizes.size() + ") can create metrics with too high cardinality.");
+    }
+
+    for (int i = 0; i < batchSizes.size(); i++) {
+      int size = batchSizes.get(i);
+
+      if (size < 1) {
+        throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + size + "<1.");
+      }
+
+      if (i > 0) {
+        int prevSize = batchSizes.get(i - 1);
+        if (prevSize <= size) {
+          throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + prevSize + "<=" + size + ".");
+        }
+      }
     }
   }
 

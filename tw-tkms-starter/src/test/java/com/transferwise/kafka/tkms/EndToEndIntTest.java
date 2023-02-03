@@ -17,7 +17,6 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
-import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.ITkmsTestDao;
@@ -39,6 +38,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
 @Slf4j
-class EndToEndIntTest extends BaseIntTest {
+abstract class EndToEndIntTest extends BaseIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -85,6 +85,7 @@ class EndToEndIntTest extends BaseIntTest {
   }
 
   @Test
+  @SneakyThrows
   void testThatJsonStringMessageCanBeSentAndRetrieved() {
     var messagePart = "Hello World!";
     int messageMultiplier = 100;
@@ -124,7 +125,7 @@ class EndToEndIntTest extends BaseIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
@@ -199,7 +200,7 @@ class EndToEndIntTest extends BaseIntTest {
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -233,7 +234,7 @@ class EndToEndIntTest extends BaseIntTest {
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -270,7 +271,7 @@ class EndToEndIntTest extends BaseIntTest {
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
       assertThat(partitionsMap.get(partition).get()).isEqualTo(n);
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -330,7 +331,7 @@ class EndToEndIntTest extends BaseIntTest {
           }
         }
       }
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -387,10 +388,10 @@ class EndToEndIntTest extends BaseIntTest {
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(topic).size()).isEqualTo(4);
 
-    assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
+    assertThat(meterRegistry.find("tw_tkms_interface_message_registration").tag("shard", "0").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.find("tw_tkms_interface_message_registration").tag("shard", "1").counter().count()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
   }
 
   @Test
@@ -446,7 +447,7 @@ class EndToEndIntTest extends BaseIntTest {
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
   }
 
   /**
@@ -494,6 +495,15 @@ class EndToEndIntTest extends BaseIntTest {
     return objectMapper.writeValueAsBytes(value);
   }
 
+  protected void waitUntilTablesAreEmpty() {
+    try {
+      await().until(() -> getTablesRowsCount() == 0);
+    } catch (ConditionTimeoutException ignored) {
+      // To get a good cause message.
+      assertThatTablesAreEmpty();
+    }
+  }
+
   protected void assertThatTablesAreEmpty() {
     for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
       for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
@@ -529,7 +539,7 @@ class EndToEndIntTest extends BaseIntTest {
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
     var message = StringUtils.repeat("Hello World!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -542,7 +552,8 @@ class EndToEndIntTest extends BaseIntTest {
       }
     });
 
-    Counter counter = meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
+    Counter counter =
+        meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
     double startingSerializedSizeBytes = counter == null ? 0 : counter.count();
 
     testMessagesListener.registerConsumer(messageCounter);
@@ -556,14 +567,16 @@ class EndToEndIntTest extends BaseIntTest {
 
       await().until(() -> receivedCount.get() > 0);
 
-      assertThat(meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
-          - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
+      counter =
+          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
+      double serializedSizeBytes = counter == null ? 0 : counter.count();
+      assertThat(serializedSizeBytes - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic())).hasSize(1);
   }
 }

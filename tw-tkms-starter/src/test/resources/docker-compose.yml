@@ -3,7 +3,6 @@ version: '3.7'
 services:
   zookeeper:
     image: bitnami/zookeeper:3.5.5
-    hostname: zookeeper
     ports:
       - "2181"
     environment:
@@ -11,7 +10,6 @@ services:
       JVMFLAGS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20 -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses
   kafka-zk:
     image: bitnami/zookeeper:3.4.14
-    hostname: kafka-zk
     ports:
       - "2181"
     environment:
@@ -21,7 +19,6 @@ services:
     image: wurstmeister/kafka:2.12-2.4.1
     depends_on:
       - kafka-zk
-    hostname: kafka
     ports:
       - "9092"
     environment:
@@ -45,8 +42,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   mariadb:
-    image: mariadb:10.3
-    hostname: mysql
+    image: mariadb:10.6
     ports:
       - "3306"
     environment:
@@ -56,9 +52,6 @@ services:
     --character-set-server=utf8mb4
     --collation-server=utf8mb4_unicode_ci --transaction-isolation=READ-COMMITTED --innodb_autoinc_lock_mode=2"
   postgres:
-    image: postgres:12
+    image: docker.tw.ee/postgres12
     ports:
       - "5432"
-    environment:
-      POSTGRES_PASSWORD: example-password-change-me
-    command: -c 'max_connections=200'

@@ -44,6 +44,8 @@ public interface ITkmsMetricsTemplate {
 
   void registerRowsInTableStats(TkmsShardPartition sp, long rowsInTableStats);
 
+  void registerRowsInEngineIndependentTableStats(TkmsShardPartition sp, long rowsInTableStats);
+
   void registerRowsInIndexStats(TkmsShardPartition sp, long rowsInIndexStats);
 
   void unregisterMetric(Object rawMetricHandle);
@@ -51,4 +53,6 @@ public interface ITkmsMetricsTemplate {
   Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier);
 
   void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition);
+
+  void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
 }

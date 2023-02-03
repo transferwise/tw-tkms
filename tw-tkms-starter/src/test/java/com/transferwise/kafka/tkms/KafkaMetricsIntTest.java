@@ -57,8 +57,7 @@ public class KafkaMetricsIntTest {
   }
 
   @Test
-  void testThatProducerMetricShowsSentMessage() throws Exception {
-
+  void testThatProducerMetricShowsSentMessage() {
     String message = "Hello World!";
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -87,6 +86,6 @@ public class KafkaMetricsIntTest {
     }
 
     assertThat(meterRegistry.find("kafka.producer.record.send.total").tags().functionCounter().count())
-        .as("Producer's metric shows one message sent.").isGreaterThan(0L);
+        .as("Producer's metric shows one message sent.").isPositive();
   }
 }

@@ -68,6 +68,7 @@ public class KafkaConfiguration {
     ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory());
     factory.setBatchListener(true);
+    // Deprecated, but needed to support Spring Boot 2.5 as well.
     factory.setBatchErrorHandler((e, data) -> log.error(e.getMessage(), e));
     return factory;
   }

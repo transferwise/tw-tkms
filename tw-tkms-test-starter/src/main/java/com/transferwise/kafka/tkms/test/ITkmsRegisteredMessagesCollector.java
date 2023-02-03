@@ -10,6 +10,10 @@ public interface ITkmsRegisteredMessagesCollector {
 
   void clear();
 
+  void disable();
+
+  void enable();
+
   <T> List<T> getRegisteredJsonMessages(String topic, Class<T> clazz);
 
   List<RegisteredMessage> getRegisteredMessages(String topic);

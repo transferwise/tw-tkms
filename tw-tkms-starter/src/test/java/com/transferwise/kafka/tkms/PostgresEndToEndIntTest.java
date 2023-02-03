@@ -22,7 +22,8 @@ public class PostgresEndToEndIntTest extends EndToEndIntTest {
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) throws Exception {
+  @Override
+  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
     super.testMessageIsCompressed(algorithm, expectedSerializedSize);
   }
 }

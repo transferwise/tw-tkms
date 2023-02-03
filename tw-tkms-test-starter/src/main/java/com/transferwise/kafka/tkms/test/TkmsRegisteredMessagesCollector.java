@@ -26,8 +26,14 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
 
   private AtomicInteger messagesCount = new AtomicInteger();
 
+  private boolean enabled = true;
+
   @Override
   public void messageRegistered(MessageRegisteredEvent event) {
+    if (!enabled) {
+      return;
+    }
+
     if (messagesCount.get() >= tkmsTestProperties.getMaxCollectedMessages()) {
       throw new IllegalStateException(
           "Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());
@@ -43,6 +49,16 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
   public void clear() {
     messages = new ConcurrentHashMap<>();
     messagesCount.set(0);
+  }
+
+  @Override
+  public void disable() {
+    enabled = false;
+  }
+
+  @Override
+  public void enable() {
+    enabled = true;
   }
 
   @Override

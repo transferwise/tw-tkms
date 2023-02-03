@@ -14,13 +14,14 @@ import com.transferwise.kafka.tkms.test.BaseIntTest;
 import io.micrometer.core.instrument.Gauge;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("earliest-message")
-public class EarliestMessageTrackingIntTest extends BaseIntTest {
+class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Autowired
   private TransactionalKafkaMessageSender tkms;
@@ -42,7 +43,7 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
     TkmsClockHolder.setClock(clock);
 
     Gauge earliestMessageIdGauge = await()
-        .until(() -> meterRegistry.find("tw.tkms.dao.earliest.message.id").tags("shard", "0", "partition", "0").gauge(), (g) -> g != null);
+        .until(() -> meterRegistry.find("tw_tkms_dao_earliest_message_id").tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
     assertThat(earliestMessageIdGauge.value()).isEqualTo(-1);
 
     clock.tick(Duration.ofSeconds(5));
@@ -52,7 +53,7 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
 
     clock.tick(Duration.ofSeconds(6));
     sendMessageAndWaitForArrival(2);
-    assertThat(earliestMessageIdGauge.value()).as("First 10s period has passed, we should have a id now").isGreaterThanOrEqualTo(0);
+    assertThat(earliestMessageIdGauge.value()).as("First 10s period has passed, we should have a id now").isNotNegative();
 
     double previousValue = earliestMessageIdGauge.value();
     clock.tick(Duration.ofSeconds(6));
@@ -78,7 +79,7 @@ public class EarliestMessageTrackingIntTest extends BaseIntTest {
     transactionsHelper.withTransaction().run(() ->
         tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello World!".getBytes(StandardCharsets.UTF_8)))
     );
-    
+
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(testTopic).size() == cnt);
   }
 }

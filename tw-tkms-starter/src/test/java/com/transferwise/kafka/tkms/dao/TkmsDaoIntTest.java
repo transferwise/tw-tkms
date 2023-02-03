@@ -57,12 +57,20 @@ class TkmsDaoIntTest extends BaseIntTest {
 
     tkmsDao.deleteMessages(TkmsShardPartition.of(0, 0), records);
 
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "256").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "64").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "16").counter().count()).isEqualTo(2);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "4").counter().count()).isEqualTo(2);
-    assertThat(meterRegistry.get("tw.tkms.dao.messages.delete").tags("batchSize", "1").counter().count()).isEqualTo(1);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").counters()
+        .stream().map(c -> c.count() * Integer.parseInt(c.getId().getTag("batchSize"))).reduce(0d, Double::sum))
+        .isEqualTo(1001);
+
+    assertDeleteBucketsCounts();
 
     assertThat(new JdbcTemplate(dataSource).queryForObject("select count(*) from outgoing_message_0_0", Integer.class)).isZero();
+  }
+
+  protected void assertDeleteBucketsCounts() {
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "256").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "64").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "16").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "4").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "1").counter().count()).isEqualTo(1);
   }
 }

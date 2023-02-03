@@ -19,6 +19,6 @@ public class TkmsClockHolder {
   }
 
   private TkmsClockHolder() {
-    
+
   }
 }

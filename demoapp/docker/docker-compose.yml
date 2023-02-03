@@ -65,10 +65,6 @@ services:
   #    --innodb_flush_log_at_trx_commit=1 --innodb_flush_method=O_DIRECT_NO_FSYNC
 
   postgres:
-    image: postgres:12-alpine
+    image: docker.tw.ee/postgres12
     ports:
       - "15432:5432"
-    environment:
-      POSTGRES_PASSWORD: example-password-change-me
-    command: -c 'max_connections=200'
-
