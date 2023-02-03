@@ -567,15 +567,16 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       await().until(() -> receivedCount.get() > 0);
 
-      assertThat(
-          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter().count()
-              - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
+      counter =
+          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
+      double serializedSizeBytes = counter == null ? 0 : counter.count();
+      assertThat(serializedSizeBytes - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic())).hasSize(1);
   }
 }
