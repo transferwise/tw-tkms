@@ -39,6 +39,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -125,9 +126,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
 
-    await().until(this::areTablesEmpty);
-    // Provides good cause message
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
@@ -202,7 +201,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -236,7 +235,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -273,7 +272,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
       assertThat(partitionsMap.entrySet().size()).isEqualTo(1);
       assertThat(partitionsMap.get(partition).get()).isEqualTo(n);
 
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -333,7 +332,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
           }
         }
       }
-      assertThatTablesAreEmpty();
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }
@@ -393,7 +392,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
     assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
   }
 
   @Test
@@ -449,7 +448,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
 
-    assertThatTablesAreEmpty();
+    waitUntilTablesAreEmpty();
   }
 
   /**
@@ -497,17 +496,14 @@ abstract class EndToEndIntTest extends BaseIntTest {
     return objectMapper.writeValueAsBytes(value);
   }
 
-  protected boolean areTablesEmpty() {
-    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
-      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        int rowsCount = tkmsTestDao.getMessagesCount(sp);
-        if (rowsCount > 0) {
-          return false;
-        }
-      }
+  protected void waitUntilTablesAreEmpty() {
+    try {
+      await().until(() -> getTablesRowsCount() == 0);
     }
-    return true;
+    catch (ConditionTimeoutException ignored){
+      // To get a good cause message.
+      assertThatTablesAreEmpty();
+    }
   }
 
   protected void assertThatTablesAreEmpty() {
