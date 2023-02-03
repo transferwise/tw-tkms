@@ -50,7 +50,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
-    return "select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? limit 1";
+    return "select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
   }
 
   @Override
