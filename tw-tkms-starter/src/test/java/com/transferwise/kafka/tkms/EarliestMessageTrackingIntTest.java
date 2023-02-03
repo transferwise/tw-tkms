@@ -10,7 +10,6 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
-import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import io.micrometer.core.instrument.Gauge;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +43,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     TkmsClockHolder.setClock(clock);
 
     Gauge earliestMessageIdGauge = await()
-        .until(() -> meterRegistry.find(TkmsMetricsTemplate.DAO_EARLIEST_MESSAGE_ID).tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
+        .until(() -> meterRegistry.find("tw_tkms_dao_earliest_message_id").tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
     assertThat(earliestMessageIdGauge.value()).isEqualTo(-1);
 
     clock.tick(Duration.ofSeconds(5));

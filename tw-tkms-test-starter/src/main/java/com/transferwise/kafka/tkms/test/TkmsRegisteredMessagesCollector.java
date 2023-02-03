@@ -33,7 +33,7 @@ public class TkmsRegisteredMessagesCollector implements ITkmsRegisteredMessagesC
     if (!enabled) {
       return;
     }
-    
+
     if (messagesCount.get() >= tkmsTestProperties.getMaxCollectedMessages()) {
       throw new IllegalStateException(
           "Collected " + messagesCount.get() + " messages, while the limit is " + tkmsTestProperties.getMaxCollectedMessages());

@@ -2,7 +2,6 @@ package com.transferwise.kafka.tkms.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.test.context.ActiveProfiles;
@@ -16,9 +15,9 @@ class PostgresTkmsDaoIntTest extends TkmsDaoIntTest {
    */
   @Override
   protected void assertDeleteBucketsCounts() {
-    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "51").counter().count()).isEqualTo(19);
-    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "11").counter().count()).isEqualTo(2);
-    assertThat(meterRegistry.get(TkmsMetricsTemplate.DAO_MESSAGES_DELETION).tags("batchSize", "5").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "51").counter().count()).isEqualTo(19);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "11").counter().count()).isEqualTo(2);
+    assertThat(meterRegistry.get("tw_tkms_dao_messages_delete").tags("batchSize", "5").counter().count()).isEqualTo(2);
   }
 
 }

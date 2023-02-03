@@ -24,8 +24,7 @@ public class V2__Init extends BaseJavaMigration {
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN id SET (n_distinct=1000000);");
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN message SET STORAGE EXTERNAL");
           stmt.executeUpdate("VACUUM FULL " + tableName);
-        }
-        finally{
+        } finally {
           stmt.close();
         }
       }

@@ -17,7 +17,6 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
-import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.ITkmsTestDao;
@@ -389,8 +388,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(topic).size()).isEqualTo(4);
 
-    assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "0").counter().count()).isEqualTo(3);
-    assertThat(meterRegistry.find(TkmsMetricsTemplate.INTERFACE_MESSAGE_REGISTERED).tag("shard", "1").counter().count()).isEqualTo(1);
+    assertThat(meterRegistry.find("tw_tkms_interface_message_registration").tag("shard", "0").counter().count()).isEqualTo(3);
+    assertThat(meterRegistry.find("tw_tkms_interface_message_registration").tag("shard", "1").counter().count()).isEqualTo(1);
 
     waitUntilTablesAreEmpty();
   }
@@ -499,8 +498,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   protected void waitUntilTablesAreEmpty() {
     try {
       await().until(() -> getTablesRowsCount() == 0);
-    }
-    catch (ConditionTimeoutException ignored){
+    } catch (ConditionTimeoutException ignored) {
       // To get a good cause message.
       assertThatTablesAreEmpty();
     }
@@ -554,7 +552,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
       }
     });
 
-    Counter counter = meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter();
+    Counter counter =
+        meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
     double startingSerializedSizeBytes = counter == null ? 0 : counter.count();
 
     testMessagesListener.registerConsumer(messageCounter);
@@ -568,8 +567,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       await().until(() -> receivedCount.get() > 0);
 
-      assertThat(meterRegistry.find(TkmsMetricsTemplate.DAO_SERIALIZED_SIZE_BYTES).tag("algorithm", algorithm.name().toLowerCase()).counter().count()
-          - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
+      assertThat(
+          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter().count()
+              - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {
