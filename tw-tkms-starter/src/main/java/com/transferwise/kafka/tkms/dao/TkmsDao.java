@@ -10,7 +10,6 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
-import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.sql.Connection;
@@ -35,11 +34,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * READ_UNCOMMITTED isolation level is to speed up queries against information schema in databases with high number of tenants. E.g. Custom
+ * READ_UNCOMMITTED isolation level is to speed up queries against information schema in MariaDb databases with high number of tenants. E.g. Custom
  * environments.
  */
 @Slf4j
@@ -83,10 +81,8 @@ public abstract class TkmsDao implements ITkmsDao {
     createGetMessagesSqls();
     createDeleteMessagesSqls();
 
-    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
-      validateSchema();
-      validateEngineSpecifics();
-    });
+    validateSchema();
+    validateEngineSpecifics();
   }
 
   protected void createInsertMessagesSqls() {
@@ -344,8 +340,6 @@ public abstract class TkmsDao implements ITkmsDao {
   }
 
   @Override
-  @MonitoringQuery
-  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
   public boolean hasMessagesBeforeId(TkmsShardPartition shardPartition, Long messageId) {
     var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "hasMessagesBeforeId"), k -> getHasMessagesBeforeIdSql(shardPartition));
     List<Long> exists = jdbcTemplate.queryForList(sql, Long.class, messageId);
@@ -361,7 +355,6 @@ public abstract class TkmsDao implements ITkmsDao {
   }
 
   protected abstract String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition);
-
 
   protected abstract boolean doesEarliestVisibleMessagesTableExist();
 

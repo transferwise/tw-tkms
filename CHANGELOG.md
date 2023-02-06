@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.1] - 2023-02-06
+
+### Changed
+
+* Removed `READ_UNCOMMITTED` transactions around Postgres queries.
+  For some reason, it slows down the query planner dramatically.
+  Besides, the measured benefit from those we only got from MariaDb, when large amount of service are running on the same database server.
+
 ## [0.21.0] - 2023-01-31
 
 ### Changed
@@ -44,7 +52,7 @@ stable.
 
 Some initialization validation routines were added, checking if index hints actually do apply.
 
-Removed the recommendation of setting `autovacuum_vacuum_threshold=100000` for tkms tables. Auto vacuum has its own, database side, `naptime` setting, 
+Removed the recommendation of setting `autovacuum_vacuum_threshold=100000` for tkms tables. Auto vacuum has its own, database side, `naptime` setting,
 to prevent it running in a tight loop. Earlier, that fear of those tight loops were the motivation to recommend it.
 
 #### Configurable delete queries batch sizes.
