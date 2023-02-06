@@ -96,7 +96,8 @@ public class TkmsMariaDao extends TkmsDao {
             }
           }
         } catch (DataAccessException dae) {
-          // TODO: Currently our database do not 
+          // TODO: Currently our database may not have enough permissions yet, so starting with WARN.
+          //       Later we should upgrade the default to ERROR.
           problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
               "Validating table and index stats failed.", dae);
         }

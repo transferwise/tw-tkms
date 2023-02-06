@@ -69,7 +69,11 @@ jobs:
           KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     steps:
       - name: "Install packages"
-        run: apt-get update && apt-get install -y git unzip
+        # We do some changes as the main ubuntu repo is currently very slow.
+        run: |
+          sudo sed -i 's|http://archive.ubuntu.com/|http://ftp.halifax.rwth-aachen.de/|g' /etc/apt/sources.list
+          sed -i 's|deb http://security.|#deb http://security.|g' /etc/apt/sources.list
+          apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
@@ -146,7 +150,11 @@ jobs:
         if: ${{ needs.matrix_build.result != 'success' }}
         run: exit 1
       - name: "Install packages"
-        run: apt-get update && apt-get install -y git unzip
+        # We do some changes as the main ubuntu repo is currently very slow.
+        run: |
+          sudo sed -i 's|http://archive.ubuntu.com/|http://ftp.halifax.rwth-aachen.de/|g' /etc/apt/sources.list
+          sed -i 's|deb http://security.|#deb http://security.|g' /etc/apt/sources.list
+          apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
