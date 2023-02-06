@@ -49,14 +49,17 @@ Index hints are built into MariaDb and MySql; and for Postgres there is the [pg_
 
 Unfortunately MariaDb does not support index hints on `DELETE` queries. MySql does.
 
-> So for MariaDb we still have a big risk.
-> Even when we fix the statistic in place, a DBA accidentally running manual `ANALYZE` will override and thus negate those fixed statistics.
+> So for MariaDb we still have a big risk - randomly ran `ANALYZE` statements.
+
+> Even when we fix the statistic in place, telling database that there are large amount of records,
+> a DBA accidentally running manual `ANALYZE`, at a time when the table is empty, will override those and thus negate the desired effect.
 
 ### Fixing statistics in place.
 
 [setup guide](setup.md) will show you how.
 
-In the case of MariaDb/MySql, it is very important to avoid running ANALYZE on those tables, because those will overwrite all our fixed statistics.
+In the case of MariaDb/MySql, as described above, it is very important to avoid running random ANALYZE on those tables, as
+it will highly likely be run when the table is empty and thus overwriting all our fixed statistics to indicate tables with large amount of records.
 
 If this happens, it is important to fix the statistics back into place.
 
@@ -70,10 +73,13 @@ flush table outgoing_message_*_*;
 
 ## Manual intervention
 
-When `Tkms` tables have accumulated lots of records and sequential scans get executed and we already have an incident, 
-then running `ANALYZE` on `tw-tkms` tables will allow to overcome and recover the situation.
+### Manual analyze
 
-## Configuration change
+When `Tkms` tables have accumulated lots of records and sequential scans get executed, and we already have an incident, 
+then running `ANALYZE` on `tw-tkms` tables will allow to overcome and recover from the situation. Even when we advised against
+running `ANALYZE` above, then this time, the table has lots of records, so that `ANALYZE` will produce us suitable statistics.
+
+### Configuration change
 
 The only query not covered by an index hint, is `DELETE` query for MariaDb.
 
@@ -90,3 +96,14 @@ You can apply the custom configuration for deletion batch sizes as following.
 tw-tkms:
   delete-batch-sizes: "50, 10, 2, 1"
 ```
+
+### Phantom records hack.
+
+`tw-tkms` polls records only with non-negative id. 
+
+So, if we would create lots of records into those tables, with negative ids, and run `ANALYZE` afterwards, the database will
+"remember" those tables having lots of records, and thus will be reluctant to run sequential scans against them.
+
+> The downside here is that we may "waste" disk space, and it may look a bit messy.
+> However messages on those records can be empty, so we would only keep 8 byte integers in those. 
+> If we put 1 million records there, they may take "only" couple of tens of megabytes.

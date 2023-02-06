@@ -9,15 +9,12 @@ import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
-import com.transferwise.kafka.tkms.metrics.MonitoringQuery;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataAccessException;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 public class TkmsPostgresDao extends TkmsDao {
@@ -60,7 +57,8 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected boolean isUsingIndexScan(String sql) {
-    return sql.contains("Index Scan using");
+    return sql.contains("Index Scan using") || sql.contains("Index Only Scan Backward using")
+        || sql.contains("Index Only Scan using");
   }
 
   @Override
@@ -91,17 +89,13 @@ public class TkmsPostgresDao extends TkmsDao {
       table = defaultTable;
     }
 
-    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() ->
-        !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", String.class,
-            schema, table).isEmpty()
-    );
+    return !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", String.class,
+        schema, table).isEmpty();
   }
 
   @Override
   protected String getCurrentSchema() {
-    return transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() ->
-        jdbcTemplate.queryForObject("select current_schema()", String.class)
-    );
+    return jdbcTemplate.queryForObject("select current_schema()", String.class);
   }
 
   @Override
@@ -163,7 +157,6 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
-  @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_UNCOMMITTED)
   public long getApproximateMessagesCount(TkmsShardPartition sp) {
     List<Long> rows =
         jdbcTemplate.queryForList("SELECT reltuples as approximate_row_count FROM pg_class, pg_namespace WHERE "
@@ -180,11 +173,10 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   protected long getDistinctIdsCount(TkmsShardPartition sp) {
-    List<String> relOptionsList = transactionsHelper.withTransaction().asNew().withIsolation(Isolation.READ_UNCOMMITTED).call(() ->
+    List<String> relOptionsList =
         jdbcTemplate.queryForList("select attoptions from pg_attribute, pg_class, pg_namespace where pg_class.oid = pg_attribute.attrelid "
             + "and pg_class.relnamespace = pg_namespace.oid "
-            + "and pg_namespace.nspname=? and pg_class.relname=? and attname='id'", String.class, getSchemaName(sp), getTableNameWithoutSchema(sp))
-    );
+            + "and pg_namespace.nspname=? and pg_class.relname=? and attname='id'", String.class, getSchemaName(sp), getTableNameWithoutSchema(sp));
 
     if (relOptionsList.isEmpty()) {
       return -1;
@@ -204,5 +196,4 @@ public class TkmsPostgresDao extends TkmsDao {
       return -1;
     }
   }
-
 }
