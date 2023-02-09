@@ -55,8 +55,8 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(ITkmsMetricsTemplate.class)
-  public TkmsMetricsTemplate tkmsMetricsTemplate(IMeterCache meterCache) {
-    return new TkmsMetricsTemplate(meterCache);
+  public TkmsMetricsTemplate tkmsMetricsTemplate(IMeterCache meterCache, TkmsProperties tkmsProperties) {
+    return new TkmsMetricsTemplate(meterCache, tkmsProperties);
   }
 
   @Bean

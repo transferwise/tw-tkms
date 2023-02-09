@@ -33,8 +33,6 @@ public interface ITkmsMetricsTemplate {
 
   void registerLibrary();
 
-  void recordStoredMessageParsing(TkmsShardPartition shardPartition, long messageParsingStartNanoTime);
-
   void recordMessageSerialization(TkmsShardPartition shardPartition, CompressionAlgorithm algorithm, long originalSizeBytes,
       long serializedSizeBytes);
 
@@ -55,4 +53,6 @@ public interface ITkmsMetricsTemplate {
   void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition);
 
   void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
+
+  Object registerPollingInProgressGauge(TkmsShardPartition shardPartition);
 }

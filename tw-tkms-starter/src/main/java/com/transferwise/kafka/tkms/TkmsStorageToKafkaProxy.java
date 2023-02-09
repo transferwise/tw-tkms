@@ -99,11 +99,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
         leaderSelectors.add(new LeaderSelectorV2.Builder().setLock(lock).setExecutorService(executorService).setLeader(control -> {
           AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
-
+          AtomicReference<Object> pollingGauge = new AtomicReference<>();
+          
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
                   () -> {
                     try {
                       log.info("Starting to proxy {}.", shardPartition);
+                      pollingGauge.set(metricsTemplate.registerPollingInProgressGauge(shardPartition));
                       poll(control, shardPartition);
                       return true;
                     } catch (Throwable t) {
@@ -115,7 +117,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   })),
               () -> {
                 log.info("Stopping proxying for {}.", shardPartition);
-
+                
                 // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
 
                 Future<Boolean> future = futureReference.get();
@@ -128,6 +130,11 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   } catch (Throwable t) {
                     log.error(t.getMessage(), t);
                   }
+                }
+                
+                var gauge = pollingGauge.getAndSet(null);
+                if (gauge != null) {
+                  metricsTemplate.unregisterMetric(gauge);
                 }
               });
         }).build());

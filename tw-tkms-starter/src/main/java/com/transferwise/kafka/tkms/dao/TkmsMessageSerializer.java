@@ -101,9 +101,7 @@ public class TkmsMessageSerializer implements ITkmsMessageSerializer {
       throw new IllegalArgumentException("Compression compressionAlgorithm " + compressionAlgorithm + " is not supported.");
     }
 
-    if (properties.isDebugEnabled()) {
-      metricsTemplate.recordMessageSerialization(shardPartition, compressionAlgorithm, serializedSize, os.size());
-    }
+    metricsTemplate.recordMessageSerialization(shardPartition, compressionAlgorithm, serializedSize, os.size());
 
     return os.toInputStream();
   }
@@ -118,12 +116,7 @@ public class TkmsMessageSerializer implements ITkmsMessageSerializer {
 
     InputStream decompressedStream = decompress(h2, is);
     try {
-      long messageParsingStartNanoTime = System.nanoTime();
-      StoredMessage.Message message = StoredMessage.Message.parseFrom(decompressedStream);
-      if (properties.isDebugEnabled()) {
-        metricsTemplate.recordStoredMessageParsing(shardPartition, messageParsingStartNanoTime);
-      }
-      return message;
+      return StoredMessage.Message.parseFrom(decompressedStream);
     } finally {
       decompressedStream.close();
     }
