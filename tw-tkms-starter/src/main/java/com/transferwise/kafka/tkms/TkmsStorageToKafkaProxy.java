@@ -21,6 +21,7 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
+import io.micrometer.core.instrument.Gauge;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -99,11 +100,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
         leaderSelectors.add(new LeaderSelectorV2.Builder().setLock(lock).setExecutorService(executorService).setLeader(control -> {
           AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
-
+          AtomicReference<Object> pollingGauge = new AtomicReference<>();
+          
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
                   () -> {
                     try {
                       log.info("Starting to proxy {}.", shardPartition);
+                      pollingGauge.set(metricsTemplate.registerPollingGauge(shardPartition));
                       poll(control, shardPartition);
                       return true;
                     } catch (Throwable t) {
@@ -115,7 +118,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   })),
               () -> {
                 log.info("Stopping proxying for {}.", shardPartition);
-
+                
                 // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
 
                 Future<Boolean> future = futureReference.get();
@@ -128,6 +131,12 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   } catch (Throwable t) {
                     log.error(t.getMessage(), t);
                   }
+                }
+                
+                var gauge = pollingGauge.get();
+                if (gauge != null) {
+                  metricsTemplate.unregisterMetric(gauge);
+                  pollingGauge.set(null);
                 }
               });
         }).build());

@@ -129,7 +129,7 @@ public class TkmsProperties {
    * Which database engine do we use.
    */
   @NotNull
-  private DatabaseDialect databaseDialect = DatabaseDialect.MYSQL;
+  private DatabaseDialect databaseDialect = DatabaseDialect.MARIADB;
   /**
    * How long can one Kafka proxy do it's work, before giving away the leader lock.
    *
@@ -315,7 +315,7 @@ public class TkmsProperties {
 
   public enum DatabaseDialect {
     POSTGRES,
-    MYSQL
+    MARIADB
   }
 
   @Data
