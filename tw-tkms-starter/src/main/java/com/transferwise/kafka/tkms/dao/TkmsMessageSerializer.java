@@ -109,9 +109,9 @@ public class TkmsMessageSerializer implements ITkmsMessageSerializer {
   @Override
   public Message deserialize(TkmsShardPartition shardPartition, InputStream is) throws IOException {
     // Reserved header #0
-    var ignored = is.read();
+    is.read();
     // Reserved header #1
-    ignored = is.read();
+    is.read();
     byte h2 = (byte) is.read();
 
     InputStream decompressedStream = decompress(h2, is);
