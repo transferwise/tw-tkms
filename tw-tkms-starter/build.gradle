@@ -9,8 +9,8 @@ ext.projectName = "tw-tkms-starter"
 ext.projectDescription = "tw-tkms-starter"
 ext.projectArtifactName = "tw-tkms-starter"
 
-apply from: "../build.common.gradle"
-apply from: "../build.library.gradle"
+apply from: "$rootProject.rootDir/build.common.gradle"
+apply from: "$rootProject.rootDir/build.library.gradle"
 
 dependencies {
     annotationProcessor libraries.springBootConfigurationProcessor
