@@ -71,7 +71,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
 
   private final IMeterCache meterCache;
   private final TkmsProperties tkmsProperties;
-  
+
   @PostConstruct
   public void init() {
     Map<String, double[]> slos = new HashMap<>();
@@ -383,10 +383,10 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
     return algorithm.getMicrometerTag();
   }
 
-  protected Tag databaseDialectTag(TkmsShardPartition sp){
+  protected Tag databaseDialectTag(TkmsShardPartition sp) {
     return Tag.of("databaseDialect", tkmsProperties.getDatabaseDialect(sp.getShard()).name());
   }
-  
+
   @Override
   public void unregisterMetric(Object rawMetricHandle) {
     if (rawMetricHandle == null) {
@@ -406,10 +406,10 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   public Object registerApproximateMessagesCount(TkmsShardPartition sp, Supplier<Number> supplier) {
     return registerGauge(GAUGE_DAO_APPROXIMATE_MESSAGES_COUNT, supplier, shardTag(sp), partitionTag(sp));
   }
-  
+
   @Override
-  public Object registerPollingGauge(TkmsShardPartition sp){
-    return registerGauge(GAUGE_PROXY_POLL_IN_PROGRESS, ()->1d, shardTag(sp), partitionTag(sp), databaseDialectTag(sp));
+  public Object registerPollingInProgressGauge(TkmsShardPartition sp) {
+    return registerGauge(GAUGE_PROXY_POLL_IN_PROGRESS, () -> 1d, shardTag(sp), partitionTag(sp), databaseDialectTag(sp));
   }
 
   @Override

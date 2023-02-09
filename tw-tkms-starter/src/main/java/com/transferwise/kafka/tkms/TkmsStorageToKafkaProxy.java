@@ -21,7 +21,6 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
-import io.micrometer.core.instrument.Gauge;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -106,7 +105,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   () -> {
                     try {
                       log.info("Starting to proxy {}.", shardPartition);
-                      pollingGauge.set(metricsTemplate.registerPollingGauge(shardPartition));
+                      pollingGauge.set(metricsTemplate.registerPollingInProgressGauge(shardPartition));
                       poll(control, shardPartition);
                       return true;
                     } catch (Throwable t) {
@@ -133,10 +132,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   }
                 }
                 
-                var gauge = pollingGauge.get();
+                var gauge = pollingGauge.getAndSet(null);
                 if (gauge != null) {
                   metricsTemplate.unregisterMetric(gauge);
-                  pollingGauge.set(null);
                 }
               });
         }).build());

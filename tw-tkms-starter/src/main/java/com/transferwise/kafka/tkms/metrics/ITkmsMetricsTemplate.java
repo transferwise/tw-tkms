@@ -2,7 +2,6 @@ package com.transferwise.kafka.tkms.metrics;
 
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import io.micrometer.core.instrument.Gauge;
 import java.time.Instant;
 import java.util.function.Supplier;
 
@@ -55,5 +54,5 @@ public interface ITkmsMetricsTemplate {
 
   void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
 
-  Object registerPollingGauge(TkmsShardPartition shardPartition);
+  Object registerPollingInProgressGauge(TkmsShardPartition shardPartition);
 }

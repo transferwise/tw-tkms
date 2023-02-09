@@ -7,11 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.21.2] - 2023-02-09
 
-### Changed
+### Fixed
 
 * Fixed bugs in some metrics.
-* Removed some metrics.
-* Added `tw_tkms_proxy_poll_in_progress` gauge with `databaseDialect` tag, for being able to distinguish Postgres and Maria services. 
+
+### Added
+
+* Added `tw_tkms_proxy_poll_in_progress` gauge with `databaseDialect` tag, for being able to distinguish Postgres and Maria services.
+* Added `tw_tkms_dao_messages_delete_batches`. `tw_tkms_dao_messages_delete` does not contain batches information anymore, it shows total deleted
+  records count.
+* Added `tw_tkms_dao_rows_in_engine_independent_table_stats`.
+
+### Removed
+
+* Removed `tw_tkms_stored_message_parsing` metric.
 
 ## [0.21.1] - 2023-02-06
 
