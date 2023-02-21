@@ -9,8 +9,8 @@ ext.projectName = "tw-tkms-starter"
 ext.projectDescription = "tw-tkms-starter"
 ext.projectArtifactName = "tw-tkms-starter"
 
-apply from: "../build.common.gradle"
-apply from: "../build.library.gradle"
+apply from: "$rootProject.rootDir/build.common.gradle"
+apply from: "$rootProject.rootDir/build.library.gradle"
 
 dependencies {
     annotationProcessor libraries.springBootConfigurationProcessor
@@ -48,7 +48,7 @@ dependencies {
 
     testImplementation libraries.awaitility
     if (springBootVersion.contains("2.7")) {
-        implementation libraries.flywayMysql
+        testImplementation libraries.flywayMysql
     }
     testImplementation libraries.flywayCore
     testImplementation libraries.lombok

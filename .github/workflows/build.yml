@@ -18,7 +18,7 @@ jobs:
       max-parallel: 100
       matrix:
         spring_boot_version:
-          - 2.7.6
+          - 2.7.8
           - 2.6.14
           - 2.5.14
     env:
@@ -34,7 +34,7 @@ jobs:
       POSTGRES_TCP_HOST: postgres1
       POSTGRES_TCP_5432: 5432
     container:
-      image: azul/zulu-openjdk:11
+      image: azul/zulu-openjdk:17
     services:
       mysql1:
         image: mariadb:10.6
@@ -71,15 +71,13 @@ jobs:
       - name: "Install packages"
         # We do some changes as the main ubuntu repo is currently very slow.
         run: |
-          sed -i 's|http://archive.ubuntu.com/|http://ftp.halifax.rwth-aachen.de/|g' /etc/apt/sources.list
-          sed -i 's|deb http://security.|#deb http://security.|g' /etc/apt/sources.list
           apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: current
+          gradle-version: "8.0"
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false
@@ -118,7 +116,7 @@ jobs:
           name: Checkstyle Report-(${{ matrix.spring_boot_version }})
           path: '**/build/reports/**/*.xml'
       - name: Publish spotbugs report
-        if: failure()
+        if: always()
         uses: jwgmeligmeyling/spotbugs-github-action@master
         with:
           name: Spotbugs Report-(${{ matrix.spring_boot_version }})
@@ -141,7 +139,7 @@ jobs:
       - ubuntu-latest
     needs: matrix_build
     container:
-      image: azul/zulu-openjdk:11
+      image: azul/zulu-openjdk:17
     steps:
       # Needed hacks to properly fail the build when one matrix build fails.
       - name: Do something so that GHA is happy
@@ -152,15 +150,13 @@ jobs:
       - name: "Install packages"
         # We do some changes as the main ubuntu repo is currently very slow.
         run: |
-          sed -i 's|http://archive.ubuntu.com/|http://ftp.halifax.rwth-aachen.de/|g' /etc/apt/sources.list
-          sed -i 's|deb http://security.|#deb http://security.|g' /etc/apt/sources.list
           apt-get update && apt-get install -y git unzip
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: current
+          gradle-version: "8.0"
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false

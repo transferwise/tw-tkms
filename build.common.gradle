@@ -6,20 +6,20 @@ apply plugin: "checkstyle"
 
 group = "com.transferwise.kafka"
 
-ext.artifactoryUser = project.hasProperty("artifactoryUser") ? project.artifactoryUser : System.env.ARTIFACTORY_USER as String
-ext.artifactoryPassword = project.hasProperty("artifactoryPassword") ? project.artifactoryPassword : System.env.ARTIFACTORY_PASSWORD as String
-
 repositories {
     mavenCentral()
     mavenLocal()
 }
 
-apply from: "../build.libraries.gradle"
+apply from: "$rootProject.rootDir/build.libraries.gradle"
 
 configurations {
     local {
         canBeResolved(false)
         canBeConsumed(false)
+    }
+    implementation {
+        extendsFrom(local)
     }
     compileClasspath {
         extendsFrom(local)
@@ -42,15 +42,8 @@ configurations {
 }
 
 dependencies {
-    annotationProcessor platform(libraries.springBootDependencies)
-    implementation platform(libraries.springBootDependencies)
-    compileOnly platform(libraries.springBootDependencies)
-    testAnnotationProcessor platform(libraries.springBootDependencies)
-
-    annotationProcessor libraries.lombok
-    testAnnotationProcessor libraries.lombok
-
-    implementation libraries.lombok
+    local platform(libraries.springBootDependencies)
+    local libraries.lombok
 
     compileOnly libraries.spotbugsAnnotations
 }
@@ -67,13 +60,18 @@ compileJava {
     options.compilerArgs << '-parameters'
     options.compilerArgs << '-Xlint'
     options.compilerArgs << '-Xlint:-processing'
+    
+//  Enable in a separate PR    
+//    javaCompiler = javaToolchains.compilerFor {
+//        languageVersion = JavaLanguageVersion.of(11)
+//    }
 }
 
 compileTestJava {
-    sourceCompatibility = JavaVersion.VERSION_15
-    targetCompatibility = JavaVersion.VERSION_15
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(15)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
@@ -105,8 +103,9 @@ jar {
 
 test {
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(15)
+        languageVersion = JavaLanguageVersion.of(17)
     }
+    
     useJUnitPlatform()
     jvmArgs("-Xmx1g")
     testLogging {

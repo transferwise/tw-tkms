@@ -55,65 +55,63 @@ public class TkmsMariaDao extends TkmsDao {
       return;
     }
 
-    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
-        try {
-          for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-            TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-
-            long rowsInTableStats = getRowsFromTableStats(sp);
-            metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
-
-            // Default log level should be at least error, because misconfiguration here can take down your database.
-            if (rowsInTableStats < 1_000_000) {
-              problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                  "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
-                      + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                      + "to fix table stats."
-              );
-            }
-
-            long rowsInIndexStats = getRowsFromIndexStats(sp);
-            metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
-
-            if (rowsInIndexStats < 1_000_000) {
-              problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                  "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
-                      + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                      + "to fix index stats."
-              );
-            }
-
-            long rowsInEngineIndependentTableStats = getRowsFromEngineIndependentTableStats(sp);
-            metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInTableStats);
-
-            if (rowsInEngineIndependentTableStats < 1_000_000) {
-              problemNotifier.notify(s, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                  "Table for " + sp + " is not properly configured. Rows in engine independent table stats is " + rowsInEngineIndependentTableStats
-                      + ". This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                      + "to fix table stats."
-              );
-            }
-          }
-        } catch (DataAccessException dae) {
-          // TODO: Currently our database may not have enough permissions yet, so starting with WARN.
-          //       Later we should upgrade the default to ERROR.
-          problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
-              "Validating table and index stats failed.", dae);
-        }
-      }
-
+    for (int s = 0; s < properties.getShardsCount(); s++) {
       try {
-        var userStatTables = getUserStatTablesVariable();
-        if (!userStatTables.equalsIgnoreCase("preferably") && !userStatTables.equalsIgnoreCase("preferably_for_queries")) {
-          problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
-              "Checking if engine independent statics are available and preferred, failed.");
+        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
+          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+
+          long rowsInTableStats = getRowsFromTableStats(sp);
+          metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
+
+          // Default log level should be at least error, because misconfiguration here can take down your database.
+          if (rowsInTableStats < 1_000_000) {
+            problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
+                    + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                    + "to fix table stats."
+            );
+          }
+
+          long rowsInIndexStats = getRowsFromIndexStats(sp);
+          metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
+
+          if (rowsInIndexStats < 1_000_000) {
+            problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
+                    + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                    + "to fix index stats."
+            );
+          }
+
+          long rowsInEngineIndependentTableStats = getRowsFromEngineIndependentTableStats(sp);
+          metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInTableStats);
+
+          if (rowsInEngineIndependentTableStats < 1_000_000) {
+            problemNotifier.notify(s, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                "Table for " + sp + " is not properly configured. Rows in engine independent table stats is " + rowsInEngineIndependentTableStats
+                    + ". This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                    + "to fix table stats."
+            );
+          }
         }
       } catch (DataAccessException dae) {
-        problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-            "Checking if engine independent stats are enabled, failed.", dae);
+        // TODO: Currently our database may not have enough permissions yet, so starting with WARN.
+        //       Later we should upgrade the default to ERROR.
+        problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
+            "Validating table and index stats failed.", dae);
       }
-    });
+    }
+
+    try {
+      var userStatTables = getUserStatTablesVariable();
+      if (!userStatTables.equalsIgnoreCase("preferably") && !userStatTables.equalsIgnoreCase("preferably_for_queries")) {
+        problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
+            "Checking if engine independent statics are available and preferred, failed.");
+      }
+    } catch (DataAccessException dae) {
+      problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+          "Checking if engine independent stats are enabled, failed.", dae);
+    }
   }
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {

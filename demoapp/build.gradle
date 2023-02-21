@@ -7,7 +7,7 @@ ext.projectName = "demoapp"
 ext.projectDescription = "demoapp"
 ext.projectArtifactName = "demoapp"
 
-apply from: "../build.common.gradle"
+apply from: "$rootProject.rootDir/build.common.gradle"
 
 dependencies {
     implementation project(':tw-tkms-starter')
