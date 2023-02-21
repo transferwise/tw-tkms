@@ -18,6 +18,9 @@ configurations {
         canBeResolved(false)
         canBeConsumed(false)
     }
+    implementation {
+        extendsFrom(local)
+    }
     compileClasspath {
         extendsFrom(local)
     }
