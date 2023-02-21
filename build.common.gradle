@@ -57,10 +57,11 @@ compileJava {
     options.compilerArgs << '-parameters'
     options.compilerArgs << '-Xlint'
     options.compilerArgs << '-Xlint:-processing'
-
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
+    
+//  Enable in a separate PR    
+//    javaCompiler = javaToolchains.compilerFor {
+//        languageVersion = JavaLanguageVersion.of(11)
+//    }
 }
 
 compileTestJava {

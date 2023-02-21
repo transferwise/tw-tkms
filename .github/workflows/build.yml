@@ -34,7 +34,7 @@ jobs:
       POSTGRES_TCP_HOST: postgres1
       POSTGRES_TCP_5432: 5432
     container:
-      image: azul/zulu-openjdk:11
+      image: azul/zulu-openjdk:17
     services:
       mysql1:
         image: mariadb:10.6
