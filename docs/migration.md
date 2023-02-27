@@ -16,5 +16,5 @@ For example.
 
 Important here is to not remove the tw-tasks-kafka-publisher with the same release with what you are migrating the last topic.
 
-Instead you need to do one release, allowing all messages already sent by tw-tasks get fully processed. And then after 2 days,
+Instead, you need to do one release, allowing all messages already sent by tw-tasks get fully processed. And then after 2 days,
 when there is absolutely sure no rollback will be needed, you can finally remove the `tw-tasks-kafka-publisher` dependency and configuration.

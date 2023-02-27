@@ -1,0 +1,17 @@
+site_name: tw-tkms Documentation
+repo_url: https://github.com/transferwise/tw-tkms
+edit_uri: blob/master/docs/
+nav:
+  - Overview: index.md
+  - Concepts: concepts.md
+  - Setup: setup.md
+  - Usage: usage.md
+  - Migrating: migration.md
+  - Performance Considerations: performance.md
+  - Troubleshooting: troubleshooting.md
+  - Integration Tests: testing.md
+  - Observability: observability.md
+  - Metrics: metrics.md
+  - Postgres OLAP/HTAP Workloads Issues: postgres_with_long_transactions.md
+  - Database Statistics Bias: database_statistics_bias.md
+  - Contribution Guide: contributing.md

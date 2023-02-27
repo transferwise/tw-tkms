@@ -1,8 +1,8 @@
-# Postgres with long running transactions
+# Postgres with long-running transactions
 
 ## The problem
 
-When `tw-tkms` is running on a Postgres database with long running transactions, the following happens.
+When `tw-tkms` is running on a Postgres database with long-running transactions, the following happens.
 
 - Database starts using more and more CPU.
 - `tw-tkms` throughput plummets.

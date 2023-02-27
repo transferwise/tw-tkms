@@ -2,9 +2,21 @@
 
 We are assuming you are using Spring Boot, at least version 2.5.
 
-```groovy
-implementation 'com.transferwise.kafka:tw-tkms-starter'
+First ensure that you have the `mavenCentral` repository available in your Gradle buildscript:
+```yaml
+repositories {
+  mavenCentral()
+}
 ```
+
+Then, declare the tw-twks library as a dependency in your Gradle buildscript: 
+
+```groovy
+dependencies {
+    implementation 'com.transferwise.kafka:tw-tkms-starter:<VERSION>'
+}
+```
+> Replace `<VERSION>` with the version of the library you wish to use.
 
 Configuration can be tweaked according to `com.transferwise.kafka.tkms.config.TkmsProperties`. Usually there is no need to change the defaults.
 
