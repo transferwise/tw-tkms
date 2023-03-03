@@ -3,19 +3,21 @@
 We are assuming you are using Spring Boot, at least version 2.5.
 
 First ensure that you have the `mavenCentral` repository available in your Gradle buildscript:
+
 ```yaml
 repositories {
   mavenCentral()
 }
 ```
 
-Then, declare the tw-twks library as a dependency in your Gradle buildscript: 
+Then, declare the tw-twks library as a dependency in your Gradle buildscript:
 
 ```groovy
 dependencies {
     implementation 'com.transferwise.kafka:tw-tkms-starter:<VERSION>'
 }
 ```
+
 > Replace `<VERSION>` with the version of the library you wish to use.
 
 Configuration can be tweaked according to `com.transferwise.kafka.tkms.config.TkmsProperties`. Usually there is no need to change the defaults.
@@ -49,10 +51,6 @@ CREATE TABLE outgoing_message_0_0 (
               message MEDIUMBLOB NOT NULL)
               stats_persistent=1, stats_auto_recalc=0 ENGINE=InnoDB;
 
--- Set engine stats.
-update mysql.innodb_index_stats set stat_value=1000000 where table_name = "outgoing_message_0_0" and stat_description="id";
-update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoing_message_0_0";
-
 -- Set engine independent stats.
 insert into mysql.table_stats (db_name, table_name, cardinality) values(DATABASE(), "outgoing_message_0_0", 1000000)
                                                                  on duplicate key update cardinality=1000000;
@@ -72,6 +70,18 @@ As some of those commands require specific permissions, you most likely will nee
 Also, it is beneficial (but not crucial) to
 set [innodb_autoinc_lock_mode](https://mariadb.com/docs/reference/es/system-variables/innodb_autoinc_lock_mode/) to 2.
 
+## Ancient MariaDb versions or where engine independent stats are disabled
+
+If we can not rely on engine independent statistics, we can still rely on innodb engine statistics as following.
+
+```mariadb
+-- Set engine stats.
+update mysql.innodb_index_stats set stat_value=1000000 where table_name = "outgoing_message_0_0" and stat_description="id";
+update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoing_message_0_0";
+```
+
+But notice, that anyone running `ANALYZE` on those tables, will rewrite those entries, and you would have to replay the statements above. 
+
 ## Postgres
 
 It is utmost important to have [pg_hint_plan](https://github.com/ossc-db/pg_hint_plan) extension installed in Postgres.
@@ -82,15 +92,16 @@ CREATE TABLE outgoing_message_0_0 (
   id BIGSERIAL PRIMARY KEY,
   message BYTEA NOT NULL
 ) WITH (autovacuum_analyze_threshold=2000000000, toast_tuple_target=8160);
-
-ALTER TABLE outgoing_message_0_0 ALTER COLUMN id SET (n_distinct=1000000);
-VACUUM FULL outgoing_message_0_0;
 ```
 <!-- @formatter:on -->
-> > toast_tuple_target - we should avoid getting payload to TOAST, as it will be deleted anyway.
 
-Postgres tries to compress the message when it is large enough (by default 2kb). But because `tw-tkms` already applies compression,
+> toast_tuple_target - we should avoid getting payloads to TOAST. Payloads will get deleted quickly anyway, so inlining as much as possible would not
+> hurt.
+
+Postgres tries to compress the TOAST entry, when it is large enough (by default 2kb). But because `tw-tkms` already applies compression,
 it will be wasted effort and resources.
+
+So let's turn that compression off.
 
 <!-- @formatter:off -->
 ```postgresql

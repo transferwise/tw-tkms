@@ -54,37 +54,53 @@ public class TkmsMariaDao extends TkmsDao {
     if (!properties.isTableStatsValidationEnabled()) {
       return;
     }
+    
+    boolean engineIndependentStatsEnabled = false;
+
+    try {
+      var userStatTables = getUserStatTablesVariable();
+      engineIndependentStatsEnabled = userStatTables.equalsIgnoreCase("preferably") || userStatTables.equalsIgnoreCase("preferably_for_queries");
+      if (!engineIndependentStatsEnabled) {
+        problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
+            "Engine independent statics are not enabled.");
+      }
+    } catch (DataAccessException dae) {
+      problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+          "Checking if engine independent stats are enabled, failed.", dae);
+    }
 
     for (int s = 0; s < properties.getShardsCount(); s++) {
       try {
         for (int p = 0; p < properties.getPartitionsCount(s); p++) {
           TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
-          long rowsInTableStats = getRowsFromTableStats(sp);
-          metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
+          if (!engineIndependentStatsEnabled) {
+            long rowsInTableStats = getRowsFromTableStats(sp);
+            metricsTemplate.registerRowsInTableStats(sp, rowsInTableStats);
 
-          // Default log level should be at least error, because misconfiguration here can take down your database.
-          if (rowsInTableStats < 1_000_000) {
-            problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
-                    + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                    + "to fix table stats."
-            );
-          }
+            // Default log level should be at least error, because misconfiguration here can take down your database.
+            if (rowsInTableStats < 1_000_000) {
+              problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                  "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
+                      + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                      + "to fix table stats."
+              );
+            }
 
-          long rowsInIndexStats = getRowsFromIndexStats(sp);
-          metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
+            long rowsInIndexStats = getRowsFromIndexStats(sp);
+            metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
 
-          if (rowsInIndexStats < 1_000_000) {
-            problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
-                    + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                    + "to fix index stats."
-            );
+            if (rowsInIndexStats < 1_000_000) {
+              problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+                  "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
+                      + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
+                      + "to fix index stats."
+              );
+            }
           }
 
           long rowsInEngineIndependentTableStats = getRowsFromEngineIndependentTableStats(sp);
-          metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInTableStats);
+          metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInEngineIndependentTableStats);
 
           if (rowsInEngineIndependentTableStats < 1_000_000) {
             problemNotifier.notify(s, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
@@ -101,17 +117,7 @@ public class TkmsMariaDao extends TkmsDao {
             "Validating table and index stats failed.", dae);
       }
     }
-
-    try {
-      var userStatTables = getUserStatTablesVariable();
-      if (!userStatTables.equalsIgnoreCase("preferably") && !userStatTables.equalsIgnoreCase("preferably_for_queries")) {
-        problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
-            "Checking if engine independent statics are available and preferred, failed.");
-      }
-    } catch (DataAccessException dae) {
-      problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-          "Checking if engine independent stats are enabled, failed.", dae);
-    }
+    
   }
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {
@@ -216,7 +222,8 @@ public class TkmsMariaDao extends TkmsDao {
   protected String getDeleteSql(TkmsShardPartition shardPartition, int batchSize) {
     // MariaDb does not support index hints for delete queries.
     // But MySQL does, so we will still include it in the query.
-    var sb = new StringBuilder("delete /*+ INDEX(outgoing_message_0_0) */ from " + getTableName(shardPartition) + " where id in (");
+    var tableName = getTableName(shardPartition);
+    var sb = new StringBuilder("delete /*+ INDEX(" + tableName + ") */ from " + tableName + " where id in (");
     for (int j = 0; j < batchSize; j++) {
       if (j > 0) {
         sb.append(",");

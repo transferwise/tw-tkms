@@ -49,16 +49,20 @@ Index hints are built into MariaDb and MySql; and for Postgres there is the [pg_
 
 Unfortunately MariaDb does not support index hints on `DELETE` queries. MySql does.
 
-> So for MariaDb we still have a big risk - randomly ran `ANALYZE` statements.
+> So for MariaDb we still have a big risk - randomly executed `ANALYZE` statements.
 
 > Even when we fix the statistic in place, telling database that there are large amount of records,
 > a DBA accidentally running manual `ANALYZE`, at a time when the table is empty, will override those and thus negate the desired effect.
 
 ### Fixing statistics in place.
 
+> Applies only for MariaDb. 
+> Does not apply to Postgres, where we will rely on `pg_hint_plan` plugin.
+> Does not apply to MySql, for which we have index hints in all queries, including for DELETE statements.
+
 [setup guide](setup.md) will show you how.
 
-In the case of MariaDb/MySql, as described above, it is very important to avoid running random ANALYZE on those tables, as
+In the case of MariaDb, as described above, it is very important to avoid running random ANALYZE on those tables, as
 it will highly likely be run when the table is empty and thus overwriting all our fixed statistics to indicate tables with large amount of records.
 
 If this happens, it is important to fix the statistics back into place.
@@ -107,3 +111,8 @@ So, if we would create lots of records into those tables, with negative ids, and
 > The downside here is that we may "waste" disk space, and it may look a bit messy.
 > However messages on those records can be empty, so we would only keep 8 byte integers in those. 
 > If we put 1 million records there, they may take "only" couple of tens of megabytes.
+
+This can be useful for using `tw-tkms`
+* on other databases
+* on Postgres without `pg_hint_plan` extension
+* on MariaDb where you have some general automation running frequent ANALYZE statements on tables. 
