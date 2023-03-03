@@ -11,12 +11,12 @@ public class PostgresEndToEndIntTest extends EndToEndIntTest {
 
   private static Stream<Arguments> compressionInput() {
     return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 112),
-        Arguments.of(CompressionAlgorithm.NONE, 1271),
-        Arguments.of(CompressionAlgorithm.LZ4, 135),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 167),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 165),
-        Arguments.of(CompressionAlgorithm.ZSTD, 101)
+        Arguments.of(CompressionAlgorithm.GZIP, 111),
+        Arguments.of(CompressionAlgorithm.NONE, 1171),
+        Arguments.of(CompressionAlgorithm.LZ4, 134),
+        Arguments.of(CompressionAlgorithm.SNAPPY, 160),
+        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 158),
+        Arguments.of(CompressionAlgorithm.ZSTD, 100)
     );
   }
 
