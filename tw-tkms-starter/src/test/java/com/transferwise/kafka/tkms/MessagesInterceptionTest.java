@@ -39,9 +39,9 @@ class MessagesInterceptionTest extends BaseIntTest {
 
   @Test
   void messagesCanBeIntercepted() {
-    byte[] someValue = "Hello World!".getBytes(StandardCharsets.UTF_8);
+    byte[] someValue = "Hello Kaspar!".getBytes(StandardCharsets.UTF_8);
 
-    final AtomicInteger bmessageInterceptionsCount = new AtomicInteger();
+    final AtomicInteger messageInterceptionsCount = new AtomicInteger();
 
     testMessagesInterceptor.setBeforeSendingToKafkaFunction(records -> {
       Map<Integer, MessageInterceptionDecision> result = new HashMap<>();
@@ -51,7 +51,7 @@ class MessagesInterceptionTest extends BaseIntTest {
         if ("A".equals(key)) {
           result.put(k, MessageInterceptionDecision.NEUTRAL);
         } else if ("B".equals(key)) {
-          if (bmessageInterceptionsCount.getAndIncrement() < 2) {
+          if (messageInterceptionsCount.getAndIncrement() < 2) {
             log.info("Retrying '" + key + "'.");
             result.put(k, MessageInterceptionDecision.RETRY);
           } else {
@@ -76,7 +76,7 @@ class MessagesInterceptionTest extends BaseIntTest {
 
     await().atMost(Duration.ofMinutes(5)).until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
 
-    assertThat(bmessageInterceptionsCount.get()).isEqualTo(3);
+    assertThat(messageInterceptionsCount.get()).isEqualTo(3);
     var messages = tkmsSentMessagesCollector.getSentMessages(topic);
     assertThat(messages.size()).isEqualTo(2);
     assertThat(messages.get(0).getProducerRecord().key()).isEqualTo("A");

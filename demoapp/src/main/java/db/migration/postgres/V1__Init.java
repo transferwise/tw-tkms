@@ -20,7 +20,6 @@ public class V1__Init extends BaseJavaMigration {
               + ") WITH (autovacuum_analyze_threshold=1000000000, toast_tuple_target=8160)");
           log.info("Create table `" + tableName + "'.");
 
-          stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN id SET (n_distinct=1000000);");
           stmt.executeUpdate("ALTER TABLE " + tableName + " ALTER COLUMN message SET STORAGE EXTERNAL");
           stmt.executeUpdate("VACUUM FULL " + tableName);
         }

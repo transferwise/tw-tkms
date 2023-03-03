@@ -1,6 +1,5 @@
 package com.transferwise.kafka.tkms.dao;
 
-import com.google.common.primitives.Longs;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
@@ -10,11 +9,8 @@ import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.dao.DataAccessException;
 
 @Slf4j
 public class TkmsPostgresDao extends TkmsDao {
@@ -32,8 +28,6 @@ public class TkmsPostgresDao extends TkmsDao {
     super(dataSourceProvider, properties, metricsTemplate, messageSerializer, transactionsHelper);
     this.problemNotifier = problemNotifier;
   }
-
-  public static final Pattern N_DISTINCT_PATTERN = Pattern.compile("n_distinct=(.*)[,}]");
 
   @Override
   protected String getInsertSql(TkmsShardPartition shardPartition) {
@@ -104,32 +98,10 @@ public class TkmsPostgresDao extends TkmsDao {
       return;
     }
 
-    var indexHintsEnabled = validateIndexHints();
-
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      try {
-        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-
-          long distinctIdsCount = getDistinctIdsCount(sp);
-          if (!indexHintsEnabled && distinctIdsCount < 1_000_000) {
-            problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
-                "Table for " + sp + " is not properly configured. n_distinct is just set to " + distinctIdsCount + "."
-                    + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
-                    + "to fix table stats."
-            );
-          }
-
-          metricsTemplate.registerRowsInTableStats(sp, distinctIdsCount);
-        }
-      } catch (DataAccessException dae) {
-        problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-            "Validating table and index stats failed.", dae);
-      }
-    }
+    validateIndexHintsExtension();
   }
 
-  protected boolean validateIndexHints() {
+  protected boolean validateIndexHintsExtension() {
     var seqScans = doesRespectHint("SeqScan", "Seq Scan");
     var indexOnlyScans = doesRespectHint("IndexOnlyScan", "Index Only Scan");
 
@@ -172,28 +144,4 @@ public class TkmsPostgresDao extends TkmsDao {
     return "select /*+ IndexOnlyScan(om) */ message_id from " + earliestVisibleMessages.getTableName() + " om where shard=? and part=?";
   }
 
-  protected long getDistinctIdsCount(TkmsShardPartition sp) {
-    List<String> relOptionsList =
-        jdbcTemplate.queryForList("select attoptions from pg_attribute, pg_class, pg_namespace where pg_class.oid = pg_attribute.attrelid "
-            + "and pg_class.relnamespace = pg_namespace.oid "
-            + "and pg_namespace.nspname=? and pg_class.relname=? and attname='id'", String.class, getSchemaName(sp), getTableNameWithoutSchema(sp));
-
-    if (relOptionsList.isEmpty()) {
-      return -1;
-    }
-
-    String relOptions = relOptionsList.get(0);
-    if (relOptions == null) {
-      return -1;
-    }
-
-    Matcher m = N_DISTINCT_PATTERN.matcher(relOptions);
-
-    if (m.find()) {
-      Long value = Longs.tryParse(relOptions.substring(m.start(1), m.end(1)));
-      return value == null ? -1 : value;
-    } else {
-      return -1;
-    }
-  }
 }

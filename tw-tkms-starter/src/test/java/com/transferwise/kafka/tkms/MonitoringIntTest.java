@@ -25,12 +25,7 @@ class MonitoringIntTest extends BaseIntTest {
   @Test
   void testThatTableStatsMetricsArePresent() {
     Awaitility.await().until(() -> {
-      Gauge gauge = meterRegistry.find("tw_tkms_dao_rows_in_table_stats").tags("shard", "1", "partition", "0").gauge();
-      return gauge != null && gauge.value() == 1_000_000;
-    });
-
-    Awaitility.await().until(() -> {
-      Gauge gauge = meterRegistry.find("tw_tkms_dao_rows_in_index_stats").tags("shard", "1", "partition", "0").gauge();
+      Gauge gauge = meterRegistry.find("tw_tkms_dao_rows_in_engine_independent_table_stats").tags("shard", "1", "partition", "0").gauge();
       return gauge != null && gauge.value() == 1_000_000;
     });
   }

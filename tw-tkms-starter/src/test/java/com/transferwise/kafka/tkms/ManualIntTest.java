@@ -59,7 +59,7 @@ class ManualIntTest extends BaseIntTest {
   void fillTkmsTable() {
     tkmsRegisteredMessagesCollector.disable();
 
-    var content = "Hello World!";
+    var content = "Hello Kaarel!";
     var contentBytes = content.getBytes(StandardCharsets.UTF_8);
 
     var batches = 100;

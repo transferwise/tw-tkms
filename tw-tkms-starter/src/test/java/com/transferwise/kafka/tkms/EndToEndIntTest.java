@@ -242,7 +242,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   @Test
   void testThatMessagesWithSamePartitionEndUpInOnePartition() {
-    String message = "Hello World!";
+    String message = "Hello Fabio!";
     int partition = 3;
     int n = 20;
     ConcurrentHashMap<Integer, AtomicInteger> partitionsMap = new ConcurrentHashMap<>();
@@ -279,7 +279,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   @Test
   void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
-    String message = "Hello World!";
+    String message = "Hello Jarvis!";
     int entitiesCount = 100;
     int entityEventsCount = 100;
     int messagesCount = entitiesCount * entityEventsCount;
@@ -355,7 +355,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   @Test
   void sendingMultipleMessagesWorks() {
-    byte[] value = "{\"message\" : \"Hello World!\"}".getBytes(StandardCharsets.UTF_8);
+    byte[] value = "{\"message\" : \"Hello Nerius!\"}".getBytes(StandardCharsets.UTF_8);
 
     AtomicInteger receivedCount = new AtomicInteger();
     Consumer<ConsumerRecord<String, String>> messageCounter =
@@ -455,7 +455,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
    */
   @Test
   void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() {
-    String message = "Hello World!";
+    String message = "Hello Peeter!";
     int messagesCount = 1000;
 
     var receivedCount = new AtomicInteger();
@@ -528,19 +528,19 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   private static Stream<Arguments> compressionInput() {
     return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 104),
-        Arguments.of(CompressionAlgorithm.NONE, 1263),
-        Arguments.of(CompressionAlgorithm.LZ4, 127),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 157),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 155),
-        Arguments.of(CompressionAlgorithm.ZSTD, 93)
+        Arguments.of(CompressionAlgorithm.GZIP, 103),
+        Arguments.of(CompressionAlgorithm.NONE, 1163),
+        Arguments.of(CompressionAlgorithm.LZ4, 126),
+        Arguments.of(CompressionAlgorithm.SNAPPY, 158),
+        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156),
+        Arguments.of(CompressionAlgorithm.ZSTD, 92)
     );
   }
 
   @ParameterizedTest
   @MethodSource("compressionInput")
   void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
-    var message = StringUtils.repeat("Hello World!", 100);
+    var message = StringUtils.repeat("Hello Aivo!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
