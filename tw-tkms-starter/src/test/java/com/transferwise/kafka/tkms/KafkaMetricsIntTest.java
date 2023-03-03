@@ -58,7 +58,7 @@ public class KafkaMetricsIntTest {
 
   @Test
   void testThatProducerMetricShowsSentMessage() {
-    String message = "Hello World!";
+    String message = "Hello Toomas!";
 
     AtomicInteger receivedCount = new AtomicInteger();
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {

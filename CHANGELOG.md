@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-* All around recommending to fixate `n_distinct` table parameter.
+* All around recommending to fixate `n_distinct` table parameter for Postgres.
   It actually did not seem to work and the correct way is still to rely on `pg_hint_plan` extension.
 
 ## [0.21.3] - 2023-02-21

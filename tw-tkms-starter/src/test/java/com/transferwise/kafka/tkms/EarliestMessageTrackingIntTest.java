@@ -77,7 +77,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   protected void sendMessageAndWaitForArrival(int cnt) {
     transactionsHelper.withTransaction().run(() ->
-        tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello World!".getBytes(StandardCharsets.UTF_8)))
+        tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello Kristo!".getBytes(StandardCharsets.UTF_8)))
     );
 
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(testTopic).size() == cnt);

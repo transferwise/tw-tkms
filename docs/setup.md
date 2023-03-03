@@ -74,13 +74,15 @@ set [innodb_autoinc_lock_mode](https://mariadb.com/docs/reference/es/system-vari
 
 If we can not rely on engine independent statistics, we can still rely on innodb engine statistics as following.
 
+<!-- @formatter:off -->
 ```mariadb
 -- Set engine stats.
 update mysql.innodb_index_stats set stat_value=1000000 where table_name = "outgoing_message_0_0" and stat_description="id";
 update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoing_message_0_0";
 ```
+<!-- @formatter:on -->
 
-But notice, that anyone running `ANALYZE` on those tables, will rewrite those entries, and you would have to replay the statements above. 
+But notice, that anyone running `ANALYZE` on those tables, will rewrite statistics entries, and you would have to replay the statements above.
 
 ## Postgres
 
