@@ -123,45 +123,38 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   private long getRowsFromEngineIndependentTableStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList("select cardinality from mysql.table_stats where db_name=? and table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList("select cardinality from mysql.table_stats where db_name=? and table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   private String getUserStatTablesVariable() {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED)
-        .call(() -> jdbcTemplate.queryForObject("select @@use_stat_tables", String.class));
+    return jdbcTemplate.queryForObject("select @@use_stat_tables", String.class);
   }
 
   private long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList(
-          "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList(
+        "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   @Override
@@ -177,10 +170,8 @@ public class TkmsMariaDao extends TkmsDao {
       table = defaultTable;
     }
 
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(
-        () -> !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
-            schema, table).isEmpty()
-    );
+    return !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
+        schema, table).isEmpty();
   }
 
   @Override
