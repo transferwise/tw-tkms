@@ -135,10 +135,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected void checkActiveTransaction(TkmsMessage tkmsMessage, boolean transactionActive) {
-    var shardPartition = getShardPartition(tkmsMessage);
-    if (!properties.isRequireTransactionOnMessagesRegistering(shardPartition.getShard())) {
-      return;
-    }
     if (!transactionActive) {
       problemNotifier.notify(tkmsMessage.getShard(), NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
           () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
