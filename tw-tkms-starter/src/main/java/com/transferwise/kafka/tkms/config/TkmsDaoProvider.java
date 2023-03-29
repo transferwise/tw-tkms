@@ -44,6 +44,7 @@ public class TkmsDaoProvider implements ITkmsDaoProvider {
         tkmsDao.validateDatabase();
         return tkmsDao;
       });
+      
       shardTkmsDao.validateDatabase(s);
     }
   }
@@ -59,7 +60,6 @@ public class TkmsDaoProvider implements ITkmsDaoProvider {
   protected TkmsDao createTkmsDao(DatabaseDialect dialect, DataSource dataSource) {
     var dao = createTkmsDao0(dialect, dataSource);
     dao.init();
-    
     return dao;
   }
   

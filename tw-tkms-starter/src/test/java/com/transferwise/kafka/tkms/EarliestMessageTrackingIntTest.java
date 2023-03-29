@@ -39,10 +39,10 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Test
   void testIfEarliestMessageTrackerBehavesAsExpected() {
-    TestClock clock = new TestClock();
+    var clock = new TestClock();
     TkmsClockHolder.setClock(clock);
 
-    Gauge earliestMessageIdGauge = await()
+    var earliestMessageIdGauge = await()
         .until(() -> meterRegistry.find("tw_tkms_dao_earliest_message_id").tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
     assertThat(earliestMessageIdGauge.value()).isEqualTo(-1);
 
@@ -64,13 +64,13 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     sendMessageAndWaitForArrival(4);
     assertThat(earliestMessageIdGauge.value()).isGreaterThan(previousValue);
 
-    Long committedValue =
+    var committedValue =
         jdbcTemplate.queryForObject("select message_id from earliestmessage.tw_tkms_earliest_visible_messages where shard=? and part=?", Long.class,
             0, 0);
     assertThat(committedValue).isGreaterThanOrEqualTo((long) previousValue);
 
     var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
-    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(tkmsDao, TkmsShardPartition.of(0, 0), properties, metricsTemplate);
+    var earliestMessageTracker = new EarliestMessageTracker(tkmsDao, TkmsShardPartition.of(0, 0), properties, metricsTemplate);
     earliestMessageTracker.init();
 
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);

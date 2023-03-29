@@ -92,6 +92,11 @@ public class TkmsConfiguration {
     return new TkmsZookeeperOperations();
   }
 
+  /**
+   * This would work for simple services, mostly when having one database.
+   * 
+   * <p>For more advanced cases it is recommended to define your own `ITkmsDataSourceProvider` implementation.
+   */
   @Bean
   @ConditionalOnMissingBean(ITkmsDataSourceProvider.class)
   public TkmsDataSourceProvider tkmsDataSourceProvider(

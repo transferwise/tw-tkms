@@ -91,13 +91,13 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   public void validateDatabase() {
-    super.validateDatabase();
-
     // TODO: Should this be shard specific as well?
     if (!properties.isTableStatsValidationEnabled()) {
       return;
     }
 
+    super.validateDatabase();
+    
     validateIndexHintsExtension();
   }
 
