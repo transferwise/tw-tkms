@@ -14,9 +14,9 @@ import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.ITkmsTestDao;
@@ -66,7 +66,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   @Autowired
   private TkmsProperties tkmsProperties;
   @Autowired
-  private ITkmsDao tkmsDao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
 
@@ -74,14 +74,15 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   @BeforeEach
   public void setup() {
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
     faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
-    tkmsStorageToKafkaProxy.setDao(faultInjectedTkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider((shard) -> faultInjectedTkmsDao);
   }
 
   @AfterEach
   public void cleanup() {
     super.cleanup();
-    tkmsStorageToKafkaProxy.setDao(tkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
   }
 
   @Test

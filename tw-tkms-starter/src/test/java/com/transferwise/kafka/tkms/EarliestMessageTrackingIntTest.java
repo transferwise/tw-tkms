@@ -7,8 +7,8 @@ import com.transferwise.common.baseutils.clock.TestClock;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import io.micrometer.core.instrument.Gauge;
@@ -26,7 +26,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
   @Autowired
   private TransactionalKafkaMessageSender tkms;
   @Autowired
-  private ITkmsDao dao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsProperties properties;
   @Autowired
@@ -69,7 +69,8 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
             0, 0);
     assertThat(committedValue).isGreaterThanOrEqualTo((long) previousValue);
 
-    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(TkmsShardPartition.of(0, 0), dao, properties, metricsTemplate);
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
+    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(tkmsDao, TkmsShardPartition.of(0, 0), properties, metricsTemplate);
     earliestMessageTracker.init();
 
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);

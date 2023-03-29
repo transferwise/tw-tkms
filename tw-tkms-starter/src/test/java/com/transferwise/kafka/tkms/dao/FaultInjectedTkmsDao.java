@@ -66,4 +66,14 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
     return delegate.insertEarliestMessageId(shardPartition);
   }
 
+  @Override
+  public void validateDatabase() {
+    delegate.validateDatabase();
+  }
+
+  @Override
+  public void validateDatabase(int shard) {
+    delegate.validateDatabase(shard);
+  }
+
 }

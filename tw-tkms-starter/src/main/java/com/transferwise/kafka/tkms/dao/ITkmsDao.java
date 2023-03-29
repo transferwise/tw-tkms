@@ -48,4 +48,18 @@ public interface ITkmsDao {
 
   boolean insertEarliestMessageId(TkmsShardPartition shardPartition);
 
+  /**
+   * Validates the storage in general.
+   *
+   * <p>E.g. if index hints are supported.
+   */
+  void validateDatabase();
+
+  /**
+   * Validates the storage for a shard.
+   *
+   * <p>E.g. if tables for a particular shard have been created.
+   */
+  void validateDatabase(int shard);
+  
 }

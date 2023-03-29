@@ -10,7 +10,7 @@ public class TkmsDataSourceProvider implements ITkmsDataSourceProvider {
     this.dataSource = dataSource;
   }
 
-  public DataSource getDataSource() {
+  public DataSource getDataSource(int shard) {
     return dataSource;
   }
 }

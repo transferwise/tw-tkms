@@ -1,13 +1,12 @@
 package com.transferwise.kafka.tkms.dao;
 
-import com.google.common.collect.ImmutableMap;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.Assertions;
+import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.TkmsMessageWithSequence;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -18,17 +17,19 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.PostConstruct;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
@@ -44,112 +45,55 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public abstract class TkmsDao implements ITkmsDao {
 
-  private Map<TkmsShardPartition, String> insertMessageSqls;
+  private Map<TkmsShardPartition, String> insertMessageSqls = new ConcurrentHashMap<>();
+  private Map<TkmsShardPartition, String> getMessagesSqls = new ConcurrentHashMap<>();
+  private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap = new ConcurrentHashMap<>();
 
-  private Map<TkmsShardPartition, String> getMessagesSqls;
-
-  private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap;
+  private Map<TkmsShardPartition, Set<Integer>> deleteBatchSizesMap = new HashMap<>();
 
   protected Map<Pair<TkmsShardPartition, String>, String> sqlCache = new ConcurrentHashMap<>();
 
-  @Autowired
-  private final ITkmsDataSourceProvider dataSourceProvider;
-
-  @Autowired
+  private final DataSource dataSource;
   protected final TkmsProperties properties;
-
-  @Autowired
   protected final ITkmsMetricsTemplate metricsTemplate;
-
-  @Autowired
   private final ITkmsMessageSerializer messageSerializer;
-
-  @Autowired
   protected final ITransactionsHelper transactionsHelper;
+  protected final IProblemNotifier problemNotifier;
 
   protected JdbcTemplate jdbcTemplate;
-
   protected String currentSchema;
 
   @PostConstruct
   public void init() {
-    jdbcTemplate = new JdbcTemplate(dataSourceProvider.getDataSource());
-
+    jdbcTemplate = new JdbcTemplate(dataSource);
     currentSchema = getCurrentSchema();
-
-    createInsertMessagesSqls();
-    createGetMessagesSqls();
-    createDeleteMessagesSqls();
-
-    validateSchema();
-    validateEngineSpecifics();
   }
 
-  protected void createInsertMessagesSqls() {
-    Map<TkmsShardPartition, String> map = new HashMap<>();
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        map.put(sp, getInsertSql(sp));
+  @Override
+  public void validateDatabase(int shard) {
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shard);
+
+    if (earliestVisibleMessages.isEnabled()) {
+      if (!doesEarliestVisibleMessagesTableExist()) {
+        var tableName = properties.getEarliestVisibleMessages().getTableName();
+        throw new IllegalStateException(
+            "Earliest visible message system is enabled for shard " + shard + ", but the table '" + tableName + "' does not exist.");
       }
-    }
-    insertMessageSqls = ImmutableMap.copyOf(map);
-  }
 
-  protected void createGetMessagesSqls() {
-    Map<TkmsShardPartition, String> map = new HashMap<>();
-    map.clear();
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        map.put(sp, getSelectSql(sp));
-      }
-    }
-    getMessagesSqls = ImmutableMap.copyOf(map);
-  }
-
-  protected void createDeleteMessagesSqls() {
-    deleteSqlsMap = new HashMap<>();
-
-    for (int s = 0; s < properties.getShardsCount(); s++) {
-      for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        for (int batchSize : properties.getDeleteBatchSizes(s)) {
-          Pair<TkmsShardPartition, Integer> key = ImmutablePair.of(sp, batchSize);
-          deleteSqlsMap.put(key, getDeleteSql(sp, batchSize));
-        }
-      }
-    }
-    deleteSqlsMap = ImmutableMap.copyOf(deleteSqlsMap);
-  }
-
-  protected abstract String getDeleteSql(TkmsShardPartition shardPartition, int batchSize);
-
-  protected void validateSchema() {
-    if (!doesEarliestVisibleMessagesTableExist()) {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
-        var earliestVisibleMessages = properties.getEarliestVisibleMessages(s);
-        if (earliestVisibleMessages.isEnabled()) {
-          throw new IllegalStateException("Earliest visible messages table does not exist for shard " + s + ".");
-        }
-      }
-    } else {
-      for (int s = 0; s < properties.getShardsCount(); s++) {
-        var earliestVisibleMessages = properties.getEarliestVisibleMessages(s);
-        if (earliestVisibleMessages.isEnabled()) {
-          int partitions = properties.getPartitionsCount(s);
-          for (int p = 0; p < partitions; p++) {
-            TkmsShardPartition shardPartition = TkmsShardPartition.of(s, p);
-            if (getEarliestMessageId(shardPartition) == null) {
-              insertEarliestMessageId(shardPartition);
-            }
-          }
+      int partitions = properties.getPartitionsCount(shard);
+      for (int partition = 0; partition < partitions; partition++) {
+        TkmsShardPartition shardPartition = TkmsShardPartition.of(shard, partition);
+        if (getEarliestMessageId(shardPartition) == null) {
+          insertEarliestMessageId(shardPartition);
         }
       }
     }
   }
 
-  protected abstract void validateEngineSpecifics();
+  @Override
+  public void validateDatabase() {
+
+  }
 
   @Transactional(rollbackFor = Exception.class)
   @Override
@@ -159,9 +103,10 @@ public abstract class TkmsDao implements ITkmsDao {
       List<InsertMessageResult> results = new ArrayList<>();
       MutableInt idx = new MutableInt();
       while (idx.getValue() < tkmsMessages.size()) {
-        Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
+        Connection con = DataSourceUtils.getConnection(dataSource);
         try {
-          PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS);
+          var sql = insertMessageSqls.computeIfAbsent(shardPartition, this::getInsertSql);
+          PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
           try {
             int batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
 
@@ -199,7 +144,7 @@ public abstract class TkmsDao implements ITkmsDao {
             ps.close();
           }
         } finally {
-          DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());
+          DataSourceUtils.releaseConnection(con, dataSource);
         }
       }
       return results;
@@ -212,8 +157,9 @@ public abstract class TkmsDao implements ITkmsDao {
     final InsertMessageResult result = new InsertMessageResult().setShardPartition(shardPartition);
 
     final KeyHolder keyHolder = new GeneratedKeyHolder();
+    var sql = insertMessageSqls.computeIfAbsent(shardPartition, k -> getInsertSql(shardPartition));
     jdbcTemplate.update(con -> {
-      PreparedStatement ps = con.prepareStatement(insertMessageSqls.get(shardPartition), Statement.RETURN_GENERATED_KEYS);
+      PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
       try {
         ps.setBinaryStream(1, serializeMessage(shardPartition, message));
         return ps;
@@ -240,11 +186,11 @@ public abstract class TkmsDao implements ITkmsDao {
 
   @Override
   public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount) {
-    var sql = getMessagesSqls.get(shardPartition);
+    var sql = getMessagesSqls.computeIfAbsent(shardPartition, k -> getSelectSql(shardPartition));
     var result = ExceptionUtils.doUnchecked(() -> {
       long startNanoTime = System.nanoTime();
 
-      Connection con = DataSourceUtils.getConnection(dataSourceProvider.getDataSource());
+      Connection con = DataSourceUtils.getConnection(dataSource);
       try {
         metricsTemplate.recordDaoPollGetConnection(shardPartition, startNanoTime);
         startNanoTime = System.nanoTime();
@@ -274,7 +220,7 @@ public abstract class TkmsDao implements ITkmsDao {
           metricsTemplate.recordDaoPollAllResults(shardPartition, i, startNanoTime);
         }
       } finally {
-        DataSourceUtils.releaseConnection(con, dataSourceProvider.getDataSource());
+        DataSourceUtils.releaseConnection(con, dataSource);
       }
     });
 
@@ -292,7 +238,10 @@ public abstract class TkmsDao implements ITkmsDao {
 
   @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
-    if (deleteSqlsMap.containsKey(Pair.of(shardPartition, ids.size()))) {
+    var batchSizeExists =
+        deleteBatchSizesMap.computeIfAbsent(shardPartition, k -> new HashSet<>(properties.getDeleteBatchSizes(k.getShard()))).contains(ids.size());
+
+    if (batchSizeExists) {
       // There will be one query only, no need for explicit transaction.
       deleteMessages0(shardPartition, ids);
     } else {
@@ -364,7 +313,7 @@ public abstract class TkmsDao implements ITkmsDao {
     for (int batchSize : properties.getDeleteBatchSizes(shardPartition.getShard())) {
       while (ids.size() - processedCount >= batchSize) {
         Pair<TkmsShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
-        String sql = deleteSqlsMap.get(p);
+        String sql = deleteSqlsMap.computeIfAbsent(p, k -> getDeleteSql(shardPartition, batchSize));
 
         int finalProcessedCount = processedCount;
         jdbcTemplate.update(sql, ps -> {
@@ -399,6 +348,8 @@ public abstract class TkmsDao implements ITkmsDao {
   protected abstract String getInsertSql(TkmsShardPartition shardPartition);
 
   protected abstract String getSelectSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getDeleteSql(TkmsShardPartition shardPartition, int batchSize);
 
   /**
    * String manipulation is one of the most expensive operations, but we don't do caching here.

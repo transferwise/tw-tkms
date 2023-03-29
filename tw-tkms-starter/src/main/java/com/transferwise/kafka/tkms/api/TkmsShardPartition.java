@@ -1,9 +1,11 @@
 package com.transferwise.kafka.tkms.api;
 
 import com.transferwise.kafka.tkms.config.TkmsProperties;
+import com.transferwise.kafka.tkms.config.TkmsProperties.Mdc;
 import io.micrometer.core.instrument.Tag;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
+import org.slf4j.MDC;
 
 @Value
 @EqualsAndHashCode(of = {"shard", "partition"})
@@ -27,6 +29,16 @@ public class TkmsShardPartition {
     return stringPresentation;
   }
 
+  public void putIntoMdc() {
+    MDC.put(mdc.getShardKey(), String.valueOf(getShard()));
+    MDC.put(mdc.getPartitionKey(), String.valueOf(getPartition()));
+  }
+
+  public void removeFromMdc() {
+    MDC.remove(mdc.getShardKey());
+    MDC.remove(mdc.getPartitionKey());
+  }
+
   public static TkmsShardPartition of(int shard, int partition) {
     return shards[shard].partitions[partition];
   }
@@ -35,6 +47,8 @@ public class TkmsShardPartition {
    * Very frequently used object, so we will use "object pooling" instead of creating those instances over and over again.
    */
   public static void init(TkmsProperties tkmsProperties) {
+    mdc = tkmsProperties.getMdc();
+
     shards = new TkmsShard[tkmsProperties.getShardsCount()];
     for (int s = 0; s < shards.length; s++) {
       int partitionsCount = tkmsProperties.getPartitionsCount(s);
@@ -47,6 +61,8 @@ public class TkmsShardPartition {
   }
 
   private static TkmsShard[] shards;
+
+  private static Mdc mdc;
 
   private static class TkmsShard {
 
