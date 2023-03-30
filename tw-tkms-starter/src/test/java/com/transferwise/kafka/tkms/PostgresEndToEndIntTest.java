@@ -11,19 +11,19 @@ public class PostgresEndToEndIntTest extends EndToEndIntTest {
 
   private static Stream<Arguments> compressionInput() {
     return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 111),
-        Arguments.of(CompressionAlgorithm.NONE, 1171),
-        Arguments.of(CompressionAlgorithm.LZ4, 134),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 160),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 158),
-        Arguments.of(CompressionAlgorithm.ZSTD, 100)
+        Arguments.of(CompressionAlgorithm.GZIP, 111, 110),
+        Arguments.of(CompressionAlgorithm.NONE, 1171, 1171),
+        Arguments.of(CompressionAlgorithm.LZ4, 134, 134),
+        Arguments.of(CompressionAlgorithm.SNAPPY, 160, 160),
+        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 158, 158),
+        Arguments.of(CompressionAlgorithm.ZSTD, 100, 100)
     );
   }
 
   @ParameterizedTest
   @MethodSource("compressionInput")
   @Override
-  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
-    super.testMessageIsCompressed(algorithm, expectedSerializedSize);
+  public void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt) {
+    super.testMessageIsCompressed(algorithm, expectedSerializedSize, expectedSerializedSizeAlt);
   }
 }
