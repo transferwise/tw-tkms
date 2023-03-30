@@ -1,7 +1,5 @@
 # Random ideas, brainstorm
 
-1. Add MDCs for shard and partition. Otherwise on some failure scenario, it's not clear from rollbar, which table needs help.
-
 3. Avoid engineers creating tables manually. Provide at least Flyway auto configuration.
 
 5. Add hierarchical Valid annotations for TkmsProperties.
@@ -10,3 +8,4 @@
 looking at 95th percentiles. We need to figure out, how to overcome this.
 * producer per partition?
 * proper producer configuration - large enough batch sizes, lingering, in flight requests count etc.
+

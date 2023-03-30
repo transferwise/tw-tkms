@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2023-03-29
+
+### Added
+
+* Supporting multiple data sources out of the box.
+  e.g. when shard 0 is using Postgres database and shard 1 another, MariaDb database.
+
+### Changed
+
+* Problem Notifier is used when message is registered without an active transaction.
+  The default is still to block, i.e. throw an error, however this can be changed via `notificationLevels` property.
+
+### Migration Guide
+
+#### Active transactions check
+
+`require-transaction-on-messages-registering` configuration option was removed.
+If you need to allow message sending without an active transaction, you would now have to disable it via problem notifications.
+For example: 
+```yaml
+tw-tkms:
+  notification-levels:
+    NO_ACTIVE_TRANSACTION: WARN
+```
+In any case, it is much cheaper to send non-transactional messages directly and without `tw-tkms`.
+
+#### Multiple databases
+
+If you needed different databases for different shards and used some kind of `CompositeDao` approach, then you would need to remove that
+and refactor the code to the approach described in [Recipes](docs/recipes.md#using-different-databases-for-different-shards)
+
 ## [0.21.4] - 2023-03-03
 
 ### Changed

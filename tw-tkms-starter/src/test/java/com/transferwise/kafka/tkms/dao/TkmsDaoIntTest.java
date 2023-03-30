@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.ProductionBug;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +25,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class TkmsDaoIntTest extends BaseIntTest {
 
   @Autowired
-  private ITkmsDao tkmsDao;
+  private ITkmsDaoProvider tkmsDaoProvider;
 
   @Autowired
   private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
@@ -46,6 +47,8 @@ class TkmsDaoIntTest extends BaseIntTest {
   @Test
   @ProductionBug("Delete worked, but batches were combined wrongly.")
   void deletingInBatchesWorks() {
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
+    
     List<Long> records = new ArrayList<>();
     for (int i = 0; i < 1001; i++) {
       records.add(

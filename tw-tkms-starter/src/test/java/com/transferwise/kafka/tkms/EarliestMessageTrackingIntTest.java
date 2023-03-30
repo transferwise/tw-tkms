@@ -7,8 +7,8 @@ import com.transferwise.common.baseutils.clock.TestClock;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import io.micrometer.core.instrument.Gauge;
@@ -26,7 +26,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
   @Autowired
   private TransactionalKafkaMessageSender tkms;
   @Autowired
-  private ITkmsDao dao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsProperties properties;
   @Autowired
@@ -39,10 +39,10 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Test
   void testIfEarliestMessageTrackerBehavesAsExpected() {
-    TestClock clock = new TestClock();
+    var clock = new TestClock();
     TkmsClockHolder.setClock(clock);
 
-    Gauge earliestMessageIdGauge = await()
+    var earliestMessageIdGauge = await()
         .until(() -> meterRegistry.find("tw_tkms_dao_earliest_message_id").tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
     assertThat(earliestMessageIdGauge.value()).isEqualTo(-1);
 
@@ -64,12 +64,13 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     sendMessageAndWaitForArrival(4);
     assertThat(earliestMessageIdGauge.value()).isGreaterThan(previousValue);
 
-    Long committedValue =
+    var committedValue =
         jdbcTemplate.queryForObject("select message_id from earliestmessage.tw_tkms_earliest_visible_messages where shard=? and part=?", Long.class,
             0, 0);
     assertThat(committedValue).isGreaterThanOrEqualTo((long) previousValue);
 
-    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(TkmsShardPartition.of(0, 0), dao, properties, metricsTemplate);
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
+    var earliestMessageTracker = new EarliestMessageTracker(tkmsDao, TkmsShardPartition.of(0, 0), properties, metricsTemplate);
     earliestMessageTracker.init();
 
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);

@@ -25,9 +25,11 @@ public class TkmsProperties {
   }
 
   /**
-   * Allows to set notification level or even block the startup, for different problems the library is detecting.
+   * Allows to set notification level or even block the startup/execution, for different problems the library is detecting.
    *
-   * <p>The set of keys is described with NotificationType class below.
+   * <p>The set of keys is described with {@link NotificationType} enum below.
+   * 
+   * <p>The level has to be one from {@link NotificationLevel} enum below. 
    */
   private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
@@ -75,6 +77,7 @@ public class TkmsProperties {
    * <p>Make sure you have all those tables available and correctly configured - index statistics, auto vacuum and analyze settings.
    */
   @NotBlank
+  @ResolvedValue
   private String tableBaseName = "outgoing_message";
 
   /**
@@ -82,6 +85,7 @@ public class TkmsProperties {
    *
    * <p>Used to determine service-cluster wide lock names for Kafka proxies.
    */
+  @ResolvedValue
   private String groupId;
   /**
    * How many messages is Kafka proxy polling from a database at once.
@@ -143,6 +147,7 @@ public class TkmsProperties {
    *
    * <p>Be extra careful here by validating what is the corresponding value on the Kafka server side.
    */
+  @Positive
   private int maximumMessageBytes = 10485760;
 
   /**
@@ -153,11 +158,6 @@ public class TkmsProperties {
   private Duration minPollingInterval;
 
   /**
-   * Throws an exception when an active transaction is not present whiles messages are tried to be registered.
-   */
-  private boolean requireTransactionOnMessagesRegistering = true;
-
-  /**
    * List topics used by the lib.
    *
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
@@ -166,6 +166,7 @@ public class TkmsProperties {
    */
   private List<String> topics = new ArrayList<>();
 
+  @Valid
   private EarliestVisibleMessages earliestVisibleMessages = new EarliestVisibleMessages();
 
   /**
@@ -180,10 +181,13 @@ public class TkmsProperties {
    */
   private Map<Integer, ShardProperties> shards = new HashMap<>();
 
+  @Valid
   private Compression compression = new Compression();
 
+  @Valid
   private Environment environment = new Environment();
 
+  @Valid
   private Monitoring monitoring = new Monitoring();
 
   /**
@@ -195,10 +199,27 @@ public class TkmsProperties {
   @NotNull
   private Internals internals = new Internals();
 
+  @Valid
+  @NotNull
+  private Mdc mdc = new Mdc();
+
+  @Data
+  @Accessors(chain = true)
+  public static class Mdc {
+
+    @NotBlank
+    @ResolvedValue
+    private String shardKey = "tkmsShard";
+    @NotBlank
+    @ResolvedValue
+    private String partitionKey = "tkmsPartition";
+  }
+  
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {
 
+    @ResolvedValue
     private String tableBaseName;
     private DatabaseDialect databaseDialect;
     private Integer partitionsCount;
@@ -207,9 +228,10 @@ public class TkmsProperties {
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
     private boolean compressionOverridden;
+    @Valid
     private Compression compression = new Compression();
+    @Valid
     private EarliestVisibleMessages earliestVisibleMessages;
-    private Boolean requireTransactionOnMessagesRegistering;
     private List<Integer> deleteBatchSizes;
     private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
@@ -288,14 +310,6 @@ public class TkmsProperties {
     return earliestVisibleMessages;
   }
 
-  public boolean isRequireTransactionOnMessagesRegistering(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
-    if (shardProperties != null && shardProperties.requireTransactionOnMessagesRegistering != null) {
-      return shardProperties.requireTransactionOnMessagesRegistering;
-    }
-    return requireTransactionOnMessagesRegistering;
-  }
-
   public List<Integer> getDeleteBatchSizes(int shard) {
     ShardProperties shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.deleteBatchSizes != null && !shardProperties.deleteBatchSizes.isEmpty()) {
@@ -324,6 +338,7 @@ public class TkmsProperties {
 
     private CompressionAlgorithm algorithm = CompressionAlgorithm.GZIP;
 
+    @Positive
     private Integer blockSize;
 
     /**
@@ -339,7 +354,7 @@ public class TkmsProperties {
   @Data
   @Accessors(chain = true)
   public static class Environment {
-
+    @ResolvedValue
     private String previousVersion;
   }
 
@@ -349,6 +364,7 @@ public class TkmsProperties {
 
     private boolean enabled = false;
 
+    @ResolvedValue
     private String tableName = "tw_tkms_earliest_visible_messages";
 
     private Duration lookBackPeriod = Duration.ofMinutes(5);
@@ -378,6 +394,7 @@ public class TkmsProperties {
   }
 
   public enum NotificationLevel {
+    IGNORE,
     INFO,
     WARN,
     ERROR,
@@ -396,6 +413,7 @@ public class TkmsProperties {
     TABLE_INDEX_STATS_CHECK_ERROR,
     TOO_MANY_DELETE_BATCHES,
     EARLIEST_MESSAGES_SYSTEM_DISABLED,
-    ENGINE_INDEPENDENT_STATS_NOT_ENABLED
+    ENGINE_INDEPENDENT_STATS_NOT_ENABLED,
+    NO_ACTIVE_TRANSACTION
   }
 }

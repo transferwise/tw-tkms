@@ -1,7 +1,6 @@
 package com.transferwise.kafka.tkms.config;
 
 import com.transferwise.common.baseutils.meters.cache.IMeterCache;
-import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.EnvironmentValidator;
 import com.transferwise.kafka.tkms.IEnvironmentValidator;
 import com.transferwise.kafka.tkms.IProblemNotifier;
@@ -19,13 +18,8 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.Tkms;
 import com.transferwise.kafka.tkms.api.helpers.ITkmsMessageFactory;
 import com.transferwise.kafka.tkms.api.helpers.TkmsMessageFactory;
-import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsMessageSerializer;
-import com.transferwise.kafka.tkms.dao.TkmsDao;
-import com.transferwise.kafka.tkms.dao.TkmsMariaDao;
 import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
-import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsClusterWideStateMonitor;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
@@ -66,14 +60,9 @@ public class TkmsConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(ITkmsDao.class)
-  public TkmsDao tkmsDao(ITkmsDataSourceProvider dataSourceProvider, TkmsProperties tkmsProperties,
-      ITkmsMetricsTemplate metricsTemplate, ITkmsMessageSerializer messageSerializer,
-      ITransactionsHelper transactionsHelper, IProblemNotifier problemNotifier) {
-    if (tkmsProperties.getDatabaseDialect() == DatabaseDialect.POSTGRES) {
-      return new TkmsPostgresDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
-    }
-    return new TkmsMariaDao(dataSourceProvider, tkmsProperties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
+  @ConditionalOnMissingBean(ITkmsDaoProvider.class)
+  public TkmsDaoProvider tkmsDaoProvider() {
+    return new TkmsDaoProvider();
   }
 
   @Bean
@@ -103,6 +92,11 @@ public class TkmsConfiguration {
     return new TkmsZookeeperOperations();
   }
 
+  /**
+   * This would work for simple services, mostly when having one database.
+   * 
+   * <p>For more advanced cases it is recommended to define your own `ITkmsDataSourceProvider` implementation.
+   */
   @Bean
   @ConditionalOnMissingBean(ITkmsDataSourceProvider.class)
   public TkmsDataSourceProvider tkmsDataSourceProvider(

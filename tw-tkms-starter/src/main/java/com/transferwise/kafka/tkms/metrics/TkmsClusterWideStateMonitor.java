@@ -10,9 +10,9 @@ import com.transferwise.common.leaderselector.ILock;
 import com.transferwise.common.leaderselector.LeaderSelectorV2;
 import com.transferwise.common.leaderselector.SharedReentrantLockBuilderFactory;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.EarliestVisibleMessages;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,7 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
 
   @Autowired
-  private ITkmsDao tkmsDao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
   @Autowired
@@ -157,6 +157,7 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
       for (int p = 0; p < properties.getPartitionsCount(p); p++) {
         TkmsShardPartition sp = TkmsShardPartition.of(s, p);
 
+        var tkmsDao = tkmsDaoProvider.getTkmsDao(sp.getShard());
         long count = tkmsDao.getApproximateMessagesCount(sp);
 
         approximateMessagesCount.computeIfAbsent(sp, k -> {
@@ -172,6 +173,7 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
    * Checks if there are any forgotten messages, when earliest message system is enabled.
    */
   protected void checkLeftOverMessages(TkmsShardPartition sp) {
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(sp.getShard());
     Long earliestMessageId = tkmsDao.getEarliestMessageId(sp);
     if (tkmsDao.hasMessagesBeforeId(sp, earliestMessageId)) {
       log.error("Forgotten message detected in " + sp

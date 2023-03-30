@@ -3,30 +3,27 @@ package com.transferwise.kafka.tkms.dao;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.List;
+import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 public class TkmsPostgresDao extends TkmsDao {
 
-  private final IProblemNotifier problemNotifier;
-
   public TkmsPostgresDao(
-      ITkmsDataSourceProvider dataSourceProvider,
+      DataSource dataSource,
       TkmsProperties properties,
       ITkmsMetricsTemplate metricsTemplate,
       ITkmsMessageSerializer messageSerializer,
       ITransactionsHelper transactionsHelper,
       IProblemNotifier problemNotifier
   ) {
-    super(dataSourceProvider, properties, metricsTemplate, messageSerializer, transactionsHelper);
-    this.problemNotifier = problemNotifier;
+    super(dataSource, properties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
   }
 
   @Override
@@ -93,11 +90,14 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
-  protected void validateEngineSpecifics() {
+  public void validateDatabase() {
+    // TODO: Should this be shard specific as well?
     if (!properties.isTableStatsValidationEnabled()) {
       return;
     }
 
+    super.validateDatabase();
+    
     validateIndexHintsExtension();
   }
 

@@ -15,9 +15,9 @@ import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageAcknowledgedEv
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.stored_message.StoredMessage;
@@ -46,6 +46,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
@@ -60,7 +61,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private TkmsProperties properties;
   @Autowired
   @Setter
-  private ITkmsDao dao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private ITkmsPaceMaker tkmsPaceMaker;
   @Autowired
@@ -100,10 +101,12 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
         leaderSelectors.add(new LeaderSelectorV2.Builder().setLock(lock).setExecutorService(executorService).setLeader(control -> {
           AtomicReference<Future<Boolean>> futureReference = new AtomicReference<>();
           AtomicReference<Object> pollingGauge = new AtomicReference<>();
-          
+
           control.workAsyncUntilShouldStop(() -> futureReference.set(executorService.submit(
                   () -> {
                     try {
+                      shardPartition.putIntoMdc();
+
                       log.info("Starting to proxy {}.", shardPartition);
                       pollingGauge.set(metricsTemplate.registerPollingInProgressGauge(shardPartition));
                       poll(control, shardPartition);
@@ -113,28 +116,35 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                       return false;
                     } finally {
                       control.yield();
+                      shardPartition.removeFromMdc();
                     }
                   })),
               () -> {
-                log.info("Stopping proxying for {}.", shardPartition);
-                
-                // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
+                try {
+                  shardPartition.putIntoMdc();
+                  
+                  log.info("Stopping proxying for {}.", shardPartition);
+                  
+                  // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
 
-                Future<Boolean> future = futureReference.get();
-                if (future != null) {
-                  try {
-                    Boolean result = future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
-                    if (result == null) {
-                      throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".");
+                  Future<Boolean> future = futureReference.get();
+                  if (future != null) {
+                    try {
+                      Boolean result = future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
+                      if (result == null) {
+                        throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".");
+                      }
+                    } catch (Throwable t) {
+                      log.error(t.getMessage(), t);
                     }
-                  } catch (Throwable t) {
-                    log.error(t.getMessage(), t);
                   }
-                }
-                
-                var gauge = pollingGauge.getAndSet(null);
-                if (gauge != null) {
-                  metricsTemplate.unregisterMetric(gauge);
+
+                  var gauge = pollingGauge.getAndSet(null);
+                  if (gauge != null) {
+                    metricsTemplate.unregisterMetric(gauge);
+                  }
+                } finally {
+                  shardPartition.removeFromMdc();
                 }
               });
         }).build());
@@ -143,13 +153,15 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   }
 
   private void poll(Control control, TkmsShardPartition shardPartition) {
+
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
     long startTimeMs = System.currentTimeMillis();
 
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
     final Map<Integer, ProducerRecord<String, byte[]>> producerRecordMap = new HashMap<>();
 
-    EarliestMessageTracker earliestMessageTracker = new EarliestMessageTracker(shardPartition, dao, properties, metricsTemplate);
+    EarliestMessageTracker earliestMessageTracker =
+        new EarliestMessageTracker(tkmsDaoProvider.getTkmsDao(shardPartition.getShard()), shardPartition, properties, metricsTemplate);
     earliestMessageTracker.init();
 
     try {
@@ -182,11 +194,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
         unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
             .execute(() -> {
+              final var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+
               long cycleStartNanoTime = System.nanoTime();
               int polledRecordsCount = 0;
               AtomicInteger failedSendsCount = new AtomicInteger();
               try {
-                List<MessageRecord> records = dao.getMessages(shardPartition, earliestMessageTracker.getEarliestMessageId(), pollerBatchSize);
+                List<MessageRecord> records = tkmsDao.getMessages(shardPartition, earliestMessageTracker.getEarliestMessageId(), pollerBatchSize);
                 polledRecordsCount = records.size();
 
                 metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
@@ -241,17 +255,24 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                     // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
                     // TODO: Consider transactions. They would need heavy performance testing though.
                     Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
-                      if (exception == null) {
-                        context.setAcked(true);
-                        fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
-                        Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
-                            ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
-                        metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
-                      } else {
-                        failedSendsCount.incrementAndGet();
-                        handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", exception,
-                            context);
-                        metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
+                      try {
+                        shardPartition.putIntoMdc();
+
+                        if (exception == null) {
+                          context.setAcked(true);
+                          fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
+                          Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
+                              ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
+                          metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
+                        } else {
+                          failedSendsCount.incrementAndGet();
+                          handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.",
+                              exception,
+                              context);
+                          metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
+                        }
+                      } finally {
+                        shardPartition.removeFromMdc();
                       }
                     });
                     atLeastOneSendDone = true;
@@ -293,7 +314,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 //   For example we want to probably offload deleting into a separate thread(s)
                 //   Select would need id>X, which probably would not be too bad.
                 long deleteStartNanoTime = System.nanoTime();
-                dao.deleteMessages(shardPartition, successIds);
+                tkmsDao.deleteMessages(shardPartition, successIds);
 
                 metricsTemplate.recordProxyMessagesDeletion(shardPartition, deleteStartNanoTime);
 

@@ -10,12 +10,12 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private static final int FIELD_SIZE_BYTES = 6;
 
   @Autowired
-  private ITkmsDao tkmsDao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private ITkmsMetricsTemplate metricsTemplate;
   @Autowired
@@ -135,13 +135,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected void checkActiveTransaction(TkmsMessage tkmsMessage, boolean transactionActive) {
-    var shardPartition = getShardPartition(tkmsMessage);
-    if (!properties.isRequireTransactionOnMessagesRegistering(shardPartition.getShard())) {
-      return;
-    }
     if (!transactionActive) {
-      throw new IllegalStateException("No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
-          + " efficient to send direct Kafka messages, when you do not need that pattern.");
+      problemNotifier.notify(tkmsMessage.getShard(), NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
+          () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
+              + " efficient to send direct Kafka messages, when you do not need that pattern.");
     }
   }
 
@@ -179,17 +176,25 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       }
 
       shardPartitionsMap.forEach((shardPartition, tkmsMessageWithSequences) -> {
-        List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
-        for (int i = 0; i < tkmsMessageWithSequences.size(); i++) {
-          TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
-          InsertMessageResult insertMessageResult = insertMessageResults.get(i);
+        try {
+          shardPartition.putIntoMdc();
 
-          fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+          var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
 
-          metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition);
+          List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
+          for (int i = 0; i < tkmsMessageWithSequences.size(); i++) {
+            TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
+            InsertMessageResult insertMessageResult = insertMessageResults.get(i);
 
-          responses[insertMessageResult.getSequence()] =
-              new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+            fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+
+            metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition);
+
+            responses[insertMessageResult.getSequence()] =
+                new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+          }
+        } finally {
+          shardPartition.removeFromMdc();
         }
       });
 
@@ -199,22 +204,29 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessageResult sendMessage(TkmsMessage message) {
-    checkActiveTransaction(message);
+    var shardPartition = getShardPartition(message);
 
-    return transactionsHelper.withTransaction().call(() -> {
-      validateMessage(message, 0);
-      validateMessageSize(message, 0);
+    try {
+      shardPartition.putIntoMdc();
 
-      TkmsShardPartition shardPartition = getShardPartition(message);
+      checkActiveTransaction(message);
 
-      String topic = message.getTopic();
-      validateTopic(shardPartition.getShard(), topic);
+      return transactionsHelper.withTransaction().call(() -> {
+        validateMessage(message, 0);
+        validateMessageSize(message, 0);
 
-      InsertMessageResult insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
-      fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
-      metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition());
-      return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
-    });
+        String topic = message.getTopic();
+        validateTopic(shardPartition.getShard(), topic);
+
+        var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+        InsertMessageResult insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
+        fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
+        metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition());
+        return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+      });
+    } finally {
+      shardPartition.removeFromMdc();
+    }
   }
 
   /**

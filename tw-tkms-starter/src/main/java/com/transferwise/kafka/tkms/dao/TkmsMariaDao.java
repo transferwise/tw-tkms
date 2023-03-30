@@ -3,12 +3,12 @@ package com.transferwise.kafka.tkms.dao;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.ITkmsDataSourceProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.List;
+import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataAccessException;
@@ -18,18 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class TkmsMariaDao extends TkmsDao {
 
-  private final IProblemNotifier problemNotifier;
-
   public TkmsMariaDao(
-      ITkmsDataSourceProvider dataSourceProvider,
+      DataSource dataSource,
       TkmsProperties properties,
       ITkmsMetricsTemplate metricsTemplate,
       ITkmsMessageSerializer messageSerializer,
       ITransactionsHelper transactionsHelper,
       IProblemNotifier problemNotifier
   ) {
-    super(dataSourceProvider, properties, metricsTemplate, messageSerializer, transactionsHelper);
-    this.problemNotifier = problemNotifier;
+    super(dataSource, properties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
   }
 
   @Override
@@ -43,36 +40,36 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   @Override
-  protected void validateSchema() {
+  public void validateDatabase() {
     transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
-      super.validateSchema();
+      super.validateDatabase();
+
+      if (!properties.isTableStatsValidationEnabled()) {
+        return;
+      }
+
+      try {
+        boolean engineIndependentStatsEnabled = isEngineIndependentStatsEnabled();
+        if (!engineIndependentStatsEnabled) {
+          problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
+              "Engine independent statics are not enabled.");
+        }
+      } catch (DataAccessException dae) {
+        problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
+            "Checking if engine independent stats are enabled, failed.", dae);
+      }
     });
   }
 
   @Override
-  protected void validateEngineSpecifics() {
-    if (!properties.isTableStatsValidationEnabled()) {
-      return;
-    }
-    
-    boolean engineIndependentStatsEnabled = false;
-
-    try {
-      var userStatTables = getUserStatTablesVariable();
-      engineIndependentStatsEnabled = userStatTables.equalsIgnoreCase("preferably") || userStatTables.equalsIgnoreCase("preferably_for_queries");
-      if (!engineIndependentStatsEnabled) {
-        problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
-            "Engine independent statics are not enabled.");
-      }
-    } catch (DataAccessException dae) {
-      problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
-          "Checking if engine independent stats are enabled, failed.", dae);
-    }
-
-    for (int s = 0; s < properties.getShardsCount(); s++) {
+  public void validateDatabase(int shard) {
+    transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).run(() -> {
+      super.validateDatabase(shard);
       try {
-        for (int p = 0; p < properties.getPartitionsCount(s); p++) {
-          TkmsShardPartition sp = TkmsShardPartition.of(s, p);
+        boolean engineIndependentStatsEnabled = isEngineIndependentStatsEnabled();
+
+        for (int p = 0; p < properties.getPartitionsCount(shard); p++) {
+          TkmsShardPartition sp = TkmsShardPartition.of(shard, p);
 
           if (!engineIndependentStatsEnabled) {
             long rowsInTableStats = getRowsFromTableStats(sp);
@@ -80,7 +77,7 @@ public class TkmsMariaDao extends TkmsDao {
 
             // Default log level should be at least error, because misconfiguration here can take down your database.
             if (rowsInTableStats < 1_000_000) {
-              problemNotifier.notify(s, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+              problemNotifier.notify(shard, NotificationType.TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                   "Table for " + sp + " is not properly configured. Rows from table stats is " + rowsInTableStats + "."
                       + "This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                       + "to fix table stats."
@@ -91,7 +88,7 @@ public class TkmsMariaDao extends TkmsDao {
             metricsTemplate.registerRowsInIndexStats(sp, rowsInIndexStats);
 
             if (rowsInIndexStats < 1_000_000) {
-              problemNotifier.notify(s, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+              problemNotifier.notify(shard, NotificationType.INDEX_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                   "Table for " + sp + " is not properly configured. Rows in index stats is " + rowsInIndexStats + "."
                       + " This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                       + "to fix index stats."
@@ -103,7 +100,7 @@ public class TkmsMariaDao extends TkmsDao {
           metricsTemplate.registerRowsInEngineIndependentTableStats(sp, rowsInEngineIndependentTableStats);
 
           if (rowsInEngineIndependentTableStats < 1_000_000) {
-            problemNotifier.notify(s, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
+            problemNotifier.notify(shard, NotificationType.ENGINE_INDEPENDENT_TABLE_STATS_NOT_FIXED, NotificationLevel.ERROR, () ->
                 "Table for " + sp + " is not properly configured. Rows in engine independent table stats is " + rowsInEngineIndependentTableStats
                     + ". This can greatly affect performance of DELETE queries during peaks or database slowness. Please check the setup guide how "
                     + "to fix table stats."
@@ -113,53 +110,51 @@ public class TkmsMariaDao extends TkmsDao {
       } catch (DataAccessException dae) {
         // TODO: Currently our database may not have enough permissions yet, so starting with WARN.
         //       Later we should upgrade the default to ERROR.
-        problemNotifier.notify(s, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
+        problemNotifier.notify(shard, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.WARN, () ->
             "Validating table and index stats failed.", dae);
       }
-    }
-    
+
+    });
+  }
+
+  protected boolean isEngineIndependentStatsEnabled() {
+    var userStatTables = getUserStatTablesVariable();
+    return userStatTables.equalsIgnoreCase("preferably") || userStatTables.equalsIgnoreCase("preferably_for_queries");
   }
 
   private long getRowsFromTableStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList("select n_rows from mysql.innodb_table_stats where database_name=? and table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   private long getRowsFromEngineIndependentTableStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList("select cardinality from mysql.table_stats where db_name=? and table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList("select cardinality from mysql.table_stats where db_name=? and table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   private String getUserStatTablesVariable() {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED)
-        .call(() -> jdbcTemplate.queryForObject("select @@use_stat_tables", String.class));
+    return jdbcTemplate.queryForObject("select @@use_stat_tables", String.class);
   }
 
   private long getRowsFromIndexStats(TkmsShardPartition shardPartition) {
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(() -> {
-      List<Long> stats = jdbcTemplate.queryForList(
-          "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
-          getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
+    List<Long> stats = jdbcTemplate.queryForList(
+        "select stat_value from mysql.innodb_index_stats where database_name=? and stat_description='id' and " + "table_name=?", Long.class,
+        getSchemaName(shardPartition), getTableNameWithoutSchema(shardPartition));
 
-      if (stats.isEmpty()) {
-        return -1L;
-      }
-      return stats.get(0);
-    });
+    if (stats.isEmpty()) {
+      return -1L;
+    }
+    return stats.get(0);
   }
 
   @Override
@@ -175,10 +170,8 @@ public class TkmsMariaDao extends TkmsDao {
       table = defaultTable;
     }
 
-    return transactionsHelper.withTransaction().withIsolation(Isolation.READ_UNCOMMITTED).call(
-        () -> !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
-            schema, table).isEmpty()
-    );
+    return !jdbcTemplate.queryForList("SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?", Boolean.class,
+        schema, table).isEmpty();
   }
 
   @Override

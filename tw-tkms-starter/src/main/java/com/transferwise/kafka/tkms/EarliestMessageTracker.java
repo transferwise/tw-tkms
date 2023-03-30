@@ -1,19 +1,22 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.EarliestVisibleMessages;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import javax.annotation.concurrent.NotThreadSafe;
+import lombok.RequiredArgsConstructor;
 
 @NotThreadSafe
+@RequiredArgsConstructor
 public class EarliestMessageTracker {
 
-  private ITkmsDao dao;
-  private TkmsShardPartition shardPartition;
-  private TkmsProperties properties;
-  private ITkmsMetricsTemplate metricsTemplate;
+  private final ITkmsDao tkmsDao;
+  private final TkmsShardPartition shardPartition;
+  private final TkmsProperties properties;
+  private final ITkmsMetricsTemplate metricsTemplate;
 
   private boolean enabled;
   private Object earliestMessageIdGauge;
@@ -24,15 +27,8 @@ public class EarliestMessageTracker {
 
   private EarliestMessageSlidingWindow earliestMessageSlidingWindow;
 
-  public EarliestMessageTracker(TkmsShardPartition shardPartition, ITkmsDao dao, TkmsProperties properties, ITkmsMetricsTemplate metricsTemplate) {
-    this.dao = dao;
-    this.shardPartition = shardPartition;
-    this.properties = properties;
-    this.metricsTemplate = metricsTemplate;
-  }
-
   public void init() {
-    EarliestVisibleMessages earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
+    var earliestVisibleMessages = properties.getEarliestVisibleMessages(shardPartition.getShard());
     enabled = earliestVisibleMessages.isEnabled();
 
     if (!enabled) {
@@ -40,9 +36,9 @@ public class EarliestMessageTracker {
     }
 
     earliestMessageIdGauge = metricsTemplate.registerEarliestMessageId(shardPartition, () -> earliestMessageId);
-
+    
     earliestMessageSlidingWindow = new EarliestMessageSlidingWindow(earliestVisibleMessages.getLookBackPeriod());
-    Long earliestMessageIdFromDb = dao.getEarliestMessageId(shardPartition);
+    var earliestMessageIdFromDb = tkmsDao.getEarliestMessageId(shardPartition);
     earliestMessageId = earliestMessageIdFromDb == null ? -1 : earliestMessageIdFromDb;
   }
 
@@ -85,6 +81,6 @@ public class EarliestMessageTracker {
   private void commit() {
     metricsTemplate.registerEarliestMessageIdCommit(shardPartition);
     lastCommitMs = TkmsClockHolder.getClock().millis();
-    dao.saveEarliestMessageId(shardPartition, earliestMessageId);
+    tkmsDao.saveEarliestMessageId(shardPartition, earliestMessageId);
   }
 }

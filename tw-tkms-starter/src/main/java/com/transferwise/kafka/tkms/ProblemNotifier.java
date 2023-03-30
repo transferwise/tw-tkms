@@ -30,10 +30,11 @@ public class ProblemNotifier implements IProblemNotifier {
       log.warn(messageProvider.get(), t);
     } else if (notificationLevel == NotificationLevel.ERROR) {
       log.error(messageProvider.get(), t);
-    }
-    if (notificationLevel == NotificationLevel.BLOCK) {
+    } else if (notificationLevel == NotificationLevel.BLOCK) {
       throw new IllegalStateException(messageProvider.get(), t);
     }
+
+    // ignore
   }
 
   @Override

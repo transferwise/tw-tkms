@@ -14,9 +14,9 @@ import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
-import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.ITkmsTestDao;
@@ -66,7 +66,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   @Autowired
   private TkmsProperties tkmsProperties;
   @Autowired
-  private ITkmsDao tkmsDao;
+  private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
 
@@ -74,14 +74,15 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   @BeforeEach
   public void setup() {
+    var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
     faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
-    tkmsStorageToKafkaProxy.setDao(faultInjectedTkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider((shard) -> faultInjectedTkmsDao);
   }
 
   @AfterEach
   public void cleanup() {
     super.cleanup();
-    tkmsStorageToKafkaProxy.setDao(tkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
   }
 
   @Test
@@ -528,18 +529,18 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   private static Stream<Arguments> compressionInput() {
     return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 103),
-        Arguments.of(CompressionAlgorithm.NONE, 1163),
-        Arguments.of(CompressionAlgorithm.LZ4, 126),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 158),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156),
-        Arguments.of(CompressionAlgorithm.ZSTD, 92)
+        Arguments.of(CompressionAlgorithm.GZIP, 103, 103),
+        Arguments.of(CompressionAlgorithm.NONE, 1163, 1163),
+        Arguments.of(CompressionAlgorithm.LZ4, 126, 126),
+        Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158),
+        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156),
+        Arguments.of(CompressionAlgorithm.ZSTD, 92, 92)
     );
   }
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize) {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt) {
     var message = StringUtils.repeat("Hello Aivo!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -570,7 +571,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
       counter =
           meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
       double serializedSizeBytes = counter == null ? 0 : counter.count();
-      assertThat(serializedSizeBytes - startingSerializedSizeBytes).isEqualTo(expectedSerializedSize);
+      assertThat((int)(serializedSizeBytes - startingSerializedSizeBytes)).isIn(expectedSerializedSize, expectedSerializedSizeAlt);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {

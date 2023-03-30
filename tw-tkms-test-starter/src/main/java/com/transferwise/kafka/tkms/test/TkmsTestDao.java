@@ -15,23 +15,18 @@ public class TkmsTestDao implements ITkmsTestDao {
   @Autowired
   private ITkmsDataSourceProvider tkmsDataSourceProvider;
 
-  private JdbcTemplate jdbcTemplate;
-
-  @PostConstruct
-  public void init() {
-    jdbcTemplate = new JdbcTemplate(tkmsDataSourceProvider.getDataSource());
-  }
-
   @Override
   public int getMessagesCount(TkmsShardPartition shardPartition) {
+    var dataSource = tkmsDataSourceProvider.getDataSource(shardPartition.getShard());
+    var jdbcTemplate = new JdbcTemplate(dataSource);
+    
     Integer messagesCount = jdbcTemplate.queryForObject("select count(*) from " + getTableName(shardPartition), Integer.class);
     if (messagesCount == null) {
       throw new IllegalStateException("Messages count can not be null.");
     }
     return messagesCount;
   }
-
-
+  
   protected String getTableName(TkmsShardPartition shardPartition) {
     return properties.getTableBaseName(shardPartition.getShard()) + "_" + shardPartition.getShard() + "_" + shardPartition.getPartition();
   }
