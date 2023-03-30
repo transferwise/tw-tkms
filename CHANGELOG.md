@@ -34,7 +34,7 @@ In any case, it is much cheaper to send non-transactional messages directly and 
 #### Multiple databases
 
 If you needed different databases for different shards and used some kind of `CompositeDao` approach, then you would need to remove that
-and refactor the code to the approach described in [Recipes](docs/recipes.md###Using different databases for different shards)
+and refactor the code to the approach described in [Recipes](docs/recipes.md#using-different-databases-for-different-shards)
 
 ## [0.21.4] - 2023-03-03
 
