@@ -46,9 +46,9 @@ public abstract class TkmsDao implements ITkmsDao {
 
   private Map<TkmsShardPartition, String> insertMessageSqls = new ConcurrentHashMap<>();
   private Map<TkmsShardPartition, String> getMessagesSqls = new ConcurrentHashMap<>();
-  private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap = new ConcurrentHashMap<>();
+  private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqls = new ConcurrentHashMap<>();
 
-  private Map<TkmsShardPartition, Set<Integer>> deleteBatchSizesMap = new ConcurrentHashMap<>();
+  private Map<TkmsShardPartition, Set<Integer>> deleteBatchSizes = new ConcurrentHashMap<>();
 
   protected Map<Pair<TkmsShardPartition, String>, String> sqlCache = new ConcurrentHashMap<>();
 
@@ -238,7 +238,7 @@ public abstract class TkmsDao implements ITkmsDao {
   @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
     var batchSizeExists =
-        deleteBatchSizesMap.computeIfAbsent(shardPartition, k -> new HashSet<>(properties.getDeleteBatchSizes(k.getShard()))).contains(ids.size());
+        deleteBatchSizes.computeIfAbsent(shardPartition, k -> new HashSet<>(properties.getDeleteBatchSizes(k.getShard()))).contains(ids.size());
 
     if (batchSizeExists) {
       // There will be one query only, no need for explicit transaction.
@@ -312,7 +312,7 @@ public abstract class TkmsDao implements ITkmsDao {
     for (int batchSize : properties.getDeleteBatchSizes(shardPartition.getShard())) {
       while (ids.size() - processedCount >= batchSize) {
         Pair<TkmsShardPartition, Integer> p = ImmutablePair.of(shardPartition, batchSize);
-        String sql = deleteSqlsMap.computeIfAbsent(p, k -> getDeleteSql(shardPartition, batchSize));
+        String sql = deleteSqls.computeIfAbsent(p, k -> getDeleteSql(shardPartition, batchSize));
 
         int finalProcessedCount = processedCount;
         jdbcTemplate.update(sql, ps -> {
