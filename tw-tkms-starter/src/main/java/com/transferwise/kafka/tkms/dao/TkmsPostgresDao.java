@@ -123,7 +123,7 @@ public class TkmsPostgresDao extends TkmsDao {
     if (explainResult.contains(expectedPlan)) {
       return true;
     } else {
-      log.info("Explain plan was '{}', and it did not contain '{}'.", explainResult, expectedPlan);
+      log.info("When checking index hint '{}', the explain plan was '{}', and it did not contain '{}'.", hint, explainResult, expectedPlan);
       return false;
     }
   }
