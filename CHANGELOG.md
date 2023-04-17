@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * A rare `ConcurrentModificationException` in one of the sqls map.
 
+### Changed
+
+* When Postgres `pg_hint_plan` extension validation fails, we will log out given explain plan and expected plan fragment.
+  This would reduce some DBA contacts.
+
 ## [0.22.0] - 2023-03-29
 
 ### Added

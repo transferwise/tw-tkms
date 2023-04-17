@@ -4,8 +4,8 @@
 
 5. Add hierarchical Valid annotations for TkmsProperties.
 
-6. It turns out, than in the polling cycle, the sending messages to the Kafka can be by far the slowest step,
-looking at 95th percentiles. We need to figure out, how to overcome this.
+6. It turns out, that in the polling cycle, the sending messages to the Kafka can be by far the slowest step,
+looking at 95th percentiles. We need to figure out / test, how to overcome this.
 * producer per partition?
 * proper producer configuration - large enough batch sizes, lingering, in flight requests count etc.
 
@@ -18,13 +18,9 @@ We should provide counter about how many messages there are like that. So teams 
 We should also provide a solution to overcome that situation automatically. One option would be to provide a hybrid poll
 solution, where from configurable interval we would poll all the messages/tuples.
 
-8. `validateIndexHintsExtension` nees to log the explain plans on failure. So we don't have to ask that info from DBAs.
-
 9. Investigate timeouts on partition leader change.
 
-Sometimes people get errors like:  org.apache.kafka.common.errors.TimeoutException: Expiring 1 record(s) for RulesFeatureAssembler.in.FeatureGatheringResponse-13:10004 ms has passed since batch creation
-
-
+Sometimes people get errors like:  `org.apache.kafka.common.errors.TimeoutException: Expiring 1 record(s) for RulesFeatureAssembler.in.FeatureGatheringResponse-13:10004 ms has passed since batch creation`
 Tamás
 i think tw-tkms is being a bit too restrictive with the delivery timeout config: https://github.com/transferwise/tw-tkms/blob/15b992aa78f397840b0603970fd10ff90a1b6[…]m/transferwise/kafka/tkms/config/TkmsKafkaProducerProvider.java
 it is set to 10 secs, whereas the kafka default is 2 minutes: https://kafka.apache.org/documentation/#producerconfigs_delivery.timeout.ms
