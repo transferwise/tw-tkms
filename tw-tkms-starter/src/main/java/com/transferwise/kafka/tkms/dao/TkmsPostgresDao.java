@@ -97,7 +97,7 @@ public class TkmsPostgresDao extends TkmsDao {
     }
 
     super.validateDatabase();
-    
+
     validateIndexHintsExtension();
   }
 
@@ -120,7 +120,12 @@ public class TkmsPostgresDao extends TkmsDao {
   protected boolean doesRespectHint(String hint, String expectedPlan) {
     var table = getTableName(TkmsShardPartition.of(0, 0));
     var explainResult = getExplainResult("select /*+ " + hint + "(om) */ id from " + table + " om where id = 1");
-    return explainResult.contains(expectedPlan);
+    if (explainResult.contains(expectedPlan)) {
+      return true;
+    } else {
+      log.info("When checking index hint '{}', the explain plan was '{}', and it did not contain '{}'.", hint, explainResult, expectedPlan);
+      return false;
+    }
   }
 
   protected String getExplainResult(String sql) {
