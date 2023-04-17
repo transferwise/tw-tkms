@@ -16,7 +16,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +48,7 @@ public abstract class TkmsDao implements ITkmsDao {
   private Map<TkmsShardPartition, String> getMessagesSqls = new ConcurrentHashMap<>();
   private Map<Pair<TkmsShardPartition, Integer>, String> deleteSqlsMap = new ConcurrentHashMap<>();
 
-  private Map<TkmsShardPartition, Set<Integer>> deleteBatchSizesMap = new HashMap<>();
+  private Map<TkmsShardPartition, Set<Integer>> deleteBatchSizesMap = new ConcurrentHashMap<>();
 
   protected Map<Pair<TkmsShardPartition, String>, String> sqlCache = new ConcurrentHashMap<>();
 
