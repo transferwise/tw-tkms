@@ -10,6 +10,7 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import lombok.Data;
@@ -103,7 +104,7 @@ public class TkmsProperties {
    * <p>You may want/need to reduce the maximum batch sizes, in the case your database tries to execute queries in a very inefficent way. E.g. doing
    * sequential scans on table containing 1 million messages.
    */
-  @Positive
+  @NotEmpty
   private List<Integer> deleteBatchSizes = List.of(1024, 256, 64, 16, 4, 1);
   /**
    * On batch messages registration, how large database batch size we are using for inserting those messages into the database.
@@ -164,6 +165,7 @@ public class TkmsProperties {
    *
    * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
    */
+  @ResolvedValue
   private List<String> topics = new ArrayList<>();
 
   @Valid
@@ -174,6 +176,7 @@ public class TkmsProperties {
    *
    * <p>The default properties are currently set in {@link TkmsKafkaProducerProvider#getKafkaProducer(int)}.
    */
+  @ResolvedValue
   private Map<String, String> kafka = new HashMap<>();
 
   /**
@@ -235,6 +238,7 @@ public class TkmsProperties {
     private List<Integer> deleteBatchSizes;
     private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
+    @ResolvedValue
     private Map<String, String> kafka = new HashMap<>();
   }
 

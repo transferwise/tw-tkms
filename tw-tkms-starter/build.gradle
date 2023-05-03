@@ -41,6 +41,7 @@ dependencies {
     runtimeOnly libraries.twGracefulShutdown
     runtimeOnly libraries.twLeaderSelectorStarter
     runtimeOnly libraries.micrometerRegistryPrometheus
+    runtimeOnly libraries.springBootStarterValidation
 
     testCompileOnly libraries.spotbugsAnnotations
 

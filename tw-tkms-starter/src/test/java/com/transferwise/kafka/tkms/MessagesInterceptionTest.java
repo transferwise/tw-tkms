@@ -74,7 +74,7 @@ class MessagesInterceptionTest extends BaseIntTest {
             .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("C").setValue(someValue))
         ));
 
-    await().atMost(Duration.ofMinutes(5)).until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
+    await().until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
 
     assertThat(messageInterceptionsCount.get()).isEqualTo(3);
     var messages = tkmsSentMessagesCollector.getSentMessages(topic);

@@ -318,7 +318,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
         thread.join();
       }
 
-      await().atMost(Duration.ofSeconds(10)).until(() -> receivedCount.get() >= messagesCount);
+      await().until(() -> receivedCount.get() >= messagesCount);
 
       log.info("Messages received: " + receivedCount.get());
       log.info("Messages sent in " + (System.currentTimeMillis() - startTimeMs) + " ms.");

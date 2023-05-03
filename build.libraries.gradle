@@ -41,6 +41,7 @@ ext {
             springBootStarterActuator       : 'org.springframework.boot:spring-boot-starter-actuator',
             springBootStarterJdbc           : 'org.springframework.boot:spring-boot-starter-jdbc',
             springBootStarterTest           : 'org.springframework.boot:spring-boot-starter-test',
+            springBootStarterValidation     : 'org.springframework.boot:spring-boot-starter-validation',
             springBootStarterWeb            : 'org.springframework.boot:spring-boot-starter-web',
             springJdbc                      : 'org.springframework:spring-jdbc',
             springKafka                     : 'org.springframework.kafka:spring-kafka',
