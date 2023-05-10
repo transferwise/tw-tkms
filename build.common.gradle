@@ -24,6 +24,9 @@ configurations {
     testCompileProtoPath {
         extendsFrom(local)
     }
+    productionRuntimeClasspath{
+        extendsFrom(local)
+    }
     compileClasspath {
         extendsFrom(local)
     }
