@@ -11,7 +11,6 @@ import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
-import io.micrometer.core.instrument.Gauge;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
