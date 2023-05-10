@@ -19,11 +19,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import javax.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 
 /*
   A bit over engineering, but:
@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @RequiredArgsConstructor
 @Slf4j
-public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
+public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBean {
 
   public static final String GAUGE_LIBRARY_INFO = "tw_library_info";
   public static final String TIMER_PROXY_POLL = "tw_tkms_proxy_poll";
@@ -72,8 +72,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate {
   private final IMeterCache meterCache;
   private final TkmsProperties tkmsProperties;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     Map<String, double[]> slos = new HashMap<>();
     double[] defaultSlos = new double[]{1, 5, 25, 125, 625, 3125, 15625};
     slos.put(TIMER_PROXY_POLL, defaultSlos);

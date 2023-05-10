@@ -14,7 +14,8 @@ apply from: "../build.library.gradle"
 dependencies {
     annotationProcessor libraries.spotbugsAnnotations
 
-    compileOnly libraries.jakartaValidationApi
+    implementation libraries.javaxValidationApi
+    implementation libraries.jakartaValidationApi
     compileOnly libraries.springBootConfigurationProcessor
 
     implementation project(":tw-tkms-starter")

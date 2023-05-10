@@ -1,27 +1,29 @@
 ext {
-    protobufVersion = "3.21.12"
+    protobufVersion = "3.22.4"
     springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '2.6.14'}"
     libraries = [
             // version defined
             awaitility                      : 'org.awaitility:awaitility:4.2.0',
             commonsIo                       : 'commons-io:commons-io:2.11.0',
-            curatorFramework                : 'org.apache.curator:curator-framework:5.4.0',
-            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.4.0',
+            curatorFramework                : 'org.apache.curator:curator-framework:5.5.0',
+            curatorRecipes                  : 'org.apache.curator:curator-recipes:5.5.0',
             guava                           : 'com.google.guava:guava:31.1-jre',
-            kafkaStreams                    : 'org.apache.kafka:kafka-streams:3.3.2',
+            jakartaValidationApi            : 'jakarta.validation:jakarta.validation-api:3.0.2',
+            javaxValidationApi              : "javax.validation:validation-api:2.0.1.Final",
+            kafkaStreams                    : 'org.apache.kafka:kafka-streams:3.4.0',
             lz4Java                         : 'org.lz4:lz4-java:1.8.0',
             protobufJava                    : "com.google.protobuf:protobuf-java:${protobufVersion}",
             semver4j                        : "com.vdurmont:semver4j:3.1.0",
-            snappyJava                      : 'org.xerial.snappy:snappy-java:1.1.8.4',
+            snappyJava                      : 'org.xerial.snappy:snappy-java:1.1.9.1',
             spotbugsAnnotations             : "com.github.spotbugs:spotbugs-annotations:${spotbugs.toolVersion.get()}",
             springBootDependencies          : "org.springframework.boot:spring-boot-dependencies:${springBootVersion}",
-            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.8.1',
-            twContext                       : 'com.transferwise.common:tw-context:0.11.1',
-            twContextStarter                : 'com.transferwise.common:tw-context-starter:0.11.1',
-            twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.8.0',
-            twGracefulShutdownInterfaces    : 'com.transferwise.common:tw-graceful-shutdown-interfaces:2.8.0',
-            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.9.0',
-            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.9.0',
+            twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.10.1',
+            twContext                       : 'com.transferwise.common:tw-context:0.12.0',
+            twContextStarter                : 'com.transferwise.common:tw-context-starter:0.12.0',
+            twGracefulShutdown              : 'com.transferwise.common:tw-graceful-shutdown:2.11.0',
+            twGracefulShutdownInterfaces    : 'com.transferwise.common:tw-graceful-shutdown-interfaces:2.11.0',
+            twLeaderSelector                : 'com.transferwise.common:tw-leader-selector:1.10.0',
+            twLeaderSelectorStarter         : 'com.transferwise.common:tw-leader-selector-starter:1.10.0',
             zstdJni                         : 'com.github.luben:zstd-jni:1.5.0-4',
 
             // versions managed by spring-boot-dependencies platform
@@ -29,7 +31,6 @@ ext {
             flywayCore                      : 'org.flywaydb:flyway-core',
             flywayMysql                     : 'org.flywaydb:flyway-mysql',
             jacksonDatabind                 : 'com.fasterxml.jackson.core:jackson-databind',
-            jakartaValidationApi            : 'jakarta.validation:jakarta.validation-api',
             kafkaClients                    : 'org.apache.kafka:kafka-clients',
             lombok                          : 'org.projectlombok:lombok',
             mariadbJavaClient               : 'org.mariadb.jdbc:mariadb-java-client',

@@ -4,14 +4,14 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
-public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
+public class TkmsZookeeperOperations implements ITkmsZookeeperOperations, InitializingBean {
 
   private final Map<TkmsShardPartition, String> lockNodePathMap = new HashMap<>();
 
@@ -21,8 +21,8 @@ public class TkmsZookeeperOperations implements ITkmsZookeeperOperations {
   @Value("${spring.application.name:}")
   private String applicationName;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     String groupId = properties.getGroupId();
     if (StringUtils.isEmpty(groupId)) {
       groupId = applicationName;

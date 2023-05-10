@@ -8,12 +8,9 @@ import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
-import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
-import com.transferwise.kafka.tkms.test.ITkmsRegisteredMessagesCollector;
-import com.transferwise.kafka.tkms.test.ITkmsSentMessagesCollector;
+import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestProperties;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -21,8 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@BaseTestEnvironment
-public class KafkaMetricsIntTest {
+class KafkaMetricsIntTest extends BaseIntTest {
 
   @Autowired
   private ObjectMapper objectMapper;
@@ -35,16 +31,7 @@ public class KafkaMetricsIntTest {
 
   @Autowired
   private TestProperties testProperties;
-
-  @Autowired
-  protected ITkmsRegisteredMessagesCollector tkmsRegisteredMessagesCollector;
-
-  @Autowired
-  protected ITkmsSentMessagesCollector tkmsSentMessagesCollector;
-
-  @Autowired
-  protected MeterRegistry meterRegistry;
-
+  
   @Autowired
   protected ITransactionsHelper transactionsHelper;
 
@@ -80,7 +67,7 @@ public class KafkaMetricsIntTest {
                   .setValue(ExceptionUtils.doUnchecked(() -> objectMapper.writeValueAsBytes(testEvent)))));
 
       await().until(() -> receivedCount.get() > 0);
-
+      await().until(() -> getTablesRowsCount() == 0);
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }

@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
@@ -14,6 +13,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -21,17 +21,18 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.kafka.listener.CommonLoggingErrorHandler;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class KafkaConfiguration {
+public class KafkaConfiguration implements InitializingBean {
 
   @Autowired
   private KafkaAdmin kafkaAdmin;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
     try {
       createTopic(adminClient, new NewTopic("MyTopic", 10, (short) 1));
@@ -64,12 +65,11 @@ public class KafkaConfiguration {
   }
 
   @Bean
-  public ConcurrentKafkaListenerContainerFactory<String, byte[]> kafkaListenerContainerFactory() {
+  public ConcurrentKafkaListenerContainerFactory<String, byte[]> kafkaListenerContainerFactory(ConsumerFactory<String, byte[]> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(consumerFactory());
+    factory.setConsumerFactory(consumerFactory);
     factory.setBatchListener(true);
-    // Deprecated, but needed to support Spring Boot 2.5 as well.
-    factory.setBatchErrorHandler((e, data) -> log.error(e.getMessage(), e));
+    factory.setCommonErrorHandler(new CommonLoggingErrorHandler());
     return factory;
   }
 

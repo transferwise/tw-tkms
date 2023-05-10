@@ -22,6 +22,7 @@ spring:
 
   flyway:
     locations: "classpath:db/migration/mysql"
+    clean-disabled: false
 
 tw-curator:
   zookeeper-connect-string: "${ZOOKEEPER_TCP_HOST:localhost}:${ZOOKEEPER_TCP_2181}"

@@ -32,4 +32,5 @@ Problem here is not a leadership change on the broker, which is usually fast, bu
 I’m not aware of any KIPs that addresses this, there’s strictly uniform partitioner proposal, but it solves a bit different problem.
 It’s possible to have our own partitioner and producer interceptor to avoid downed brokers (that’s what Twitter did when they adopted Kafka), maybe worth to experiment around it at some point. I think we will get more ideas about this at Kafka Summit this year :slightly_smiling_face:
 
-
+10. Consider changing default partitioner to `RoundRobinPartitioner`.
+    In that keys messages with <null> keys will be distributed more around and consumers can have smaller latencies.

@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
@@ -42,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @RequiredArgsConstructor
-public abstract class TkmsDao implements ITkmsDao {
+public abstract class TkmsDao implements ITkmsDao, InitializingBean {
 
   private Map<TkmsShardPartition, String> insertMessageSqls = new ConcurrentHashMap<>();
   private Map<TkmsShardPartition, String> getMessagesSqls = new ConcurrentHashMap<>();
@@ -62,8 +62,8 @@ public abstract class TkmsDao implements ITkmsDao {
   protected JdbcTemplate jdbcTemplate;
   protected String currentSchema;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     jdbcTemplate = new JdbcTemplate(dataSource);
     currentSchema = getCurrentSchema();
   }

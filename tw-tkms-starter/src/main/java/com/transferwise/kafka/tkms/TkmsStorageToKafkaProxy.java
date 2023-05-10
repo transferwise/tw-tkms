@@ -33,7 +33,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.PostConstruct;
 import lombok.Data;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -46,12 +45,12 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
-import org.slf4j.MDC;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
 @Slf4j
-public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsStorageToKafkaProxy {
+public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsStorageToKafkaProxy, InitializingBean {
 
   @Autowired
   private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
@@ -87,8 +86,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private RateLimiter exceptionRateLimiter = RateLimiter.create(2);
 
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         TkmsShardPartition shardPartition = TkmsShardPartition.of(s, p);
@@ -122,9 +121,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               () -> {
                 try {
                   shardPartition.putIntoMdc();
-                  
+
                   log.info("Stopping proxying for {}.", shardPartition);
-                  
+
                   // TODO: Application with larger amount of shards could benefit of closing unused kafka producers here?
 
                   Future<Boolean> future = futureReference.get();

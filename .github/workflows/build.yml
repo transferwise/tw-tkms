@@ -18,9 +18,9 @@ jobs:
       max-parallel: 100
       matrix:
         spring_boot_version:
-          - 2.7.8
+          - 3.0.6
+          - 2.7.11
           - 2.6.14
-          - 2.5.14
     env:
       SPRING_BOOT_VERSION: ${{ matrix.spring_boot_version }}
       GRADLE_OPTS: "-Djava.security.egd=file:/dev/./urandom -Dorg.gradle.parallel=true"
@@ -77,7 +77,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: "8.0"
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false
@@ -156,7 +155,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: "8.0"
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false

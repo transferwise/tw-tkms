@@ -7,6 +7,7 @@ import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
+import com.transferwise.kafka.tkms.LegacyEnvironmentValidator;
 import com.transferwise.kafka.tkms.ProblemNotifier;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
@@ -28,6 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -94,7 +97,7 @@ public class TkmsConfiguration {
 
   /**
    * This would work for simple services, mostly when having one database.
-   * 
+   *
    * <p>For more advanced cases it is recommended to define your own `ITkmsDataSourceProvider` implementation.
    */
   @Bean
@@ -145,8 +148,18 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(IEnvironmentValidator.class)
-  public EnvironmentValidator tkmsMigrationHandler() {
+  @ConditionalOnClass(name = "jakarta.validation.Validator")
+  @ConditionalOnBean(type = "jakarta.validation.Validator")
+  public EnvironmentValidator tkmsEnvironmentValidator() {
     return new EnvironmentValidator();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(IEnvironmentValidator.class)
+  @ConditionalOnClass(name = "javax.validation.Validator")
+  @ConditionalOnBean(type = "javax.validation.Validator")
+  public LegacyEnvironmentValidator tkmsLegacyEnvironmentValidator() {
+    return new LegacyEnvironmentValidator();
   }
 
   @Bean

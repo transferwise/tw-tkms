@@ -1,9 +1,7 @@
 package com.transferwise.kafka.tkms;
 
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
-import com.transferwise.kafka.tkms.config.TkmsProperties.EarliestVisibleMessages;
 import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -36,7 +34,7 @@ public class EarliestMessageTracker {
     }
 
     earliestMessageIdGauge = metricsTemplate.registerEarliestMessageId(shardPartition, () -> earliestMessageId);
-    
+
     earliestMessageSlidingWindow = new EarliestMessageSlidingWindow(earliestVisibleMessages.getLookBackPeriod());
     var earliestMessageIdFromDb = tkmsDao.getEarliestMessageId(shardPartition);
     earliestMessageId = earliestMessageIdFromDb == null ? -1 : earliestMessageIdFromDb;

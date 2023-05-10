@@ -1,8 +1,8 @@
 package com.transferwise.kafka.tkms.test;
 
 import com.transferwise.common.baseutils.transactionsmanagement.TransactionsConfiguration;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
@@ -11,10 +11,10 @@ import org.springframework.context.annotation.Import;
 @SpringBootApplication
 @Import(TransactionsConfiguration.class)
 @Slf4j
-public class TestApplication {
+public class TestApplication implements InitializingBean {
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     log.info("Starting Test Application.");
   }
 

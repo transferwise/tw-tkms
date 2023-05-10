@@ -10,13 +10,13 @@ import com.transferwise.kafka.tkms.dao.TkmsPostgresDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class TkmsDaoProvider implements ITkmsDaoProvider {
+public class TkmsDaoProvider implements ITkmsDaoProvider, InitializingBean {
 
   @Autowired
   private TkmsProperties properties;
@@ -33,8 +33,8 @@ public class TkmsDaoProvider implements ITkmsDaoProvider {
 
   private Map<Pair<DatabaseDialect, DataSource>, TkmsDao> tkmsDaos = new HashMap<>();
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     for (int s = 0; s < properties.getShardsCount(); s++) {
       var dataSource = dataSourceProvider.getDataSource(s);
       var dialect = properties.getDatabaseDialect(s);
@@ -44,7 +44,7 @@ public class TkmsDaoProvider implements ITkmsDaoProvider {
         tkmsDao.validateDatabase();
         return tkmsDao;
       });
-      
+
       shardTkmsDao.validateDatabase(s);
     }
   }
@@ -59,15 +59,15 @@ public class TkmsDaoProvider implements ITkmsDaoProvider {
 
   protected TkmsDao createTkmsDao(DatabaseDialect dialect, DataSource dataSource) {
     var dao = createTkmsDao0(dialect, dataSource);
-    dao.init();
+    dao.afterPropertiesSet();
     return dao;
   }
-  
+
   protected TkmsDao createTkmsDao0(DatabaseDialect dialect, DataSource dataSource) {
     if (dialect == DatabaseDialect.POSTGRES) {
       return new TkmsPostgresDao(dataSource, properties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
     }
-    
+
     return new TkmsMariaDao(dataSource, properties, metricsTemplate, messageSerializer, transactionsHelper, problemNotifier);
   }
 }

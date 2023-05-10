@@ -23,13 +23,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.mutable.MutableObject;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
-public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
+public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy, InitializingBean {
 
   @Autowired
   private ITkmsDaoProvider tkmsDaoProvider;
@@ -51,8 +51,8 @@ public class TkmsClusterWideStateMonitor implements GracefulShutdownStrategy {
   private List<Object> registeredMetricHandles;
   private boolean initialized;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     String nodePath = "/tw/tw_tkms/" + properties.getGroupId() + "/tasks_state_monitor";
 
     ExecutorService executorService = new ThreadNamingExecutorServiceWrapper("tw-tasks-tsm", executorServicesProvider.getGlobalExecutorService());
