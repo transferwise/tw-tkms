@@ -14,14 +14,14 @@ apply from: "../build.library.gradle"
 dependencies {
     annotationProcessor libraries.spotbugsAnnotations
 
-    implementation libraries.javaxValidationApi
-    implementation libraries.jakartaValidationApi
     compileOnly libraries.springBootConfigurationProcessor
 
     implementation project(":tw-tkms-starter")
 
     implementation libraries.commonsLang3
     implementation libraries.jacksonDatabind
+    implementation libraries.jakartaValidationApi
+    implementation libraries.javaxValidationApi
     implementation libraries.kafkaClients
     implementation libraries.springBootStarter
     implementation libraries.springJdbc

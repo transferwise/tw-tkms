@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* Java validation for Tkms properties.
+* Java beans validation for properties is now done programmatically to speed up services startup time.
 
 * Support for Spring Boot 3.
 
@@ -27,20 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When Postgres `pg_hint_plan` extension validation fails, we will log out given explain plan and expected plan fragment.
   This would reduce some DBA contacts.
-
-## [0.23.0] - 2023-05-06
-
-### Added
-
-* Support for Spring Boot 3.0
-
-### Changed
-
-* Java beans validation for properties is now done programmatically to speed up services startup time.
-
-### Removed
-
-* Support for Spring Boot 2.5
 
 ## [0.22.0] - 2023-03-29
 
