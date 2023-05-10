@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-* Support for Spring Boot 3.
+* Support for Spring Boot 2.5.
 
 ## [0.22.1] - 2023-04-17
 
