@@ -18,7 +18,13 @@ configurations {
         canBeResolved(false)
         canBeConsumed(false)
     }
-    implementation {
+    compileProtoPath {
+        extendsFrom(local)
+    }
+    testCompileProtoPath {
+        extendsFrom(local)
+    }
+    productionRuntimeClasspath{
         extendsFrom(local)
     }
     compileClasspath {
@@ -39,18 +45,39 @@ configurations {
     testAnnotationProcessor {
         extendsFrom(local)
     }
+
+    all {
+        resolutionStrategy {
+            eachDependency { DependencyResolveDetails details ->
+                if (details.requested.group == "javax.validation" && details.requested.name == 'validation-api') {
+                    details.useVersion('2.0.1.Final')
+                } else if (details.requested.group == "jakarta.validation" && details.requested.name == 'jakarta.validation-api') {
+                    details.useVersion('3.0.2')
+                }
+            }
+        }
+    }
 }
 
 dependencies {
     local platform(libraries.springBootDependencies)
-    local libraries.lombok
+
+    compileOnly libraries.lombok
+    annotationProcessor libraries.lombok
+    testCompileOnly libraries.lombok
+    testAnnotationProcessor libraries.lombok
 
     compileOnly libraries.spotbugsAnnotations
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    if (springBootVersion.startsWith("3.")) {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    } else {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
     withSourcesJar()
     withJavadocJar()
 }
@@ -60,11 +87,6 @@ compileJava {
     options.compilerArgs << '-parameters'
     options.compilerArgs << '-Xlint'
     options.compilerArgs << '-Xlint:-processing'
-    
-//  Enable in a separate PR    
-//    javaCompiler = javaToolchains.compilerFor {
-//        languageVersion = JavaLanguageVersion.of(11)
-//    }
 }
 
 compileTestJava {
@@ -105,7 +127,7 @@ test {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(17)
     }
-    
+
     useJUnitPlatform()
     jvmArgs("-Xmx1g")
     testLogging {

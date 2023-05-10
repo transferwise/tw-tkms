@@ -16,12 +16,13 @@ dependencies {
     annotationProcessor libraries.springBootConfigurationProcessor
 
     compileOnly libraries.springBootConfigurationProcessor
-
+    compileOnly libraries.javaxValidationApi
+    compileOnly libraries.jakartaValidationApi
+    
     implementation libraries.commonsLang3
     implementation libraries.curatorRecipes
     implementation libraries.guava
     implementation libraries.jacksonDatabind
-    implementation libraries.jakartaValidationApi
     implementation libraries.kafkaClients
     implementation libraries.micrometerCore
     implementation libraries.protobufJava
@@ -36,18 +37,19 @@ dependencies {
     implementation libraries.lz4Java
     implementation libraries.snappyJava
     implementation libraries.zstdJni
-
+    
     runtimeOnly libraries.twContextStarter
     runtimeOnly libraries.twGracefulShutdown
     runtimeOnly libraries.twLeaderSelectorStarter
     runtimeOnly libraries.micrometerRegistryPrometheus
+    runtimeOnly libraries.springBootStarterValidation
 
     testCompileOnly libraries.spotbugsAnnotations
 
     testImplementation project(":tw-tkms-test-starter")
 
     testImplementation libraries.awaitility
-    if (springBootVersion.contains("2.7")) {
+    if (!springBootVersion.startsWith("2.6")) {
         testImplementation libraries.flywayMysql
     }
     testImplementation libraries.flywayCore
@@ -75,8 +77,8 @@ if (System.getenv("IN_CI") != "true") {
 dockerCompose {
     useComposeFiles = ["src/test/resources/docker-compose.yml"]
     projectName = "tw-tkms-starter"
-    // Create some flakiness on slower comps
-    // waitForTcpPorts = false
+    // May create some flakiness on slower comps
+    waitForTcpPorts = false
 
     // Set to true if you have anomalies
     stopContainers = false

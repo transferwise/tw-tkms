@@ -26,14 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
-public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessageSender {
+public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessageSender, InitializingBean {
 
   private static final int FIELD_SIZE_BYTES = 6;
 
@@ -57,8 +57,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     Assertions.setLevel(properties.getInternals().getAssertionLevel());
 
     environmentValidator.validate();

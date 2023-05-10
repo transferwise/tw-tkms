@@ -2,13 +2,13 @@ package com.transferwise.kafka.tkms.demoapp;
 
 import com.transferwise.common.gracefulshutdown.GracefulShutdownStrategy;
 import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class PaceTracker implements GracefulShutdownStrategy {
+public class PaceTracker implements GracefulShutdownStrategy, InitializingBean {
 
   private final AtomicLong messagesInserted = new AtomicLong();
   private final AtomicLong messagesDelivered = new AtomicLong();
@@ -17,8 +17,8 @@ public class PaceTracker implements GracefulShutdownStrategy {
   private volatile boolean shuttingDown;
   private long lastSum = 0;
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     new Thread(() -> {
       while (!shuttingDown) {
         try {

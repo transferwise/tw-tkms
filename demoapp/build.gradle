@@ -12,12 +12,12 @@ apply from: "$rootProject.rootDir/build.common.gradle"
 dependencies {
     implementation project(':tw-tkms-starter')
 
+    
     implementation libraries.curatorFramework
-    if (springBootVersion.contains("2.7")) {
-        implementation libraries.flywayMysql
-    }
     implementation libraries.flywayCore
     implementation libraries.jakartaValidationApi
+    implementation libraries.jakartaValidationApi
+    implementation libraries.javaxValidationApi
     implementation libraries.guava
     implementation libraries.kafkaStreams
     implementation libraries.protobufJava

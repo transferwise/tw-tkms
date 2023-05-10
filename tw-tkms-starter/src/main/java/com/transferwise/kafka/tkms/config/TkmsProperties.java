@@ -1,5 +1,7 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.common.baseutils.validation.LegacyResolvedValue;
+import com.transferwise.common.baseutils.validation.ResolvedValue;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.time.Duration;
@@ -7,20 +9,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import lombok.Data;
 import lombok.experimental.Accessors;
+import org.springframework.beans.factory.InitializingBean;
 
 @Data
 @Accessors(chain = true)
-public class TkmsProperties {
+public class TkmsProperties implements InitializingBean {
 
-  @PostConstruct
-  public void init() {
+  @Override
+  public void afterPropertiesSet() {
     TkmsShardPartition.init(this);
   }
 
@@ -28,8 +31,8 @@ public class TkmsProperties {
    * Allows to set notification level or even block the startup/execution, for different problems the library is detecting.
    *
    * <p>The set of keys is described with {@link NotificationType} enum below.
-   * 
-   * <p>The level has to be one from {@link NotificationLevel} enum below. 
+   *
+   * <p>The level has to be one from {@link NotificationLevel} enum below.
    */
   private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
@@ -54,6 +57,7 @@ public class TkmsProperties {
    * Kafka partition #5.
    */
   @Positive
+  @jakarta.validation.constraints.Positive
   private int partitionsCount = 1;
   /**
    * How many shards there will be.
@@ -62,6 +66,7 @@ public class TkmsProperties {
    * to have one more shard and table already available, so during a latency-specific incident they have something to quickly fall-over to.
    */
   @Positive
+  @jakarta.validation.constraints.Positive
   private int shardsCount = 2;
 
   /**
@@ -77,7 +82,9 @@ public class TkmsProperties {
    * <p>Make sure you have all those tables available and correctly configured - index statistics, auto vacuum and analyze settings.
    */
   @NotBlank
+  @jakarta.validation.constraints.NotBlank
   @ResolvedValue
+  @LegacyResolvedValue
   private String tableBaseName = "outgoing_message";
 
   /**
@@ -86,6 +93,7 @@ public class TkmsProperties {
    * <p>Used to determine service-cluster wide lock names for Kafka proxies.
    */
   @ResolvedValue
+  @LegacyResolvedValue
   private String groupId;
   /**
    * How many messages is Kafka proxy polling from a database at once.
@@ -95,6 +103,7 @@ public class TkmsProperties {
    * <p>Check `com.transferwise.kafka.tkms.dao.TkmsDao#batchSizes` for most optimal values.
    */
   @Positive
+  @jakarta.validation.constraints.Positive
   private int pollerBatchSize = 1024;
 
   /**
@@ -103,7 +112,8 @@ public class TkmsProperties {
    * <p>You may want/need to reduce the maximum batch sizes, in the case your database tries to execute queries in a very inefficent way. E.g. doing
    * sequential scans on table containing 1 million messages.
    */
-  @Positive
+  @NotEmpty
+  @jakarta.validation.constraints.NotEmpty
   private List<Integer> deleteBatchSizes = List.of(1024, 256, 64, 16, 4, 1);
   /**
    * On batch messages registration, how large database batch size we are using for inserting those messages into the database.
@@ -111,6 +121,7 @@ public class TkmsProperties {
    * <p>Should not be any need to change it.
    */
   @Positive
+  @jakarta.validation.constraints.Positive
   private int insertBatchSize = 1024;
   /**
    * How much do we wait, when the last poll did not find any messages in the database.
@@ -121,6 +132,7 @@ public class TkmsProperties {
    * 25ms means up to 40 queries per second per shard-partition. At the same time those empty queries will be very cheap.
    */
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private Duration pollingInterval = Duration.ofMillis(25);
   /**
    * How much do we wait on error.
@@ -128,11 +140,13 @@ public class TkmsProperties {
    * <p>For example, when Kafka cluster dies, we don't want to start spamming errors more than 1 time per 2 seconds.
    */
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private Duration pauseTimeOnErrors = Duration.ofSeconds(2);
   /**
    * Which database engine do we use.
    */
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private DatabaseDialect databaseDialect = DatabaseDialect.MARIADB;
   /**
    * How long can one Kafka proxy do it's work, before giving away the leader lock.
@@ -140,6 +154,7 @@ public class TkmsProperties {
    * <p>The idea here is to create a random distribution around service nodes for shard-partition Kafka proxies.
    */
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private Duration proxyTimeToLive = Duration.ofMinutes(10);
 
   /**
@@ -148,6 +163,7 @@ public class TkmsProperties {
    * <p>Be extra careful here by validating what is the corresponding value on the Kafka server side.
    */
   @Positive
+  @jakarta.validation.constraints.Positive
   private int maximumMessageBytes = 10485760;
 
   /**
@@ -164,9 +180,12 @@ public class TkmsProperties {
    *
    * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
    */
+  @ResolvedValue
+  @LegacyResolvedValue
   private List<String> topics = new ArrayList<>();
 
   @Valid
+  @jakarta.validation.Valid
   private EarliestVisibleMessages earliestVisibleMessages = new EarliestVisibleMessages();
 
   /**
@@ -174,6 +193,8 @@ public class TkmsProperties {
    *
    * <p>The default properties are currently set in {@link TkmsKafkaProducerProvider#getKafkaProducer(int)}.
    */
+  @ResolvedValue
+  @LegacyResolvedValue
   private Map<String, String> kafka = new HashMap<>();
 
   /**
@@ -182,12 +203,15 @@ public class TkmsProperties {
   private Map<Integer, ShardProperties> shards = new HashMap<>();
 
   @Valid
+  @jakarta.validation.Valid
   private Compression compression = new Compression();
 
   @Valid
+  @jakarta.validation.Valid
   private Environment environment = new Environment();
 
   @Valid
+  @jakarta.validation.Valid
   private Monitoring monitoring = new Monitoring();
 
   /**
@@ -196,11 +220,15 @@ public class TkmsProperties {
   private boolean tableStatsValidationEnabled = true;
 
   @Valid
+  @jakarta.validation.Valid
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private Internals internals = new Internals();
 
   @Valid
+  @jakarta.validation.Valid
   @NotNull
+  @jakarta.validation.constraints.NotNull
   private Mdc mdc = new Mdc();
 
   @Data
@@ -208,18 +236,23 @@ public class TkmsProperties {
   public static class Mdc {
 
     @NotBlank
+    @jakarta.validation.constraints.NotBlank
     @ResolvedValue
+    @LegacyResolvedValue
     private String shardKey = "tkmsShard";
     @NotBlank
+    @jakarta.validation.constraints.NotBlank
     @ResolvedValue
+    @LegacyResolvedValue
     private String partitionKey = "tkmsPartition";
   }
-  
+
   @Data
   @Accessors(chain = true)
   public static class ShardProperties {
 
     @ResolvedValue
+    @LegacyResolvedValue
     private String tableBaseName;
     private DatabaseDialect databaseDialect;
     private Integer partitionsCount;
@@ -229,12 +262,16 @@ public class TkmsProperties {
     private Integer insertBatchSize;
     private boolean compressionOverridden;
     @Valid
+    @jakarta.validation.Valid
     private Compression compression = new Compression();
     @Valid
+    @jakarta.validation.Valid
     private EarliestVisibleMessages earliestVisibleMessages;
     private List<Integer> deleteBatchSizes;
     private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
+    @ResolvedValue
+    @LegacyResolvedValue
     private Map<String, String> kafka = new HashMap<>();
   }
 
@@ -339,6 +376,7 @@ public class TkmsProperties {
     private CompressionAlgorithm algorithm = CompressionAlgorithm.GZIP;
 
     @Positive
+    @jakarta.validation.constraints.Positive
     private Integer blockSize;
 
     /**
@@ -354,7 +392,9 @@ public class TkmsProperties {
   @Data
   @Accessors(chain = true)
   public static class Environment {
+
     @ResolvedValue
+    @LegacyResolvedValue
     private String previousVersion;
   }
 
@@ -365,6 +405,7 @@ public class TkmsProperties {
     private boolean enabled = false;
 
     @ResolvedValue
+    @LegacyResolvedValue
     private String tableName = "tw_tkms_earliest_visible_messages";
 
     private Duration lookBackPeriod = Duration.ofMinutes(5);

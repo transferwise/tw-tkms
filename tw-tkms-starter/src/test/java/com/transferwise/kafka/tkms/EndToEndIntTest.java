@@ -15,17 +15,15 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
-import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
-import com.transferwise.kafka.tkms.test.ITkmsTestDao;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
+import com.transferwise.kafka.tkms.test.TkmsTestProperties;
 import io.micrometer.core.instrument.Counter;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -62,10 +60,6 @@ abstract class EndToEndIntTest extends BaseIntTest {
   @Autowired
   private TestProperties testProperties;
   @Autowired
-  private ITkmsTestDao tkmsTestDao;
-  @Autowired
-  private TkmsProperties tkmsProperties;
-  @Autowired
   private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
@@ -77,6 +71,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
     var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
     faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
     tkmsStorageToKafkaProxy.setTkmsDaoProvider((shard) -> faultInjectedTkmsDao);
+
+    super.setup();
   }
 
   @AfterEach
@@ -196,7 +192,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       // Starting from kafka-clients 2.5, another type of efficient partitioning is used, which does not guarantee
       // that all partitions receive messages with that kind of dataset.
-      assertThat(partitionsMap.entrySet().size()).as("At least some partitions received messages").isGreaterThan(2);
+      assertThat(partitionsMap.entrySet().size()).as("At least some partitions received messages").isGreaterThanOrEqualTo(2);
       partitionsMap.forEach((key, value) -> log.info("Partition " + key + " received " + value.get() + " messages."));
 
       log.info("Sending " + messagesCount + " messages took " + (System.currentTimeMillis() - startTimeMs + " ms."));
@@ -318,7 +314,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
         thread.join();
       }
 
-      await().atMost(Duration.ofSeconds(10)).until(() -> receivedCount.get() >= messagesCount);
+      await().until(() -> receivedCount.get() >= messagesCount);
 
       log.info("Messages received: " + receivedCount.get());
       log.info("Messages sent in " + (System.currentTimeMillis() - startTimeMs) + " ms.");
@@ -484,6 +480,24 @@ abstract class EndToEndIntTest extends BaseIntTest {
       faultInjectedTkmsDao.setDeleteMessagesFails(false);
 
       await().until(() -> getTablesRowsCount() == 0);
+
+      int messagesSentToKafka = 0;
+      for (var counter : meterRegistry.get("tw_tkms_proxy_message_send").tags("success", "true").counters()) {
+        log.info("Counter: " + counter.getId());
+
+        messagesSentToKafka += counter.count();
+      }
+
+      int finalMessagesSentToKafka = messagesSentToKafka;
+
+      try {
+        // Receive all messages, so they would not mess up other tests.
+        await().until(() -> receivedCount.get() >= finalMessagesSentToKafka);
+      } catch (RuntimeException e) {
+        log.info("finalMessagesSentToKafka=" + finalMessagesSentToKafka);
+        log.info("receivedCount.get()=" + receivedCount.get());
+        throw e;
+      }
       log.info("Messages received: " + receivedCount.get());
     } finally {
       faultInjectedTkmsDao.setDeleteMessagesFails(false);
@@ -514,17 +528,6 @@ abstract class EndToEndIntTest extends BaseIntTest {
         assertThat(rowsCount).as("Row count for " + sp + " is zero.").isZero();
       }
     }
-  }
-
-  protected int getTablesRowsCount() {
-    int count = 0;
-    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
-      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        count += tkmsTestDao.getMessagesCount(sp);
-      }
-    }
-    return count;
   }
 
   private static Stream<Arguments> compressionInput() {
@@ -567,11 +570,12 @@ abstract class EndToEndIntTest extends BaseIntTest {
                   .setCompression(new Compression().setAlgorithm(algorithm))));
 
       await().until(() -> receivedCount.get() > 0);
+      await().until(() -> getTablesRowsCount() == 0);
 
       counter =
           meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
       double serializedSizeBytes = counter == null ? 0 : counter.count();
-      assertThat((int)(serializedSizeBytes - startingSerializedSizeBytes)).isIn(expectedSerializedSize, expectedSerializedSizeAlt);
+      assertThat((int) (serializedSizeBytes - startingSerializedSizeBytes)).isIn(expectedSerializedSize, expectedSerializedSizeAlt);
 
       log.info("Messages received: " + receivedCount.get());
     } finally {

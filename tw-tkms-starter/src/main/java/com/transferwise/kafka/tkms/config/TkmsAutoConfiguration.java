@@ -11,12 +11,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@AutoConfigureAfter({FlywayAutoConfiguration.class})
+@AutoConfigureAfter({FlywayAutoConfiguration.class, ValidationAutoConfiguration.class})
 @Import(TkmsConfiguration.class)
 @Slf4j
 public class TkmsAutoConfiguration {
