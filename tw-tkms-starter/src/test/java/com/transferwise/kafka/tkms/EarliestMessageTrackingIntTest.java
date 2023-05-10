@@ -11,7 +11,6 @@ import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
-import io.micrometer.core.instrument.Gauge;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
@@ -62,7 +61,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
     clock.tick(Duration.ofSeconds(6));
     sendMessageAndWaitForArrival(4);
-    assertThat(earliestMessageIdGauge.value()).isGreaterThan(previousValue);
+    await().until(() -> earliestMessageIdGauge.value() > previousValue);
 
     var committedValue =
         jdbcTemplate.queryForObject("select message_id from earliestmessage.tw_tkms_earliest_visible_messages where shard=? and part=?", Long.class,
