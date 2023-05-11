@@ -2,11 +2,13 @@ package com.transferwise.kafka.tkms;
 
 import java.time.Duration;
 import javax.annotation.concurrent.NotThreadSafe;
+import lombok.extern.slf4j.Slf4j;
 
 @NotThreadSafe
+@Slf4j
 public class EarliestMessageSlidingWindow {
 
-  private static final int BUCKETS_COUNT = 100;
+  public static final int BUCKETS_COUNT = 100;
 
   private long[] buckets;
   private long stepMs;
@@ -19,11 +21,14 @@ public class EarliestMessageSlidingWindow {
     buckets = new long[BUCKETS_COUNT];
     periodMs = lookBackPeriod.toMillis();
     stepMs = periodMs / BUCKETS_COUNT;
-
+    
     resetBuckets(TkmsClockHolder.getClock().millis());
   }
 
   public void register(long id) {
+    if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+      log.info("Registering id " + id);
+    }
     scroll();
 
     if (initializationMs == -1) {
@@ -31,7 +36,7 @@ public class EarliestMessageSlidingWindow {
     }
 
     if (id < buckets[idx]) {
-      buckets[idx] = id;
+      setBucket(idx, id);
     }
   }
 
@@ -43,6 +48,9 @@ public class EarliestMessageSlidingWindow {
 
     // Too much time has passed, it is most optimal to reset everything.
     if (timeMs > idxMs + BUCKETS_COUNT * stepMs) {
+      if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+        log.info("Resetting buckets. timeMs = " + timeMs + ", idxMs=" + idxMs + ", BUCKETS_COUNT * stepMs=" + BUCKETS_COUNT * stepMs + ".");
+      }
       resetBuckets(timeMs);
       return;
     }
@@ -55,7 +63,7 @@ public class EarliestMessageSlidingWindow {
         idx = 0;
       }
 
-      buckets[idx] = Long.MAX_VALUE;
+      setBucket(idx, Long.MAX_VALUE);
     }
   }
 
@@ -63,8 +71,16 @@ public class EarliestMessageSlidingWindow {
     idxMs = timeMs;
     idx = 0;
     for (int i = 0; i < BUCKETS_COUNT; i++) {
-      buckets[i] = Long.MAX_VALUE;
+      setBucket(i, Long.MAX_VALUE);
     }
+  }
+
+  private void setBucket(int idx, long id) {
+    if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+      log.info("Setting bucket[" + idx + "] = " + id);
+    }
+
+    buckets[idx] = id;
   }
 
   public long getEarliestMessageId() {

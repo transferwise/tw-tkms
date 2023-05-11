@@ -7,7 +7,7 @@ import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
-import com.transferwise.kafka.tkms.LegacyEnvironmentValidator;
+import com.transferwise.kafka.tkms.JavaxValidationEnvironmentValidator;
 import com.transferwise.kafka.tkms.ProblemNotifier;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
@@ -148,7 +148,6 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(IEnvironmentValidator.class)
-  @ConditionalOnClass(name = "jakarta.validation.Validator")
   @ConditionalOnBean(type = "jakarta.validation.Validator")
   public EnvironmentValidator tkmsEnvironmentValidator() {
     return new EnvironmentValidator();
@@ -156,10 +155,9 @@ public class TkmsConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(IEnvironmentValidator.class)
-  @ConditionalOnClass(name = "javax.validation.Validator")
   @ConditionalOnBean(type = "javax.validation.Validator")
-  public LegacyEnvironmentValidator tkmsLegacyEnvironmentValidator() {
-    return new LegacyEnvironmentValidator();
+  public JavaxValidationEnvironmentValidator tkmsJavaxValidationEnvironmentValidator() {
+    return new JavaxValidationEnvironmentValidator();
   }
 
   @Bean

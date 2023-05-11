@@ -6,9 +6,11 @@ import com.transferwise.kafka.tkms.dao.ITkmsDao;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import javax.annotation.concurrent.NotThreadSafe;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @NotThreadSafe
 @RequiredArgsConstructor
+@Slf4j
 public class EarliestMessageTracker {
 
   private final ITkmsDao tkmsDao;
@@ -64,6 +66,9 @@ public class EarliestMessageTracker {
     long earliestMessageIdInWindow = earliestMessageSlidingWindow.getEarliestMessageId();
     if (earliestMessageIdInWindow != -1) {
       if (this.earliestMessageId != earliestMessageIdInWindow) {
+        if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+          log.info("Setting earliestMessageId=" + earliestMessageIdInWindow);
+        }
         this.earliestMessageId = earliestMessageIdInWindow;
         commitIfFeasible();
       }

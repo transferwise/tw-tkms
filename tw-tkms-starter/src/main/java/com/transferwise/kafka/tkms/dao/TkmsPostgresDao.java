@@ -54,7 +54,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getDeleteSql(TkmsShardPartition shardPartition, int batchSize) {
-    var sb = new StringBuilder("delete /*+ IndexScan(om) */ from " + getTableName(shardPartition) + " om where id in (");
+    var sb = new StringBuilder("delete /*+ IndexScan(om) NoBitmapScan(om) */ from " + getTableName(shardPartition) + " om where id in (");
     for (int j = 0; j < batchSize; j++) {
       if (j > 0) {
         sb.append(",");
