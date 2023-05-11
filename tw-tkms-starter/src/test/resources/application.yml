@@ -10,7 +10,6 @@ spring:
       maximum-pool-size: 50
       minimum-idle: 0
       transaction-isolation: 2
-      connection-init-sql: "SET pg_hint_plan.debug_print TO on"
 
   kafka:
     bootstrap-servers: "${KAFKA_TCP_HOST:localhost}:${KAFKA_TCP_9092}"
