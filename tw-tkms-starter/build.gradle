@@ -67,7 +67,7 @@ dependencies {
          Since hibernate-validator is depending on jakarta.validation:jakarta-validation-api and we are forcing the version to newer one to be able to compile for both javax and jakarta then we need to explicitly
          add the javax variation back when running in javax environment (that is spring boot 2) for the Spring Boot autoconfiguration to work.
         */
-        testRuntimeOnly "javax.validation:validation-api"
+        testRuntimeOnly libraries.javaxValidationApi
     }
 }
 
