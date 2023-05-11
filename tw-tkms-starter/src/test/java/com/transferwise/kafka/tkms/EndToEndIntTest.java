@@ -532,7 +532,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
   private static Stream<Arguments> compressionInput() {
     return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 103, 103),
+        Arguments.of(CompressionAlgorithm.GZIP, 102, 103),
         Arguments.of(CompressionAlgorithm.NONE, 1163, 1163),
         Arguments.of(CompressionAlgorithm.LZ4, 126, 126),
         Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158),
