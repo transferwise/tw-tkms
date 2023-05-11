@@ -48,9 +48,6 @@ public class EarliestMessageSlidingWindow {
 
     // Too much time has passed, it is most optimal to reset everything.
     if (timeMs > idxMs + BUCKETS_COUNT * stepMs) {
-      if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
-        log.info("Resetting buckets. timeMs = " + timeMs + ", idxMs=" + idxMs + ", BUCKETS_COUNT * stepMs=" + BUCKETS_COUNT * stepMs + ".");
-      }
       resetBuckets(timeMs);
       return;
     }
@@ -58,7 +55,7 @@ public class EarliestMessageSlidingWindow {
     if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
       log.info("Scrolling. timeMs=" + timeMs + ", idxMs=" + idxMs + ", stepMs=" + stepMs);
     }
-
+        
     while (timeMs > idxMs + stepMs) {
       idx += 1;
       idxMs += stepMs;
@@ -73,6 +70,9 @@ public class EarliestMessageSlidingWindow {
 
   private void resetBuckets(long timeMs) {
     idxMs = timeMs;
+    if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+      log.info("Resetting buckets. timeMs = " + timeMs + ", idxMs=" + idxMs + ", BUCKETS_COUNT * stepMs=" + BUCKETS_COUNT * stepMs + ".");
+    }
     idx = 0;
     for (int i = 0; i < BUCKETS_COUNT; i++) {
       setBucket(i, Long.MAX_VALUE);

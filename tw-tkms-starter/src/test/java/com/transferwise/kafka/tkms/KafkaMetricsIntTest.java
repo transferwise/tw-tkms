@@ -14,7 +14,6 @@ import com.transferwise.kafka.tkms.test.TestProperties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -31,17 +30,9 @@ class KafkaMetricsIntTest extends BaseIntTest {
 
   @Autowired
   private TestProperties testProperties;
-  
+
   @Autowired
   protected ITransactionsHelper transactionsHelper;
-
-  @AfterEach
-  public void cleanup() {
-    tkmsRegisteredMessagesCollector.clear();
-    tkmsSentMessagesCollector.clear();
-
-    TkmsClockHolder.reset();
-  }
 
   @Test
   void testThatProducerMetricShowsSentMessage() {
