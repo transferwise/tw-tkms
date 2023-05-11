@@ -69,11 +69,13 @@ public class EarliestMessageSlidingWindow {
   }
 
   private void resetBuckets(long timeMs) {
-    idxMs = timeMs;
     if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
       log.info("Resetting buckets. timeMs = " + timeMs + ", idxMs=" + idxMs + ", BUCKETS_COUNT * stepMs=" + BUCKETS_COUNT * stepMs + ".");
     }
+
     idx = 0;
+    idxMs = timeMs;
+
     for (int i = 0; i < BUCKETS_COUNT; i++) {
       setBucket(i, Long.MAX_VALUE);
     }
