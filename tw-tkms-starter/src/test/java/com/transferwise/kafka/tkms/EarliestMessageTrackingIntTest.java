@@ -13,6 +13,7 @@ import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -54,7 +55,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Test
   void testIfEarliestMessageTrackerBehavesAsExpected() {
-    var clock = new TestClock();
+    var clock = new TestClock(Instant.now());
     TkmsClockHolder.setClock(clock);
 
     var earliestMessageIdGauge = await()

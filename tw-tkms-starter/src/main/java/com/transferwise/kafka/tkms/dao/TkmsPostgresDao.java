@@ -33,12 +33,12 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getSelectSql(TkmsShardPartition shardPartition) {
-    return "select /*+ IndexScan(om) */ id, message from " + getTableName(shardPartition) + " om where id >= ? order by id limit ?";
+    return "select /*+ IndexScan(om) NoBitmapScan(om) NoSeqScan(om)  */ id, message from " + getTableName(shardPartition) + " om where id >= ? order by id limit ?";
   }
 
   @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
-    return "select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
+    return "select /*+ IndexOnlyScan(om) NoBitmapScan(om) NoSeqScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
   }
 
   @Override
@@ -54,7 +54,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getDeleteSql(TkmsShardPartition shardPartition, int batchSize) {
-    var sb = new StringBuilder("delete /*+ IndexScan(om) NoBitmapScan(om) */ from " + getTableName(shardPartition) + " om where id in (");
+    var sb = new StringBuilder("delete /*+ IndexScan(om) NoSeqScan(om) NoBitmapScan(om) */ from " + getTableName(shardPartition) + " om where id in (");
     for (int j = 0; j < batchSize; j++) {
       if (j > 0) {
         sb.append(",");

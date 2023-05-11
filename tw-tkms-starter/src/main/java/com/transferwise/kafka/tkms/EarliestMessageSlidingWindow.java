@@ -54,6 +54,10 @@ public class EarliestMessageSlidingWindow {
       resetBuckets(timeMs);
       return;
     }
+    
+    if (Debug.isEarliestMessagesTrackerDebugEnabled()){
+      log.info("Scrolling. timeMs=" + timeMs + ", idxMs=" + idxMs + ", stepMs=" + stepMs);
+    }
 
     while (timeMs > idxMs + stepMs) {
       idx += 1;
