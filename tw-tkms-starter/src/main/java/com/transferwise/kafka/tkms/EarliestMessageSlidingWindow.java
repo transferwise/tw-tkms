@@ -21,7 +21,7 @@ public class EarliestMessageSlidingWindow {
     buckets = new long[BUCKETS_COUNT];
     periodMs = lookBackPeriod.toMillis();
     stepMs = periodMs / BUCKETS_COUNT;
-    
+
     resetBuckets(TkmsClockHolder.getClock().millis());
   }
 
@@ -54,8 +54,8 @@ public class EarliestMessageSlidingWindow {
       resetBuckets(timeMs);
       return;
     }
-    
-    if (Debug.isEarliestMessagesTrackerDebugEnabled()){
+
+    if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
       log.info("Scrolling. timeMs=" + timeMs + ", idxMs=" + idxMs + ", stepMs=" + stepMs);
     }
 
