@@ -15,7 +15,6 @@ dependencies {
     annotationProcessor libraries.spotbugsAnnotations
 
     compileOnly libraries.springBootConfigurationProcessor
-    compileOnly libraries.javaxValidationApi
     
     implementation project(":tw-tkms-starter")
 
