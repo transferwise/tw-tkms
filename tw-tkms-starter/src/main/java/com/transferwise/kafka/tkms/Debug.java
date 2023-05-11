@@ -11,7 +11,7 @@ import lombok.experimental.UtilityClass;
 public class Debug {
   
   /*
-    To allow to understand a flaky test failure in `EarliestMessageTrackingIntTest.testIfEarliestMessageTrackerBehavesAsExpected`
+    To allow to understand a flaky test failure in `EarliestMessageTrackingIntTest.testIfEarliestMessageTrackerBehavesAsExpected`.
    */
   @Getter
   @Setter

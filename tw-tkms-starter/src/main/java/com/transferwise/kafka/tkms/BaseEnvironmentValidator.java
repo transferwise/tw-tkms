@@ -32,7 +32,7 @@ public class BaseEnvironmentValidator implements IEnvironmentValidator {
       var loopBackPeriodMs = earliestVisibleMessages.getLookBackPeriod().toMillis();
       long stepMs = loopBackPeriodMs / BUCKETS_COUNT;
       if (stepMs * BUCKETS_COUNT != loopBackPeriodMs) {
-        throw new IllegalStateException("LoopBackPeriod in millis for shard " + s + " is not dividable by " + BUCKETS_COUNT);
+        throw new IllegalStateException("LoopBackPeriod in millis for shard " + s + " is not dividable by " + BUCKETS_COUNT + ".");
       }
     }
   }

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Support for Spring Boot 3.
 
+* Special debug log to investigate possible future flakiness of `testIfEarliestMessageTrackerBehavesAsExpected`.
+
+### Changed
+
+* "Bitmap Heap Scan" is considered a correct query execution plan where index scan is desired.
+  This also helped to fix some flaky tests.
+
 ### Removed
 
 * Support for Spring Boot 2.5.
