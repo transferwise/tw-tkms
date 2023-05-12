@@ -15,13 +15,12 @@ dependencies {
     annotationProcessor libraries.spotbugsAnnotations
 
     compileOnly libraries.springBootConfigurationProcessor
-
+    
     implementation project(":tw-tkms-starter")
 
     implementation libraries.commonsLang3
     implementation libraries.jacksonDatabind
-    implementation libraries.jakartaValidationApi
-    implementation libraries.javaxValidationApi
+   
     implementation libraries.kafkaClients
     implementation libraries.springBootStarter
     implementation libraries.springJdbc

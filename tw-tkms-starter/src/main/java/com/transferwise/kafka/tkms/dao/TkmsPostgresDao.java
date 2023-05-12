@@ -38,7 +38,7 @@ public class TkmsPostgresDao extends TkmsDao {
 
   @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
-    return "select /*+ IndexOnlyScan(om) */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
+    return "select /*+ IndexOnlyScan(om)  */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
   }
 
   @Override
@@ -49,7 +49,7 @@ public class TkmsPostgresDao extends TkmsDao {
   @Override
   protected boolean isUsingIndexScan(String sql) {
     return sql.contains("Index Scan using") || sql.contains("Index Only Scan Backward using")
-        || sql.contains("Index Only Scan using");
+        || sql.contains("Index Only Scan using") || sql.contains("Bitmap Heap Scan");
   }
 
   @Override
@@ -102,8 +102,8 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   protected boolean validateIndexHintsExtension() {
-    var seqScans = doesRespectHint("SeqScan", "Seq Scan");
-    var indexOnlyScans = doesRespectHint("IndexOnlyScan", "Index Only Scan");
+    var seqScans = doesRespectHint("SeqScan(om)", "Seq Scan");
+    var indexOnlyScans = doesRespectHint("IndexOnlyScan(om)", "Index Only Scan", "Bitmap Index Scan");
 
     if (!seqScans || !indexOnlyScans) {
       // By default, logged as ERROR, as it can cause pretty serious problems.
@@ -117,15 +117,17 @@ public class TkmsPostgresDao extends TkmsDao {
     return true;
   }
 
-  protected boolean doesRespectHint(String hint, String expectedPlan) {
+  protected boolean doesRespectHint(String hint, String... expectedPlans) {
     var table = getTableName(TkmsShardPartition.of(0, 0));
-    var explainResult = getExplainResult("select /*+ " + hint + "(om) */ id from " + table + " om where id = 1");
-    if (explainResult.contains(expectedPlan)) {
-      return true;
-    } else {
-      log.info("When checking index hint '{}', the explain plan was '{}', and it did not contain '{}'.", hint, explainResult, expectedPlan);
-      return false;
+    var explainResult = getExplainResult("select /*+ " + hint + " */ id from " + table + " om where id = 1");
+    for (var expectedPlan : expectedPlans) {
+      if (explainResult.contains(expectedPlan)) {
+        return true;
+      }
     }
+    log.info("When checking index hint '{}', the explain plan was '{}', and it did not contain '{}'.", hint, explainResult,
+        StringUtils.join(expectedPlans, "', '"));
+    return false;
   }
 
   protected String getExplainResult(String sql) {

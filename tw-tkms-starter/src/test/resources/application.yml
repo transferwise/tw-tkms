@@ -101,7 +101,7 @@ tw-tkms:
   database-dialect: POSTGRES
   earliest-visible-messages:
     enabled: true
-    look-back-period: 10
+    look-back-period: 10s
     table-name: earliestmessage.tw_tkms_earliest_visible_messages 
   shards-count: 2
   table-base-name: earliestmessage.outgoing_message

@@ -40,6 +40,8 @@ public class BaseIntTest {
   public void cleanup() {
     tkmsRegisteredMessagesCollector.clear();
     tkmsSentMessagesCollector.clear();
+
+    TkmsClockHolder.reset();
   }
 
   @BeforeEach

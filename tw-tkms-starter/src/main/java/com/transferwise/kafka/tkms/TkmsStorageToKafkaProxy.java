@@ -209,6 +209,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   return;
                 }
 
+                if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
+                  if (shardPartition.getShard() == 0) {
+                    log.info("Polled with earliest message id of: " + earliestMessageTracker.getEarliestMessageId()
+                        + ". Got " + records.size() + " records.");
+                  }
+                }
+
                 earliestMessageTracker.register(records.get(0).getId());
 
                 MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];

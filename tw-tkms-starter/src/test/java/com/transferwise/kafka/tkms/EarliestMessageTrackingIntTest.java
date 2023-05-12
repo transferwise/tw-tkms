@@ -13,13 +13,18 @@ import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles("earliest-message")
+@Slf4j
 class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   @Autowired
@@ -36,31 +41,44 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
   @Value("${tw-tkms-test.test-topic}")
   private String testTopic;
 
+  private int sentMessagesCount = 0;
+
+  @BeforeEach
+  public void setupAll() {
+    Debug.setEarliestMessagesTrackerDebugEnabled(true);
+  }
+
+  @AfterEach
+  public void cleanupAll() {
+    Debug.setEarliestMessagesTrackerDebugEnabled(false);
+  }
+
   @Test
   void testIfEarliestMessageTrackerBehavesAsExpected() {
-    var clock = new TestClock();
+    var clock = new TestClock(Instant.now());
     TkmsClockHolder.setClock(clock);
 
     var earliestMessageIdGauge = await()
         .until(() -> meterRegistry.find("tw_tkms_dao_earliest_message_id").tags("shard", "0", "partition", "0").gauge(), Objects::nonNull);
     assertThat(earliestMessageIdGauge.value()).isEqualTo(-1);
 
+    sendMessageAndWaitForArrival();
     clock.tick(Duration.ofSeconds(5));
-    sendMessageAndWaitForArrival(1);
+    sendMessageAndWaitForArrival();
 
     assertThat(earliestMessageIdGauge.value()).as("First period has not passed, so earliest message id is not yet usable.").isEqualTo(-1);
 
     clock.tick(Duration.ofSeconds(6));
-    sendMessageAndWaitForArrival(2);
+    sendMessageAndWaitForArrival();
     assertThat(earliestMessageIdGauge.value()).as("First 10s period has passed, we should have a id now").isNotNegative();
 
     double previousValue = earliestMessageIdGauge.value();
     clock.tick(Duration.ofSeconds(6));
-    sendMessageAndWaitForArrival(3);
+    sendMessageAndWaitForArrival();
     assertThat(earliestMessageIdGauge.value()).isGreaterThanOrEqualTo(previousValue);
 
     clock.tick(Duration.ofSeconds(6));
-    sendMessageAndWaitForArrival(4);
+    sendMessageAndWaitForArrival();
     assertThat(earliestMessageIdGauge.value()).isGreaterThan(previousValue);
 
     var committedValue =
@@ -75,11 +93,15 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);
   }
 
-  protected void sendMessageAndWaitForArrival(int cnt) {
-    transactionsHelper.withTransaction().run(() ->
-        tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello Kristo!".getBytes(StandardCharsets.UTF_8)))
+  protected void sendMessageAndWaitForArrival() {
+    transactionsHelper.withTransaction().run(() -> {
+          var result = tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello Kristo!".getBytes(StandardCharsets.UTF_8)));
+          log.info("Registered a message with storage id " + result.getStorageId());
+        }
     );
 
-    await().until(() -> tkmsSentMessagesCollector.getSentMessages(testTopic).size() == cnt);
+    sentMessagesCount++;
+
+    await().until(() -> tkmsSentMessagesCollector.getSentMessages(testTopic).size() == sentMessagesCount);
   }
 }

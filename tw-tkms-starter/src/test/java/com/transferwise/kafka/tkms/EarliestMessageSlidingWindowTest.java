@@ -5,13 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.transferwise.common.baseutils.clock.TestClock;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class EarliestMessageSlidingWindowTest extends BaseIntTest {
 
   @Test
   void testSlidingWindow() {
-    TestClock clock = new TestClock();
+    TestClock clock = new TestClock(Instant.now());
     TkmsClockHolder.setClock(clock);
 
     EarliestMessageSlidingWindow slidingWindow = new EarliestMessageSlidingWindow(Duration.ofSeconds(10));
