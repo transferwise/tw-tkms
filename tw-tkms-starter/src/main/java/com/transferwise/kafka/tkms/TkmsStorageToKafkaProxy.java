@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Data;
@@ -129,10 +130,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   Future<Boolean> future = futureReference.get();
                   if (future != null) {
                     try {
-                      Boolean result = future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
-                      if (result == null) {
-                        throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".");
-                      }
+                      future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
+                    } catch (TimeoutException e) {
+                      throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".", e);
                     } catch (Throwable t) {
                       log.error(t.getMessage(), t);
                     }
