@@ -4,6 +4,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.RateLimiter;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
+import com.transferwise.kafka.tkms.TransactionContext.Mode;
+import com.transferwise.kafka.tkms.TransactionContext.ShardPartitionMessages;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
@@ -28,6 +30,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -144,6 +147,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     validateMessages(request);
 
     return transactionsHelper.withTransaction().call(() -> {
+      var transactionContext = getAndBindTransactionContext();
 
       var validatedTopics = new HashSet<String>();
 
@@ -183,16 +187,24 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
           checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
           if (deferMessageRegistrationUntilCommit) {
-            var deferredMessages = getAndBindDeferredTransactionMessages().getMessages(shardPartition);
+            var shardPartitionMessages = transactionContext.getShardPartitionMessages(shardPartition);
+            requireConsistentMode(shardPartitionMessages, Mode.DEFERRED);
 
             for (var i = 0; i < tkmsMessageWithSequences.size(); i++) {
               var message = tkmsMessageWithSequences.get(i);
-              deferredMessages.add(message.getTkmsMessage());
+              shardPartitionMessages.getMessages().add(message.getTkmsMessage());
 
               // Storage id remains null
               responses[message.getSequence()] = new SendMessageResult().setShardPartition(shardPartition);
+
+              transactionContext.countMessage();
             }
           } else {
+            if (transactionActive) {
+              var shardPartitionMessages = transactionContext.getShardPartitionMessages(shardPartition);
+              requireConsistentMode(shardPartitionMessages, Mode.NOT_DEFERRED);
+            }
+
             var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
 
             var insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
@@ -206,6 +218,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
               responses[insertMessageResult.getSequence()] =
                   new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+
+              transactionContext.countMessage();
             }
           }
         } finally {
@@ -247,15 +261,28 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       if (deferMessageRegistrationUntilCommit) {
         // Transaction is guaranteed to be active here.
-        getAndBindDeferredTransactionMessages().getMessages(shardPartition).add(message);
+        var transactionContext = getAndBindTransactionContext();
+        var shardPartitionMessages = transactionContext.getShardPartitionMessages(shardPartition);
+        shardPartitionMessages.getMessages().add(message);
+        requireConsistentMode(shardPartitionMessages, Mode.DEFERRED);
+
+        transactionContext.countMessage();
         // Storage id is not known yet.
         return new SendMessageResult().setShardPartition(shardPartition);
       } else {
         return transactionsHelper.withTransaction().call(() -> {
+          var transactionContext = getAndBindTransactionContext();
+
+          if (transactionActive) {
+            var shardPartitionMessages = transactionContext.getShardPartitionMessages(shardPartition);
+            requireConsistentMode(shardPartitionMessages, Mode.NOT_DEFERRED);
+          }
+
           var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
           var insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
           fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
           metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), false);
+          transactionContext.countMessage();
           return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
         });
       }
@@ -264,15 +291,24 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
-  protected DeferredTransactionMessages getAndBindDeferredTransactionMessages() {
-    var deferredTransactionMessages = DeferredTransactionMessages.get();
+  protected void requireConsistentMode(ShardPartitionMessages shardPartitionMessages, Mode mode) {
+    if (shardPartitionMessages.getMode() == null) {
+      shardPartitionMessages.setMode(mode);
+    } else if (shardPartitionMessages.getMode() != mode) {
+      throw new IllegalStateException(
+          "You can not mix deferred and not deferred messages in the same transaction, as it will break the ordering guarantees.");
+    }
+  }
 
-    if (deferredTransactionMessages == null) {
-      deferredTransactionMessages = DeferredTransactionMessages.createAndBind();
+  protected TransactionContext getAndBindTransactionContext() {
+    var transactionContext = TransactionContext.get();
+
+    if (transactionContext == null) {
+      transactionContext = TransactionContext.createAndBind();
       TransactionSynchronizationManager.registerSynchronization(new BeforeCommitSender());
     }
 
-    return deferredTransactionMessages;
+    return transactionContext;
   }
 
   // Extending deprecated class, so it would also work on Spring 4.
@@ -280,11 +316,11 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     @Override
     public void beforeCommit(boolean readOnly) {
-      var deferredTransactionMessages = DeferredTransactionMessages.get();
+      var transactionContext = TransactionContext.get();
 
-      for (var entries : deferredTransactionMessages.shardPartitionMessages.entrySet()) {
+      for (var entries : transactionContext.getShardPartitionMessagesMap().entrySet()) {
         var shardPartition = entries.getKey();
-        var messages = entries.getValue();
+        var messages = entries.getValue().getMessages();
 
         var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
 
@@ -306,8 +342,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
 
     @Override
-    public void beforeCompletion() {
-      DeferredTransactionMessages.unbind();
+    public void afterCompletion(int status) {
+      boolean success = TransactionSynchronization.STATUS_COMMITTED == status;
+      var transactionContext = getAndBindTransactionContext();
+
+      metricsTemplate.registerMessagesInTransactionCount(transactionContext.getRegisteredMessagesCount(), success);
+
+      TransactionContext.unbind();
     }
   }
 

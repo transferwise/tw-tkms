@@ -175,7 +175,7 @@ public class TkmsProperties implements InitializingBean {
 
   /**
    * How long to wait for the `TkmsStorageToKafkaProxy` to stop, before giving up and logging a timeout error.
-   * 
+   *
    * <p>This could need to be increased to make graceful shutdown noise-free.
    * For example, in case Tkms is configured to use really large batches and/or database is slow.
    */
@@ -214,13 +214,13 @@ public class TkmsProperties implements InitializingBean {
 
   /**
    * When enabled, the messages are not immediately written to the database, but collected into memory and written to database just before commit.
-   * 
+   *
    * <p>Allows to reduce transactions latency in case multiple individual messages are registered over the course of that transaction.
    * The latency is reduced by batch inserting all the collected messages in the pre-commit hook.
-   * 
+   *
    * <p>The tradeoff is that higher application memory is required for transactions sending out huge number or/and huge messages.
    * However, in practical applications, large transactions should be avoided anyway.
-   * 
+   *
    * <p>May default to true for Postgres in upcoming versions. Or even default to true in all situations.
    */
   private boolean deferMessageRegistrationUntilCommit = false;
@@ -436,11 +436,11 @@ public class TkmsProperties implements InitializingBean {
 
     /**
      * Marks that previous deployment version in a specific environment (e.g. production) is at least this.
-     * 
+     *
      * <p>Used for controlling migration path for breaking changes.
-     * 
+     *
      * <p>Does not need to get updated with every upgrade of this library.
-     * 
+     *
      * <p>NB! Never set it higher that you have in a specific environment.
      */
     @ResolvedValue
@@ -467,10 +467,10 @@ public class TkmsProperties implements InitializingBean {
      * Those messages could get auto incremented id, which is too "old" for the proxy component to see.
      *
      * <p>Notice however, that the order of the messages may change, when the proxy actually finds and forwards those messages with too "old" ids.
-     * 
+     *
      * <p>In case this is set, the first poll without id limit will be done when `StorageToKafkaProxy` acquires a lock.
      * I.e. when a new node starts, or the same nodes starts again, to proxy messages from the database to the Kafka.
-     * 
+     *
      * <p>In most cases you want to set this higher than `proxyTimeToLive`, so it will happen only once per proxy lifecycle (default up to 1 hour).
      */
     private Duration pollAllInterval = null;

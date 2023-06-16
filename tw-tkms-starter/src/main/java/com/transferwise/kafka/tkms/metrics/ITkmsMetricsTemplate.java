@@ -55,4 +55,6 @@ public interface ITkmsMetricsTemplate {
   void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
 
   Object registerPollingInProgressGauge(TkmsShardPartition shardPartition);
+
+  void registerMessagesInTransactionCount(long registeredMessagesCount, boolean success);
 }

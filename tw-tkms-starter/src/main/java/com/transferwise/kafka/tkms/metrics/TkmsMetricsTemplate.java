@@ -57,6 +57,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   public static final String GAUGE_DAO_APPROXIMATE_MESSAGES_COUNT = "tw_tkms_dao_approximate_messages_count";
   public static final String TIMER_MESSAGE_INSERT_TO_ACK = "tw_tkms_message_insert_to_ack";
   public static final String SUMMARY_DAO_COMPRESSION_RATIO_ACHIEVED = "tw_tkms_dao_serialization_compression_ratio";
+  public static final String SUMMARY_MESSAGES_IN_TRANSACTION = "tw_tkms_messages_in_transaction";
   public static final String COUNTER_DAO_ORIGINAL_SIZE_BYTES = "tw_tkms_dao_serialization_original_size_bytes";
   public static final String COUNTER_DAO_SERIALIZED_SIZE_BYTES = "tw_tkms_dao_serialization_serialized_size_bytes";
   public static final String GAUGE_DAO_EARLIEST_MESSAGE_ID = "tw_tkms_dao_earliest_message_id";
@@ -89,6 +90,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
     slos.put(SUMMARY_DAO_POLL_ALL_RESULTS_COUNT, defaultSlos);
     slos.put(TIMER_MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 15625});
     slos.put(SUMMARY_DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2, 4});
+    slos.put(SUMMARY_MESSAGES_IN_TRANSACTION, new double[]{1, 5, 25, 125, 625, 3125, 15625, 5 * 15625});
 
     meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
       @Override
@@ -423,6 +425,11 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   @Override
   public void registerEarliestMessageIdCommit(TkmsShardPartition shardPartition) {
     meterCache.counter(COUNTER_DAO_EARLIEST_MESSAGE_ID_COMMIT, TagsSet.of(shardTag(shardPartition), partitionTag(shardPartition))).increment();
+  }
+
+  @Override
+  public void registerMessagesInTransactionCount(long registeredMessagesCount, boolean success) {
+    meterCache.summary(SUMMARY_MESSAGES_IN_TRANSACTION, TagsSet.of(successTag(success))).record(registeredMessagesCount);
   }
 
   protected MetricHandle registerGauge(String name, Supplier<Number> supplier, Tag... tags) {

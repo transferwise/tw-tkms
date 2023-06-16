@@ -24,7 +24,7 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
       }
     });
   }
-  
+
   @Override
   public Duration getProxyStopTimeout(TkmsShardPartition shardPartition) {
     return properties.getProxyStopTimeout(shardPartition.getShard());

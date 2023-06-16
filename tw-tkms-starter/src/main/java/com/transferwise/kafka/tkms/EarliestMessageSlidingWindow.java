@@ -55,7 +55,7 @@ public class EarliestMessageSlidingWindow {
     if (Debug.isEarliestMessagesTrackerDebugEnabled()) {
       log.info("Scrolling. timeMs=" + timeMs + ", idxMs=" + idxMs + ", stepMs=" + stepMs);
     }
-        
+
     while (timeMs > idxMs + stepMs) {
       idx += 1;
       idxMs += stepMs;
