@@ -175,6 +175,9 @@ public class TkmsProperties implements InitializingBean {
 
   /**
    * How long to wait for the `TkmsStorageToKafkaProxy` to stop, before giving up and logging a timeout error.
+   * 
+   * <p>This could need to be increased to make graceful shutdown noise-free.
+   * For example, in case Tkms is configured to use really large batches and/or database is slow.
    */
   @NotNull
   @jakarta.validation.constraints.NotNull
