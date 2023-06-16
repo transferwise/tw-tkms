@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -52,7 +53,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Autowired
   private IProblemNotifier problemNotifier;
 
-  private volatile List<ITkmsEventsListener> tkmsEventsListeners;
+  @Autowired
+  @Lazy
+  private List<ITkmsEventsListener> tkmsEventsListeners;
+
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
   @Override
@@ -398,7 +402,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
     var listeners = getTkmsEventsListeners();
     if (log.isDebugEnabled()) {
-      log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
+      log.debug("Message was registered for {} with storage id {}. Listeners count: ", shardPartition, id, listeners.size());
     }
 
     if (tkmsEventsListeners.isEmpty()) {
@@ -412,21 +416,14 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         listener.messageRegistered(event);
       } catch (Throwable t) {
         if (errorLogRateLimiter.tryAcquire()) {
-          log.error(t.getMessage(), t);
+          log.error("Firing message registered event failed for listener '{}'.", listener, t);
         }
       }
     });
   }
 
-  // Lazy to avoid any circular dependencies from low-quality apps.
+  // Allow to override on older Spring services not support Lazy annotation properly.
   protected List<ITkmsEventsListener> getTkmsEventsListeners() {
-    if (tkmsEventsListeners == null) {
-      synchronized (this) {
-        if (tkmsEventsListeners == null) {
-          tkmsEventsListeners = new ArrayList<>(applicationContext.getBeansOfType(ITkmsEventsListener.class).values());
-        }
-      }
-    }
     return tkmsEventsListeners;
   }
 
