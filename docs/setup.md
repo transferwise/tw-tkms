@@ -29,7 +29,7 @@ tw-tkms:
   database-dialect: POSTGRES # only required if using Postgres, MariaDb is the default
   kafka.bootstrap.servers: ${ENV_SECURE_KAFKA_BOOTSTRAP_SERVERS}
   environment:
-    previous-version: ${LIB_VERSION} # use current lib version for a new integration
+    previous-version-at-least: ${LIB_VERSION} # use current lib version for a new integration
 ```
 
 Of course, you need to create tables in the database as well.
