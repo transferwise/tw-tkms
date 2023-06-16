@@ -42,6 +42,7 @@ public class BaseIntTest {
     tkmsSentMessagesCollector.clear();
 
     TkmsClockHolder.reset();
+    TestLogAppender.reset();
   }
 
   @BeforeEach

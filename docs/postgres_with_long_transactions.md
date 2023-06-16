@@ -73,7 +73,7 @@ tw-tkms:
 ```
 
 Now we also have an option to defer inserting messages to the very end of transaction.
-It is highly recommended to turn this for Postgres and may be default in the future.
+It is highly recommended to turn this on when using Postgres datastore and may be the default in the future.
 When it is enabled, the `look-back-period` and thus CPU usage can be greatly reduced: 
 
 ```yaml

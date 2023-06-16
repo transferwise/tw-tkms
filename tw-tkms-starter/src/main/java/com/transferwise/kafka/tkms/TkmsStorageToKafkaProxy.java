@@ -41,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.mutable.MutableObject;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RetriableException;
@@ -169,7 +168,6 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     final Duration pollAllInterval;
     if (properties.getEarliestVisibleMessages(shardPartition.getShard()).isEnabled()) {
       pollAllInterval = properties.getEarliestVisibleMessages(shardPartition.getShard()).getPollAllInterval();
-      
     } else {
       pollAllInterval = null;
     }
@@ -202,6 +200,12 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
           proxyCyclePauseRequest.setValue(null);
         }
 
+        var earliestMessageIdInitial = earliestMessageTracker.getEarliestMessageId();
+        if (earliestMessageIdInitial == -1L) {
+          // Delay for one interval.
+          lastPollAllTimeMs.setValue(System.currentTimeMillis());
+        }
+
         unitOfWorkManager.createEntryPoint("TKMS", "poll_" + shardPartition.getShard() + "_" + shardPartition.getPartition()).toContext()
             .execute(() -> {
               final var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
@@ -210,15 +214,18 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
               int polledRecordsCount = 0;
               var failedSendsCount = new AtomicInteger();
               try {
-                var earliestMessageIdToUse = earliestMessageTracker.getEarliestMessageId();
+                var earliestMessageIdFromTracker = earliestMessageTracker.getEarliestMessageId();
+                var earliestMessageIdToUse = earliestMessageIdFromTracker;
 
                 if (earliestMessageIdToUse != -1L && pollAllInterval != null) {
-                  if (lastPollAllTimeMs == null || System.currentTimeMillis() - lastPollAllTimeMs.getValue() > pollAllInterval.toMillis()) {
+                  if (lastPollAllTimeMs.getValue() == null
+                      || System.currentTimeMillis() - lastPollAllTimeMs.getValue() > pollAllInterval.toMillis()) {
+                    // Essentially forces polling of all records
                     earliestMessageIdToUse = -1L;
-                    
+
                     log.info("Polling all messages for {}, to make sure we are not missing some created by long running transactions.",
                         shardPartition);
-                    
+
                     lastPollAllTimeMs.setValue(System.currentTimeMillis());
                   }
                 }
@@ -239,10 +246,9 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   }
                 }
 
-                if (earliestMessageTracker.getEarliestMessageId() > records.get(0).getId()) {
-                  log.warn("We got records invisible for the earliest messages tracking system. {} > {}.",
-                      earliestMessageTracker.getEarliestMessageId(),
-                      records.get(0).getId());
+                if (earliestMessageIdFromTracker > records.get(0).getId()) {
+                  log.warn("We got records invisible for the earliest messages tracking system. Messages order may be compromised. {} > {}.",
+                      earliestMessageIdFromTracker, records.get(0).getId());
                 }
 
                 earliestMessageTracker.register(records.get(0).getId());

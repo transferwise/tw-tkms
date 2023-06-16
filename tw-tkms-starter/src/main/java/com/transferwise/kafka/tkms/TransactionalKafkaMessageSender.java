@@ -123,8 +123,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   protected void checkActiveTransaction(int shard, boolean transactionActive, boolean deferMessageRegistrationUntilCommit) {
     if (!transactionActive) {
       if (deferMessageRegistrationUntilCommit) {
-        // We have to block here.
-        throw new IllegalStateException("No active transaction detected. It is required when defer-until-commit registration method was requested.");
+        // We have to block here for sure.
+        throw new IllegalStateException("No active transaction detected. It is required when defer-until-commit registration method is requested.");
       } else {
         problemNotifier.notify(shard, NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
             () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
@@ -285,7 +285,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
 
         var messagesWithSequences = new ArrayList<TkmsMessageWithSequence>();
-
         for (int i = 0; i < messages.size(); i++) {
           messagesWithSequences.add(new TkmsMessageWithSequence().setSequence(i).setTkmsMessage(messages.get(i)));
         }

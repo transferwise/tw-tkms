@@ -218,7 +218,7 @@ public class TkmsProperties implements InitializingBean {
    * <p>Allows to reduce transactions latency in case multiple individual messages are registered over the course of that transaction.
    * The latency is reduced by batch inserting all the collected messages in the pre-commit hook.
    * 
-   * <p>The tradeoff is that higher application memory is required for transactions sending out huge number of large messages.
+   * <p>The tradeoff is that higher application memory is required for transactions sending out huge number or/and huge messages.
    * However, in practical applications, large transactions should be avoided anyway.
    * 
    * <p>May default to true for Postgres in upcoming versions. Or even default to true in all situations.
@@ -434,9 +434,18 @@ public class TkmsProperties implements InitializingBean {
   @Accessors(chain = true)
   public static class Environment {
 
+    /**
+     * Marks that previous deployment version in a specific environment (e.g. production) is at least this.
+     * 
+     * <p>Used for controlling migration path for breaking changes.
+     * 
+     * <p>Does not need to get updated with every upgrade of this library.
+     * 
+     * <p>NB! Never set it higher that you have in a specific environment.
+     */
     @ResolvedValue
     @LegacyResolvedValue
-    private String previousVersion;
+    private String previousVersionAtLeast;
   }
 
   @Data
@@ -452,16 +461,17 @@ public class TkmsProperties implements InitializingBean {
     private Duration lookBackPeriod = Duration.ofMinutes(5);
 
     /**
-     * Interval, after we will poll all records, even when earliest message system has calculated a look-back period.
+     * Interval, after which we will poll all records, even when earliest message system has calculated a look-back id.
      *
-     * <p>This is for situations where an application have a risk of still having long-running transactions, registering messages over its duration.
+     * <p>This is for situations where an application has a risk of having long-running transactions, which register messages over its duration.
+     * Those messages could get auto incremented id, which is too "old" for the proxy component to see.
      *
-     * <p>Notice however, that the order of messages may change in those situations.
+     * <p>Notice however, that the order of the messages may change, when the proxy actually finds and forwards those messages with too "old" ids.
      * 
      * <p>In case this is set, the first poll without id limit will be done when `StorageToKafkaProxy` acquires a lock.
      * I.e. when a new node starts, or the same nodes starts again, to proxy messages from the database to the Kafka.
      * 
-     * <p>In most cases you want to set this higher than `proxyTimeToLive`, so it will happen only once per proxy runtime.
+     * <p>In most cases you want to set this higher than `proxyTimeToLive`, so it will happen only once per proxy lifecycle (default up to 1 hour).
      */
     private Duration pollAllInterval = null;
   }

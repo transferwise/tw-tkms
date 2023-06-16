@@ -40,6 +40,11 @@ public interface ITransactionalKafkaMessageSender {
   @Accessors(chain = true)
   class SendMessageRequest {
 
+    /**
+     * Messages will be deferred.
+     * 
+     * <p>No null value will override the default settings.
+     */
     private Boolean deferMessageRegistrationUntilCommit;
 
     private TkmsMessage tkmsMessage;
@@ -57,7 +62,11 @@ public interface ITransactionalKafkaMessageSender {
   @Data
   @Accessors(chain = true)
   class SendMessagesRequest {
-
+    /**
+     * Messages will be deferred.
+     *
+     * <p>No null value will override the default settings.
+     */
     private Boolean deferMessageRegistrationUntilCommit;
 
     @NotNull
