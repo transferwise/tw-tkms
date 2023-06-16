@@ -1,4 +1,7 @@
 <configuration>
+  <appender name="TEST" class="com.transferwise.kafka.tkms.test.TestLogAppender">
+  </appender>
+
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
@@ -10,5 +13,6 @@
 
   <root level="warn">
     <appender-ref ref="STDOUT"/>
+    <appender-ref ref="TEST" />
   </root>
 </configuration>

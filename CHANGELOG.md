@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2023-06-16
+
+### Added
+
+* An option for earliest visible messages system to poll all messages from time to time - 'pollAllInterval'.
+  In case there is a rare long-running transaction and its messages need to get sent out.
+
+* An option to defer insertion of messages into the database to the very end of a transaction, just before commit
+  - `deferMessageRegistrationUntilCommit`
+    This would generate fairly recent ids for the messages and earliest visible messages system has less chance to not see and thus skip those.
+    With that, the earliest visible message system can configure a fairly small look-back window and reduce CPU consumption even further.
+
+  It can also help to reduce total transaction latency, as all individual messages collected are sent out in batches.
+
+### Changed
+
+* `storageId` in `SendMessageResult` can now be null, in case of deferred messages.
+
+* Increased the default value for `proxyTimeToLive` from 10 minutes to 1 hour.
+  10 minutes creates too many switches. Every switch still creates a small processing pause.
+
 ## [0.23.1] - 2023-06-15
 
 ### Changed
@@ -60,12 +81,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 `require-transaction-on-messages-registering` configuration option was removed.
 If you need to allow message sending without an active transaction, you would now have to disable it via problem notifications.
-For example: 
+For example:
+
 ```yaml
 tw-tkms:
   notification-levels:
     NO_ACTIVE_TRANSACTION: WARN
 ```
+
 In any case, it is much cheaper to send non-transactional messages directly and without `tw-tkms`.
 
 #### Multiple databases

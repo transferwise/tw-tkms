@@ -72,6 +72,18 @@ tw-tkms:
     look-back-period: 5m
 ```
 
+Now we also have an option to defer inserting messages to the very end of transaction.
+It is highly recommended to turn this for Postgres and may be default in the future.
+When it is enabled, the `look-back-period` and thus CPU usage can be greatly reduced: 
+
+```yaml
+tw-tkms:
+  defer-message-registration-until-commit: true
+  earliest-visible-messages:
+    enabled: true
+    look-back-period: 30s
+```
+
 ## The risk
 
 If you configure the `look-back-period` too small, you may have longer transactions adding messages too late and

@@ -207,8 +207,8 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   @Override
-  protected boolean isUsingIndexScan(String sql) {
-    return sql.contains("\"key\": \"PRIMARY\"");
+  protected boolean isUsingIndexScan(String explainPlan) {
+    return explainPlan.contains("\"key\": \"PRIMARY\"");
   }
 
   @Override

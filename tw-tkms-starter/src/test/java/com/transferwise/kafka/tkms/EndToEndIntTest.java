@@ -21,9 +21,9 @@ import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
-import com.transferwise.kafka.tkms.test.TkmsTestProperties;
 import io.micrometer.core.instrument.Counter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,10 +39,10 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
@@ -79,11 +79,19 @@ abstract class EndToEndIntTest extends BaseIntTest {
   public void cleanup() {
     super.cleanup();
     tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
+    tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
   }
 
-  @Test
+  protected void setupConfig(boolean deferUntilCommit) {
+    tkmsProperties.setDeferMessageRegistrationUntilCommit(deferUntilCommit);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @SneakyThrows
-  void testThatJsonStringMessageCanBeSentAndRetrieved() {
+  void testThatJsonStringMessageCanBeSentAndRetrieved(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     var messagePart = "Hello World!";
     int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
@@ -127,8 +135,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
 
-  @Test
-  void testExactlyOnceDelivery() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testExactlyOnceDelivery(boolean deferUntilCommit) throws Exception {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello World!";
     int threadsCount = 20;
     int batchesCount = 20;
@@ -203,8 +214,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesWithSameKeyEndUpInOnePartition() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesWithSameKeyEndUpInOnePartition(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello World!";
     String key = "GrailsRocks";
     int n = 20;
@@ -237,8 +251,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesWithSamePartitionEndUpInOnePartition() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesWithSamePartitionEndUpInOnePartition(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Fabio!";
     int partition = 3;
     int n = 20;
@@ -274,8 +291,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesOrderForAnEntityIsPreserved(boolean deferUntilCommit) throws Exception {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Jarvis!";
     int entitiesCount = 100;
     int entityEventsCount = 100;
@@ -334,24 +354,33 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @SneakyThrows
-  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
+  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
         .hasMessageContaining("Topic NotExistingTopic not present in metadata");
   }
 
-  @Test
-  void sendingOutMessagesWithoutActiveTransactionsWillFail() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendingOutMessagesWithoutActiveTransactionsWillFail(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     assertThatThrownBy(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("No active transaction detected.");
   }
 
-  @Test
-  void sendingMultipleMessagesWorks() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendingMultipleMessagesWorks(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     byte[] value = "{\"message\" : \"Hello Nerius!\"}".getBytes(StandardCharsets.UTF_8);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -371,7 +400,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
         ));
 
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
-    assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
+    if (deferUntilCommit) {
+      assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNull();
+    } else {
+      assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
+    }
     assertThat(sendMessagesResult.getResults().get(1).getShardPartition().getShard()).isEqualTo(1);
     assertThat(sendMessagesResult.getResults().get(2).getShardPartition().getShard()).isZero();
 
@@ -391,8 +424,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     waitUntilTablesAreEmpty();
   }
 
-  @Test
-  void testThatSendingLargeMessagesWillNotCauseAnIssue() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatSendingLargeMessagesWillNotCauseAnIssue(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     StringBuilder sb = new StringBuilder();
     // We generate message as large as maximum allowed bytes but this is set up to fail, as there is additional information
     // added by kafka producer.
@@ -450,8 +486,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
   /**
    * If `TkmsStorageToKafkaProxy has some important lines switched around "lastId" logic, the test will start failing.
    */
-  @Test
-  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Peeter!";
     int messagesCount = 1000;
 
@@ -531,19 +570,26 @@ abstract class EndToEndIntTest extends BaseIntTest {
   }
 
   private static Stream<Arguments> compressionInput() {
-    return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 102, 103),
-        Arguments.of(CompressionAlgorithm.NONE, 1163, 1163),
-        Arguments.of(CompressionAlgorithm.LZ4, 126, 126),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156),
-        Arguments.of(CompressionAlgorithm.ZSTD, 92, 92)
-    );
+    var deferUntilCommits = List.of(false, true);
+    var arguments = new ArrayList<Arguments>();
+
+    for (var deferUntilCommit : deferUntilCommits) {
+      arguments.add(Arguments.of(CompressionAlgorithm.GZIP, 102, 103, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.NONE, 1163, 1163, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.LZ4, 126, 126, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.ZSTD, 92, 92, deferUntilCommit));
+    }
+
+    return arguments.stream();
   }
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt) {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt, boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     var message = StringUtils.repeat("Hello Aivo!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();

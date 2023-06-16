@@ -4,7 +4,9 @@ import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
@@ -58,6 +60,17 @@ public class TkmsMessage {
    * Kafka message's headers.
    */
   private List<Header> headers;
+
+  /**
+   * Allows to add any metadata to the message object for correlation in event handlers.
+   * 
+   * <p>The metadata will not be used in any way for creating and sending Kafka messages.
+   * 
+   * <p>For example, you have `deferMessageRegistrationUntilCommit` enabled, but need to know/log Tkms messages' storage ids.
+   * Then you could add some kind of key into the metadata, register an `ITkmsEventsListener` and use that metadata to
+   * distinguish specific messages from others.
+   */
+  private Map<?,?> metadata;
 
   public TkmsMessage addHeader(Header header) {
     if (headers == null) {

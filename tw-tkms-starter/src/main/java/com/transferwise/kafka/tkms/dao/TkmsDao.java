@@ -100,14 +100,14 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
     return ExceptionUtils.doUnchecked(() -> {
 
       List<InsertMessageResult> results = new ArrayList<>();
-      MutableInt idx = new MutableInt();
+      var idx = new MutableInt();
       while (idx.getValue() < tkmsMessages.size()) {
-        Connection con = DataSourceUtils.getConnection(dataSource);
+        var con = DataSourceUtils.getConnection(dataSource);
         try {
           var sql = insertMessageSqls.computeIfAbsent(shardPartition, this::getInsertSql);
-          PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          var ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
           try {
-            int batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
+            var batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
 
             for (int i = 0; i < batchSize; i++) {
               TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
@@ -342,7 +342,7 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
 
   protected abstract String getExplainClause();
 
-  protected abstract boolean isUsingIndexScan(String sql);
+  protected abstract boolean isUsingIndexScan(String explainPlan);
 
   protected abstract String getInsertSql(TkmsShardPartition shardPartition);
 

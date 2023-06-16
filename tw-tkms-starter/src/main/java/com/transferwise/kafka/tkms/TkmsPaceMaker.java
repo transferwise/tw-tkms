@@ -14,8 +14,8 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
   @Override
   public void doSmallPause(int shard) {
     ExceptionUtils.doUnchecked(() -> {
-      Duration minPollingInterval = properties.getMinPollingInterval();
-      Duration shardPollingInterval = properties.getPollingInterval(shard);
+      var minPollingInterval = properties.getMinPollingInterval();
+      var shardPollingInterval = properties.getPollingInterval(shard);
 
       if (minPollingInterval != null && minPollingInterval.compareTo(shardPollingInterval) > 0) {
         Thread.sleep(minPollingInterval.toMillis());
@@ -24,10 +24,10 @@ public class TkmsPaceMaker implements ITkmsPaceMaker {
       }
     });
   }
-
+  
   @Override
-  public Duration getLongWaitTime(int shard) {
-    return Duration.ofSeconds(15);
+  public Duration getProxyStopTimeout(TkmsShardPartition shardPartition) {
+    return properties.getProxyStopTimeout(shardPartition.getShard());
   }
 
   @Override

@@ -16,20 +16,18 @@ import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
-import com.transferwise.kafka.tkms.dao.ITkmsDao.InsertMessageResult;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
@@ -73,10 +71,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected void validateEarliestVisibleMessages() {
-    for (int s = 0; s < properties.getShardsCount(); s++) {
+    for (var s = 0; s < properties.getShardsCount(); s++) {
       if (properties.getDatabaseDialect(s) == DatabaseDialect.POSTGRES) {
         if (!properties.getEarliestVisibleMessages(s).isEnabled()) {
-          int shard = s;
+          var shard = s;
           problemNotifier.notify(s, NotificationType.EARLIEST_MESSAGES_SYSTEM_DISABLED, NotificationLevel.ERROR, () ->
               "Earliest messages system is not enabled for a Postgres database on shard " + shard + ". This can create a serious"
                   + " performance issue when autovacuum gets behind."
@@ -87,7 +85,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected void validateDeleteBatchSizes() {
-    for (int s = 0; s < properties.getShardsCount(); s++) {
+    for (var s = 0; s < properties.getShardsCount(); s++) {
       validateDeleteBatchSize(s, properties.getDeleteBatchSizes(s), "shard " + s);
     }
   }
@@ -107,14 +105,14 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
 
     for (int i = 0; i < batchSizes.size(); i++) {
-      int size = batchSizes.get(i);
+      var size = batchSizes.get(i);
 
       if (size < 1) {
         throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + size + "<1.");
       }
 
       if (i > 0) {
-        int prevSize = batchSizes.get(i - 1);
+        var prevSize = batchSizes.get(i - 1);
         if (prevSize <= size) {
           throw new IllegalStateException("Invalid delete batch sizes provided for '" + subject + "', " + prevSize + "<=" + size + ".");
         }
@@ -122,56 +120,50 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
-  protected void checkActiveTransaction(List<TkmsMessage> tkmsMessages) {
-    boolean transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
-    for (int i = 0; i < tkmsMessages.size(); i++) {
-      var tkmsMessage = tkmsMessages.get(i);
-      checkActiveTransaction(tkmsMessage, transactionActive);
-    }
-  }
-
-  protected void checkActiveTransaction(TkmsMessage tkmsMessage) {
-    checkActiveTransaction(tkmsMessage, TransactionSynchronizationManager.isActualTransactionActive());
-  }
-
-  protected void checkActiveTransaction(TkmsMessage tkmsMessage, boolean transactionActive) {
+  protected void checkActiveTransaction(int shard, boolean transactionActive, boolean deferMessageRegistrationUntilCommit) {
     if (!transactionActive) {
-      problemNotifier.notify(tkmsMessage.getShard(), NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
-          () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
-              + " efficient to send direct Kafka messages, when you do not need that pattern.");
+      if (deferMessageRegistrationUntilCommit) {
+        // We have to block here.
+        throw new IllegalStateException("No active transaction detected. It is required when defer-until-commit registration method was requested.");
+      } else {
+        problemNotifier.notify(shard, NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
+            () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
+                + " efficient to send direct Kafka messages, when you do not need that pattern.");
+      }
     }
   }
 
   @Override
   public SendMessagesResult sendMessages(SendMessagesRequest request) {
-    checkActiveTransaction(request.getTkmsMessages());
+    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+
+    validateMessages(request);
 
     return transactionsHelper.withTransaction().call(() -> {
-      validateMessages(request);
 
-      Set<String> validatedTopics = new HashSet<>();
+      var validatedTopics = new HashSet<String>();
 
       int seq = 0;
 
-      List<TkmsMessage> tkmsMessages = request.getTkmsMessages();
-      int tmksMessagesCount = tkmsMessages.size();
-      SendMessageResult[] responses = new SendMessageResult[tmksMessagesCount];
+      var tkmsMessages = request.getTkmsMessages();
+      var tmksMessagesCount = tkmsMessages.size();
+      var responses = new SendMessageResult[tmksMessagesCount];
 
-      Map<TkmsShardPartition, List<TkmsMessageWithSequence>> shardPartitionsMap = new HashMap<>();
+      var shardPartitionsMap = new HashMap<TkmsShardPartition, List<TkmsMessageWithSequence>>();
 
       for (int messageIdx = 0; messageIdx < tmksMessagesCount; messageIdx++) {
-        TkmsMessage tkmsMessage = tkmsMessages.get(messageIdx);
+        var tkmsMessage = tkmsMessages.get(messageIdx);
         validateMessageSize(tkmsMessage, messageIdx);
 
-        TkmsShardPartition shardPartition = getShardPartition(tkmsMessage);
+        var shardPartition = getShardPartition(tkmsMessage);
 
-        String topic = tkmsMessage.getTopic();
+        var topic = tkmsMessage.getTopic();
         if (!validatedTopics.contains(topic)) {
           validateTopic(shardPartition.getShard(), topic);
           validatedTopics.add(topic);
         }
 
-        TkmsMessageWithSequence tkmsMessageWithSequence = new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage);
+        var tkmsMessageWithSequence = new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage);
         shardPartitionsMap.computeIfAbsent(shardPartition, k -> new ArrayList<>()).add(tkmsMessageWithSequence);
       }
 
@@ -179,19 +171,38 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         try {
           shardPartition.putIntoMdc();
 
-          var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+          var deferMessageRegistrationUntilCommit = properties.deferMessageRegistrationUntilCommit(shardPartition.getShard());
+          if (request.getDeferMessageRegistrationUntilCommit() != null) {
+            deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit();
+          }
 
-          List<InsertMessageResult> insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
-          for (int i = 0; i < tkmsMessageWithSequences.size(); i++) {
-            TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
-            InsertMessageResult insertMessageResult = insertMessageResults.get(i);
+          checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
-            fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+          if (deferMessageRegistrationUntilCommit) {
+            var deferredMessages = getAndBindDeferredTransactionMessages().getMessages(shardPartition);
 
-            metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition);
+            for (var i = 0; i < tkmsMessageWithSequences.size(); i++) {
+              var message = tkmsMessageWithSequences.get(i);
+              deferredMessages.add(message.getTkmsMessage());
 
-            responses[insertMessageResult.getSequence()] =
-                new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+              // Storage id remains null
+              responses[message.getSequence()] = new SendMessageResult().setShardPartition(shardPartition);
+            }
+          } else {
+            var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+
+            var insertMessageResults = tkmsDao.insertMessages(shardPartition, tkmsMessageWithSequences);
+            for (var i = 0; i < tkmsMessageWithSequences.size(); i++) {
+              var tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
+              var insertMessageResult = insertMessageResults.get(i);
+
+              fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+
+              metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, false);
+
+              responses[insertMessageResult.getSequence()] =
+                  new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+            }
           }
         } finally {
           shardPartition.removeFromMdc();
@@ -204,28 +215,96 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessageResult sendMessage(TkmsMessage message) {
+    return sendMessage(new SendMessageRequest().setTkmsMessage(message));
+  }
+
+  @Override
+  public SendMessageResult sendMessage(SendMessageRequest request) {
+    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+
+    var message = request.getTkmsMessage();
     var shardPartition = getShardPartition(message);
 
     try {
       shardPartition.putIntoMdc();
 
-      checkActiveTransaction(message);
+      var deferMessageRegistrationUntilCommit = properties.deferMessageRegistrationUntilCommit(shardPartition.getShard());
+      if (request.getDeferMessageRegistrationUntilCommit() != null) {
+        deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit();
+      }
 
-      return transactionsHelper.withTransaction().call(() -> {
-        validateMessage(message, 0);
-        validateMessageSize(message, 0);
+      checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
-        String topic = message.getTopic();
-        validateTopic(shardPartition.getShard(), topic);
+      validateMessage(message, 0);
+      validateMessageSize(message, 0);
 
-        var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
-        InsertMessageResult insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
-        fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
-        metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition());
-        return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
-      });
+      var topic = message.getTopic();
+      validateTopic(shardPartition.getShard(), topic);
+
+      if (deferMessageRegistrationUntilCommit) {
+        // Transaction is guaranteed to be active here.
+        getAndBindDeferredTransactionMessages().getMessages(shardPartition).add(message);
+        // Storage id is not known yet.
+        return new SendMessageResult().setShardPartition(shardPartition);
+      } else {
+        return transactionsHelper.withTransaction().call(() -> {
+          var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+          var insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
+          fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
+          metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), false);
+          return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+        });
+      }
     } finally {
       shardPartition.removeFromMdc();
+    }
+  }
+
+  protected DeferredTransactionMessages getAndBindDeferredTransactionMessages() {
+    var deferredTransactionMessages = DeferredTransactionMessages.get();
+
+    if (deferredTransactionMessages == null) {
+      deferredTransactionMessages = DeferredTransactionMessages.createAndBind();
+      TransactionSynchronizationManager.registerSynchronization(new BeforeCommitSender());
+    }
+
+    return deferredTransactionMessages;
+  }
+
+  // Extending deprecated class, so it would also work on Spring 4.
+  private class BeforeCommitSender extends TransactionSynchronizationAdapter {
+
+    @Override
+    public void beforeCommit(boolean readOnly) {
+      var deferredTransactionMessages = DeferredTransactionMessages.get();
+
+      for (var entries : deferredTransactionMessages.shardPartitionMessages.entrySet()) {
+        var shardPartition = entries.getKey();
+        var messages = entries.getValue();
+
+        var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
+
+        var messagesWithSequences = new ArrayList<TkmsMessageWithSequence>();
+
+        for (int i = 0; i < messages.size(); i++) {
+          messagesWithSequences.add(new TkmsMessageWithSequence().setSequence(i).setTkmsMessage(messages.get(i)));
+        }
+
+        var insertMessageResults = tkmsDao.insertMessages(shardPartition, messagesWithSequences);
+        for (int i = 0; i < messagesWithSequences.size(); i++) {
+          var tkmsMessageWithSequence = messagesWithSequences.get(i);
+          var insertMessageResult = insertMessageResults.get(i);
+
+          fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+
+          metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, true);
+        }
+      }
+    }
+
+    @Override
+    public void beforeCompletion() {
+      DeferredTransactionMessages.unbind();
     }
   }
 
@@ -238,7 +317,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   protected void validateMessages(SendMessagesRequest request) {
     for (int i = 0; i < request.getTkmsMessages().size(); i++) {
-      TkmsMessage tkmsMessage = request.getTkmsMessages().get(i);
+      var tkmsMessage = request.getTkmsMessages().get(i);
       validateMessage(tkmsMessage, i);
     }
   }
@@ -300,7 +379,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     if (s == null) {
       return 0;
     }
-    int count = 0;
+    var count = 0;
     for (int i = 0, len = s.length(); i < len; i++) {
       char ch = s.charAt(i);
       if (ch <= 0x7F) {
@@ -318,7 +397,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
-    List<ITkmsEventsListener> listeners = getTkmsEventsListeners();
+    var listeners = getTkmsEventsListeners();
     if (log.isDebugEnabled()) {
       log.debug("Message was registered for " + shardPartition + " with storage id " + id + ". Listeners count: " + listeners.size());
     }
@@ -327,7 +406,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       return;
     }
 
-    MessageRegisteredEvent event = new MessageRegisteredEvent().setStorageId(id).setMessage(message).setShardPartition(shardPartition);
+    var event = new MessageRegisteredEvent().setStorageId(id).setMessage(message).setShardPartition(shardPartition);
 
     listeners.forEach(listener -> {
       try {
@@ -353,7 +432,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   }
 
   protected TkmsShardPartition getShardPartition(TkmsMessage message) {
-    int shard = properties.getDefaultShard();
+    var shard = properties.getDefaultShard();
     if (message.getShard() != null) {
       shard = message.getShard();
     }
@@ -361,13 +440,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       throw new IllegalArgumentException("Given shard " + message.getShard() + " is out of bounds.");
     }
 
-    int partition = getPartition(shard, message);
+    var partition = getPartition(shard, message);
 
     return TkmsShardPartition.of(shard, partition);
   }
 
   protected int getPartition(int shard, TkmsMessage message) {
-    int tablesCount = properties.getPartitionsCount(shard);
+    var tablesCount = properties.getPartitionsCount(shard);
     if (tablesCount == 1) {
       return 0;
     }

@@ -39,6 +39,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -130,7 +131,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   Future<Boolean> future = futureReference.get();
                   if (future != null) {
                     try {
-                      future.get(tkmsPaceMaker.getLongWaitTime(shardPartition.getShard()).toMillis(), TimeUnit.MILLISECONDS);
+                      future.get(tkmsPaceMaker.getProxyStopTimeout(shardPartition).toMillis(), TimeUnit.MILLISECONDS);
                     } catch (TimeoutException e) {
                       throw new IllegalStateException("Hang detected when trying to stop polling of " + shardPartition + ".", e);
                     } catch (Throwable t) {
@@ -162,6 +163,16 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     EarliestMessageTracker earliestMessageTracker =
         new EarliestMessageTracker(tkmsDaoProvider.getTkmsDao(shardPartition.getShard()), shardPartition, properties, metricsTemplate);
     earliestMessageTracker.init();
+
+    final var lastPollAllTimeMs = new MutableLong();
+
+    final Duration pollAllInterval;
+    if (properties.getEarliestVisibleMessages(shardPartition.getShard()).isEnabled()) {
+      pollAllInterval = properties.getEarliestVisibleMessages(shardPartition.getShard()).getPollAllInterval();
+      
+    } else {
+      pollAllInterval = null;
+    }
 
     try {
       MutableObject<Duration> proxyCyclePauseRequest = new MutableObject<>();
@@ -197,9 +208,21 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
               long cycleStartNanoTime = System.nanoTime();
               int polledRecordsCount = 0;
-              AtomicInteger failedSendsCount = new AtomicInteger();
+              var failedSendsCount = new AtomicInteger();
               try {
-                List<MessageRecord> records = tkmsDao.getMessages(shardPartition, earliestMessageTracker.getEarliestMessageId(), pollerBatchSize);
+                var earliestMessageIdToUse = earliestMessageTracker.getEarliestMessageId();
+
+                if (earliestMessageIdToUse != -1L && pollAllInterval != null) {
+                  if (lastPollAllTimeMs == null || System.currentTimeMillis() - lastPollAllTimeMs.getValue() > pollAllInterval.toMillis()) {
+                    earliestMessageIdToUse = -1L;
+                    
+                    log.info("Polling all messages for {}, to make sure we are not missing some created by long running transactions.",
+                        shardPartition);
+                    
+                    lastPollAllTimeMs.setValue(System.currentTimeMillis());
+                  }
+                }
+                var records = tkmsDao.getMessages(shardPartition, earliestMessageIdToUse, pollerBatchSize);
                 polledRecordsCount = records.size();
 
                 metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);
@@ -216,12 +239,18 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                   }
                 }
 
+                if (earliestMessageTracker.getEarliestMessageId() > records.get(0).getId()) {
+                  log.warn("We got records invisible for the earliest messages tracking system. {} > {}.",
+                      earliestMessageTracker.getEarliestMessageId(),
+                      records.get(0).getId());
+                }
+
                 earliestMessageTracker.register(records.get(0).getId());
 
-                MessageProcessingContext[] contexts = new MessageProcessingContext[records.size()];
+                var contexts = new MessageProcessingContext[records.size()];
 
-                final long kafkaSendStartNanoTime = System.nanoTime();
-                KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
+                final var kafkaSendStartNanoTime = System.nanoTime();
+                var kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
                 boolean atLeastOneSendDone = false;
 
                 producerRecordMap.clear();

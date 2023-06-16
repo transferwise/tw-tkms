@@ -68,6 +68,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   public static final Tag TAG_SUCCESS_FALSE = Tag.of("success", "false");
   public static final Tag TAG_POLL_RESULT_EMPTY = Tag.of("pollResult", "empty");
   public static final Tag TAG_POLL_RESULTS_NOT_EMPTY = Tag.of("pollResult", "not_empty");
+  public static final Tag TAG_DEFERRED_TRUE = Tag.of("deferred", "true");
+  public static final Tag TAG_DEFERRED_FALSE = Tag.of("deferred", "false");
 
   private final IMeterCache meterCache;
   private final TkmsProperties tkmsProperties;
@@ -152,7 +154,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   }
 
   @Override
-  public void recordMessageRegistering(String topic, TkmsShardPartition shardPartition) {
+  public void recordMessageRegistering(String topic, TkmsShardPartition shardPartition, boolean deferred) {
     TwContext currentContext = TwContext.current();
     meterCache
         .counter(COUNTER_INTERFACE_MESSAGE_REGISTERED, TagsSet.of(
@@ -161,7 +163,9 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
             entryPointOwnerTag(currentContext),
             partitionTag(shardPartition),
             shardTag(shardPartition),
-            topicTag(topic)))
+            topicTag(topic),
+            deferredTag(deferred)
+        ))
         .increment();
   }
 
@@ -377,6 +381,10 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
 
   protected Tag successTag(boolean success) {
     return success ? TAG_SUCCESS_TRUE : TAG_SUCCESS_FALSE;
+  }
+
+  protected Tag deferredTag(boolean deferred) {
+    return deferred ? TAG_DEFERRED_TRUE : TAG_DEFERRED_FALSE;
   }
 
   protected Tag algorithmTag(CompressionAlgorithm algorithm) {

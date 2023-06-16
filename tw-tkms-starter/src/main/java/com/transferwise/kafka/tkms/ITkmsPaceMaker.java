@@ -7,7 +7,7 @@ public interface ITkmsPaceMaker {
 
   void doSmallPause(int shard);
 
-  Duration getLongWaitTime(int shard);
+  Duration getProxyStopTimeout(TkmsShardPartition tkmsShardPartition);
 
   Duration getPollingPause(TkmsShardPartition tkmsShardPartition, int pollingBatchSize, int polledMessagesCount);
 
