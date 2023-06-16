@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Increased the default value for `proxyTimeToLive` from 10 minutes to 1 hour.
   10 minutes creates too many switches. Every switch still creates a small processing pause.
 
+* `previousVersion` to `previousVersionAtLeast` for more self documenting name.
+  The name should indicate that it does not need to be changed on every upgrade.
+
+### Migration guide
+
+* Change `previousVersion` in your configuration to `previousVersionAtLeast`.
+
 ## [0.23.1] - 2023-06-15
 
 ### Changed
