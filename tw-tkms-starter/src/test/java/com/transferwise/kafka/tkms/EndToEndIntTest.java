@@ -39,7 +39,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -73,7 +72,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
   public void setup() {
     var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
     faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
-    tkmsStorageToKafkaProxy.setTkmsDaoProvider((shard) -> faultInjectedTkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider(shard -> faultInjectedTkmsDao);
+    ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(shard -> faultInjectedTkmsDao);
 
     super.setup();
   }
@@ -82,6 +82,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   public void cleanup() {
     super.cleanup();
     tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
+    ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(tkmsDaoProvider);
     tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
   }
 
@@ -345,6 +346,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
                 transactionalKafkaMessageSender
                     .sendMessage(new TkmsMessage().setKey(String.valueOf(finalEntityId)).setTopic(testProperties.getTestTopic())
                         .setValue(toJsonBytes(testEvent))));
+
+            checkIfTransactionContextsHaveBeenCleared();
           }
         });
       }
@@ -418,6 +421,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
             transactionsHelper.withTransaction().run(() ->
                 transactionalKafkaMessageSender.sendMessages(sendMessagesRequest));
           }
+
+          checkIfTransactionContextsHaveBeenCleared();
         });
       }
       for (Thread thread : threads) {
@@ -738,7 +743,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       faultInjectedTkmsDao.setDeleteMessagesFails(false);
 
-      await().until(() -> getTablesRowsCount() == 0);
+      waitUntilTablesAreEmpty();
 
       int messagesSentToKafka = 0;
       for (var counter : meterRegistry.get("tw_tkms_proxy_message_send").tags("success", "true").counters()) {
@@ -764,29 +769,50 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatInsertFailureDoesNotLeaveTrashBehind(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
+    String message = "Hello Ahti!";
+
+    var receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
+      }
+    });
+
+    faultInjectedTkmsDao.setInsertMessagesErrorLatch(1);
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      var testEvent0 = new TestEvent().setId(0L).setMessage(message);
+      var testEvent1 = new TestEvent().setId(1L).setMessage(message);
+
+      assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> {
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent0)).setShard(0));
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent1)).setShard(1));
+      })).hasMessage("Haha, inserts are failing lol.");
+
+      assertThat(receivedCount.get()).isEqualTo(0);
+      // Everything got rolled back
+      assertThat(getTablesRowsCount()).isEqualTo(0);
+
+      checkIfTransactionContextsHaveBeenCleared();
+    } finally {
+      faultInjectedTkmsDao.setInsertMessagesErrorLatch(null);
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+  }
+
   @SneakyThrows
   protected byte[] toJsonBytes(Object value) {
     return objectMapper.writeValueAsBytes(value);
-  }
-
-  protected void waitUntilTablesAreEmpty() {
-    try {
-      await().until(() -> getTablesRowsCount() == 0);
-    } catch (ConditionTimeoutException ignored) {
-      // To get a good cause message.
-      assertThatTablesAreEmpty();
-    }
-  }
-
-  protected void assertThatTablesAreEmpty() {
-    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
-      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        int rowsCount = tkmsTestDao.getMessagesCount(sp);
-
-        assertThat(rowsCount).as("Row count for " + sp + " is zero.").isZero();
-      }
-    }
   }
 
   private static Stream<Arguments> compressionInput() {
@@ -803,6 +829,12 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
 
     return arguments.stream();
+  }
+
+  private void checkIfTransactionContextsHaveBeenCleared() {
+    // We are not clearing the thread local for performance reasons
+    assertThat(TransactionContext.storage.get()).isNotNull();
+    assertThat(TransactionContext.storage.get().getValue()).isNull();
   }
 
   @ParameterizedTest
@@ -836,10 +868,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
                   .setCompression(new Compression().setAlgorithm(algorithm))));
 
       await().until(() -> receivedCount.get() > 0);
-      await().until(() -> getTablesRowsCount() == 0);
+      waitUntilTablesAreEmpty();
 
-      counter =
-          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
+      counter = meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
       double serializedSizeBytes = counter == null ? 0 : counter.count();
       assertThat((int) (serializedSizeBytes - startingSerializedSizeBytes)).isIn(expectedSerializedSize, expectedSerializedSizeAlt);
 

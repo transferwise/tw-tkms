@@ -213,7 +213,7 @@ public class TkmsProperties implements InitializingBean {
   private Map<Integer, ShardProperties> shards = new HashMap<>();
 
   /**
-   * When enabled, the messages are not immediately written to the database, but collected into memory and written to database just before commit.
+   * When enabled, the messages are not immediately written to the database, but collected in memory and written to database just before commit.
    *
    * <p>Allows to reduce transactions latency in case multiple individual messages are registered over the course of that transaction.
    * The latency is reduced by batch inserting all the collected messages in the pre-commit hook.

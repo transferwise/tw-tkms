@@ -13,17 +13,31 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   @Setter
   private boolean deleteMessagesFails;
 
+  @Setter
+  private Integer insertMessagesErrorLatch;
+
   public FaultInjectedTkmsDao(ITkmsDao delegate) {
     this.delegate = delegate;
   }
 
   @Override
   public InsertMessageResult insertMessage(TkmsShardPartition shardPartition, TkmsMessage message) {
+    if (insertMessagesErrorLatch != null) {
+      if (--insertMessagesErrorLatch < 0) {
+        throw new IllegalStateException("Haha, inserts are failing lol.");
+      }
+    }
+    
     return delegate.insertMessage(shardPartition, message);
   }
 
   @Override
   public List<InsertMessageResult> insertMessages(TkmsShardPartition shardPartition, List<TkmsMessageWithSequence> tkmsMessages) {
+    if (insertMessagesErrorLatch != null) {
+      if (--insertMessagesErrorLatch < 0) {
+        throw new IllegalStateException("Haha, inserts are failing lol.");
+      }
+    }
     return delegate.insertMessages(shardPartition, tkmsMessages);
   }
 

@@ -16,9 +16,9 @@ import org.apache.commons.lang3.mutable.MutableObject;
 @NotThreadSafe
 public class TransactionContext {
 
-  private static final ThreadLocal<MutableObject<TransactionContext>> storage = new ThreadLocal<>();
+  protected static final ThreadLocal<MutableObject<TransactionContext>> storage = new ThreadLocal<>();
 
-  private Map<TkmsShardPartition, ShardPartitionMessages> shardPartitionMessagesMap = new HashMap<>();
+  private final Map<TkmsShardPartition, ShardPartitionMessages> shardPartitionMessagesMap = new HashMap<>();
 
   private long registeredMessagesCount;
 

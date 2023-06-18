@@ -58,7 +58,7 @@ class KafkaMetricsIntTest extends BaseIntTest {
                   .setValue(ExceptionUtils.doUnchecked(() -> objectMapper.writeValueAsBytes(testEvent)))));
 
       await().until(() -> receivedCount.get() > 0);
-      await().until(() -> getTablesRowsCount() == 0);
+      waitUntilTablesAreEmpty();
     } finally {
       testMessagesListener.unregisterConsumer(messageCounter);
     }

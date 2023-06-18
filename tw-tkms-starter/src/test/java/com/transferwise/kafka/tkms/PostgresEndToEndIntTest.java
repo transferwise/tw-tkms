@@ -16,14 +16,12 @@ public class PostgresEndToEndIntTest extends EndToEndIntTest {
     var arguments = new ArrayList<Arguments>();
 
     for (var deferUntilCommit : deferUntilCommits) {
-      return Stream.of(
-          Arguments.of(CompressionAlgorithm.GZIP, 111, 110, deferUntilCommit),
-          Arguments.of(CompressionAlgorithm.NONE, 1171, 1171, deferUntilCommit),
-          Arguments.of(CompressionAlgorithm.LZ4, 134, 134, deferUntilCommit),
-          Arguments.of(CompressionAlgorithm.SNAPPY, 160, 160, deferUntilCommit),
-          Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 158, 158, deferUntilCommit),
-          Arguments.of(CompressionAlgorithm.ZSTD, 100, 100, deferUntilCommit)
-      );
+      arguments.add(Arguments.of(CompressionAlgorithm.GZIP, 111, 110, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.NONE, 1171, 1171, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.LZ4, 134, 134, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY, 160, 160, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 158, 158, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.ZSTD, 100, 100, deferUntilCommit));
     }
 
     return arguments.stream();

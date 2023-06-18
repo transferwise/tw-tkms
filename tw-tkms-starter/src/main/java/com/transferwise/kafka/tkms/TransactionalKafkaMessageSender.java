@@ -28,7 +28,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
@@ -41,12 +40,15 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Autowired
   private ITkmsDaoProvider tkmsDaoProvider;
+
+  protected void setTkmsDaoProvider(ITkmsDaoProvider tkmsDaoProvider) {
+    this.tkmsDaoProvider = tkmsDaoProvider;
+  }
+
   @Autowired
   private ITkmsMetricsTemplate metricsTemplate;
   @Autowired
   private TkmsProperties properties;
-  @Autowired
-  private ApplicationContext applicationContext;
   @Autowired
   private ITkmsKafkaProducerProvider kafkaProducerProvider;
   @Autowired
@@ -133,6 +135,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         // We have to block here for sure.
         throw new IllegalStateException("No active transaction detected. It is required when defer-until-commit registration method is requested.");
       } else {
+        // Here we block by default, however we do allow to reconfigure it for legacy applications.
+        // In future version, we could only block here as well.
         problemNotifier.notify(shard, NotificationType.NO_ACTIVE_TRANSACTION, NotificationLevel.BLOCK,
             () -> "No active transaction detected. TKMS is an implementation for the transactional outbox pattern. It is more"
                 + " efficient to send direct Kafka messages, when you do not need that pattern.");
@@ -146,43 +150,41 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     validateMessages(request);
 
-    return transactionsHelper.withTransaction().call(() -> {
-      var transactionContext = getAndBindTransactionContext();
+    var validatedTopics = new HashSet<String>();
 
-      var validatedTopics = new HashSet<String>();
+    int seq = 0;
 
-      int seq = 0;
+    var tkmsMessages = request.getTkmsMessages();
+    var tmksMessagesCount = tkmsMessages.size();
+    var responses = new SendMessageResult[tmksMessagesCount];
 
-      var tkmsMessages = request.getTkmsMessages();
-      var tmksMessagesCount = tkmsMessages.size();
-      var responses = new SendMessageResult[tmksMessagesCount];
+    var shardPartitionsMap = new HashMap<TkmsShardPartition, List<TkmsMessageWithSequence>>();
 
-      var shardPartitionsMap = new HashMap<TkmsShardPartition, List<TkmsMessageWithSequence>>();
+    for (int messageIdx = 0; messageIdx < tmksMessagesCount; messageIdx++) {
+      var tkmsMessage = tkmsMessages.get(messageIdx);
+      validateMessageSize(tkmsMessage, messageIdx);
 
-      for (int messageIdx = 0; messageIdx < tmksMessagesCount; messageIdx++) {
-        var tkmsMessage = tkmsMessages.get(messageIdx);
-        validateMessageSize(tkmsMessage, messageIdx);
+      var shardPartition = getShardPartition(tkmsMessage);
 
-        var shardPartition = getShardPartition(tkmsMessage);
-
-        var topic = tkmsMessage.getTopic();
-        if (!validatedTopics.contains(topic)) {
-          validateTopic(shardPartition.getShard(), topic);
-          validatedTopics.add(topic);
-        }
-
-        var tkmsMessageWithSequence = new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage);
-        shardPartitionsMap.computeIfAbsent(shardPartition, k -> new ArrayList<>()).add(tkmsMessageWithSequence);
+      var topic = tkmsMessage.getTopic();
+      if (!validatedTopics.contains(topic)) {
+        validateTopic(shardPartition.getShard(), topic);
+        validatedTopics.add(topic);
       }
 
+      var tkmsMessageWithSequence = new TkmsMessageWithSequence().setSequence(seq++).setTkmsMessage(tkmsMessage);
+      shardPartitionsMap.computeIfAbsent(shardPartition, k -> new ArrayList<>()).add(tkmsMessageWithSequence);
+    }
+
+    return transactionsHelper.withTransaction().call(() -> {
+      var transactionContext = getAndBindTransactionContext();
       shardPartitionsMap.forEach((shardPartition, tkmsMessageWithSequences) -> {
         try {
           shardPartition.putIntoMdc();
 
-          var deferMessageRegistrationUntilCommit = properties.deferMessageRegistrationUntilCommit(shardPartition.getShard());
-          if (request.getDeferMessageRegistrationUntilCommit() != null) {
-            deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit();
-          }
+          var deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit() == null
+              ? properties.deferMessageRegistrationUntilCommit(shardPartition.getShard())
+              : request.getDeferMessageRegistrationUntilCommit();
 
           checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
@@ -194,7 +196,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
               var message = tkmsMessageWithSequences.get(i);
               shardPartitionMessages.getMessages().add(message.getTkmsMessage());
 
-              // Storage id remains null
+              // Storage id remains null.
+              // It can be retrieved by events, if needed.
               responses[message.getSequence()] = new SendMessageResult().setShardPartition(shardPartition);
 
               transactionContext.countMessage();
@@ -246,10 +249,9 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     try {
       shardPartition.putIntoMdc();
 
-      var deferMessageRegistrationUntilCommit = properties.deferMessageRegistrationUntilCommit(shardPartition.getShard());
-      if (request.getDeferMessageRegistrationUntilCommit() != null) {
-        deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit();
-      }
+      var deferMessageRegistrationUntilCommit = request.getDeferMessageRegistrationUntilCommit() == null
+          ? properties.deferMessageRegistrationUntilCommit(shardPartition.getShard())
+          : request.getDeferMessageRegistrationUntilCommit();
 
       checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
@@ -262,9 +264,11 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       if (deferMessageRegistrationUntilCommit) {
         // Transaction is guaranteed to be active here.
         var transactionContext = getAndBindTransactionContext();
+
         var shardPartitionMessages = transactionContext.getShardPartitionMessages(shardPartition);
-        shardPartitionMessages.getMessages().add(message);
         requireConsistentMode(shardPartitionMessages, Mode.DEFERRED);
+
+        shardPartitionMessages.getMessages().add(message);
 
         transactionContext.countMessage();
         // Storage id is not known yet.
@@ -463,7 +467,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     });
   }
 
-  // Allow to override on older Spring services not support Lazy annotation properly.
+  // Allow to override for older Spring services not supporting Lazy annotation properly.
   protected List<ITkmsEventsListener> getTkmsEventsListeners() {
     return tkmsEventsListeners;
   }
