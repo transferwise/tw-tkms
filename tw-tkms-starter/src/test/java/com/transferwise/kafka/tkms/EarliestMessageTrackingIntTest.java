@@ -11,6 +11,7 @@ import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
+import com.transferwise.kafka.tkms.test.TestLogAppender;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,9 +44,17 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   private int sentMessagesCount = 0;
 
+  private boolean pollingAllRecordsHappened;
+
   @BeforeEach
   public void setupAll() {
     Debug.setEarliestMessagesTrackerDebugEnabled(true);
+    TestLogAppender.setEventFilter(event -> {
+      if (event.getMessage().startsWith("Polling all messages for")) {
+        pollingAllRecordsHappened = true;
+      }
+      return true;
+    });
   }
 
   @AfterEach
@@ -91,6 +100,8 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     earliestMessageTracker.init();
 
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);
+    
+    assertThat(pollingAllRecordsHappened);
   }
 
   protected void sendMessageAndWaitForArrival() {

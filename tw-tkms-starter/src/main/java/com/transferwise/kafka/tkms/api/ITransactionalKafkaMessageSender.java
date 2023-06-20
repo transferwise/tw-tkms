@@ -20,6 +20,10 @@ public interface ITransactionalKafkaMessageSender {
 
     /**
      * The id in the database table.
+     *
+     * <p>Can be null, which means the message insert into database was deferred.
+     *
+     * <p>Look for `ITkmsEventsListener` to get storage ids in case of deferred messages.
      */
     private Long storageId;
     /**
@@ -29,6 +33,23 @@ public interface ITransactionalKafkaMessageSender {
      */
     private TkmsShardPartition shardPartition;
   }
+
+  SendMessageResult sendMessage(SendMessageRequest request);
+
+  @Data
+  @Accessors(chain = true)
+  class SendMessageRequest {
+
+    /**
+     * Messages will be deferred.
+     *
+     * <p>No null value will override the default settings.
+     */
+    private Boolean deferMessageRegistrationUntilCommit;
+
+    private TkmsMessage tkmsMessage;
+  }
+
 
   /**
    * Batch variant for {@link ITransactionalKafkaMessageSender#sendMessage(com.transferwise.kafka.tkms.api.TkmsMessage)}
@@ -41,6 +62,13 @@ public interface ITransactionalKafkaMessageSender {
   @Data
   @Accessors(chain = true)
   class SendMessagesRequest {
+
+    /**
+     * Messages will be deferred.
+     *
+     * <p>No null value will override the default settings.
+     */
+    private Boolean deferMessageRegistrationUntilCommit;
 
     @NotNull
     @NotEmpty

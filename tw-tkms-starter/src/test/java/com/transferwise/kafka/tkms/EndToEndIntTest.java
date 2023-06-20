@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
+import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessageRequest;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesResult;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -16,17 +17,19 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
+import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.BaseTestEnvironment;
 import com.transferwise.kafka.tkms.test.TestMessagesListener;
 import com.transferwise.kafka.tkms.test.TestMessagesListener.TestEvent;
 import com.transferwise.kafka.tkms.test.TestProperties;
-import com.transferwise.kafka.tkms.test.TkmsTestProperties;
 import io.micrometer.core.instrument.Counter;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -36,13 +39,12 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @BaseTestEnvironment
@@ -70,7 +72,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
   public void setup() {
     var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
     faultInjectedTkmsDao = new FaultInjectedTkmsDao(tkmsDao);
-    tkmsStorageToKafkaProxy.setTkmsDaoProvider((shard) -> faultInjectedTkmsDao);
+    tkmsStorageToKafkaProxy.setTkmsDaoProvider(shard -> faultInjectedTkmsDao);
+    ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(shard -> faultInjectedTkmsDao);
 
     super.setup();
   }
@@ -79,17 +82,28 @@ abstract class EndToEndIntTest extends BaseIntTest {
   public void cleanup() {
     super.cleanup();
     tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
+    ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(tkmsDaoProvider);
+    tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
   }
 
-  @Test
+  protected void setupConfig(boolean deferUntilCommit) {
+    tkmsProperties.setDeferMessageRegistrationUntilCommit(deferUntilCommit);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @SneakyThrows
-  void testThatJsonStringMessageCanBeSentAndRetrieved() {
+  void testThatJsonStringMessageCanBeSentAndRetrieved(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     var messagePart = "Hello World!";
     int messageMultiplier = 100;
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < messageMultiplier; i++) {
       sb.append(messagePart);
     }
+
+    tkmsStorageToKafkaProxy.pause();
 
     String message = sb.toString();
 
@@ -109,11 +123,28 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     testMessagesListener.registerConsumer(messageCounter);
     try {
-      TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
+      var testEvent = new TestEvent().setId(1L).setMessage(message);
 
-      transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
-          .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))
-              .addHeader(new Header().setKey("x-tw-criticality").setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8)))));
+      await().until(() -> tkmsStorageToKafkaProxy.isPaused());
+
+      transactionsHelper.withTransaction().run(() -> {
+        var result = transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))
+                .addHeader(new Header().setKey("x-tw-criticality").setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8))));
+
+        var messagesCount = tkmsTestDao.getMessagesCount(result.getShardPartition());
+        if (deferUntilCommit) {
+          // Counter is incremented when the record gets later inserted
+          assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(0);
+          // Messages are not in the database yet.
+          assertThat(messagesCount).isZero();
+        } else {
+          assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
+          assertThat(messagesCount).isEqualTo(1);
+        }
+      });
+
+      tkmsStorageToKafkaProxy.resume();
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -127,8 +158,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(1);
   }
 
-  @Test
-  void testExactlyOnceDelivery() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testExactlyOnceDelivery(boolean deferUntilCommit) throws Exception {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello World!";
     int threadsCount = 20;
     int batchesCount = 20;
@@ -203,8 +237,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesWithSameKeyEndUpInOnePartition() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesWithSameKeyEndUpInOnePartition(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello World!";
     String key = "GrailsRocks";
     int n = 20;
@@ -237,8 +274,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesWithSamePartitionEndUpInOnePartition() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesWithSamePartitionEndUpInOnePartition(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Fabio!";
     int partition = 3;
     int n = 20;
@@ -274,8 +314,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
-  void testThatMessagesOrderForAnEntityIsPreserved() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesOrderForAnEntityIsPreserved(boolean deferUntilCommit) throws Exception {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Jarvis!";
     int entitiesCount = 100;
     int entityEventsCount = 100;
@@ -294,15 +337,17 @@ abstract class EndToEndIntTest extends BaseIntTest {
     try {
       Thread[] threads = new Thread[entitiesCount];
       for (long e = 0; e < entitiesCount; e++) {
-        long finalE = e;
+        long finalEntityId = e;
         threads[(int) e] = new Thread(() -> {
           for (long i = 0; i < entityEventsCount; i++) {
-            long id = finalE * entityEventsCount + i;
-            TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalE).setMessage(message);
+            long id = finalEntityId * entityEventsCount + i;
+            TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalEntityId).setMessage(message);
             transactionsHelper.withTransaction().run(() ->
                 transactionalKafkaMessageSender
-                    .sendMessage(new TkmsMessage().setKey(String.valueOf(finalE)).setTopic(testProperties.getTestTopic())
+                    .sendMessage(new TkmsMessage().setKey(String.valueOf(finalEntityId)).setTopic(testProperties.getTestTopic())
                         .setValue(toJsonBytes(testEvent))));
+
+            checkIfTransactionContextsHaveBeenCleared();
           }
         });
       }
@@ -334,24 +379,107 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatMessagesOrderForAnEntityIsPreservedWithBatches(boolean deferUntilCommit) throws Exception {
+    setupConfig(deferUntilCommit);
+
+    String message = "Hello Tamas!";
+    int entitiesCount = 100;
+    int entityEventsCount = 100;
+    int averageBatchSize = 10;
+    int messagesCount = entitiesCount * entityEventsCount;
+
+    ConcurrentHashMap<Long, List<Long>> receivedMap = new ConcurrentHashMap<>();
+    AtomicInteger receivedCount = new AtomicInteger();
+
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      receivedMap.computeIfAbsent(receivedEvent.getEntityId(), (k) -> new CopyOnWriteArrayList<>()).add(receivedEvent.getId());
+      receivedCount.incrementAndGet();
+    });
+
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      Thread[] threads = new Thread[entitiesCount];
+      for (long e = 0; e < entitiesCount; e++) {
+        long finalEntityId = e;
+        threads[(int) e] = new Thread(() -> {
+          int i = 0;
+          while (i < entityEventsCount) {
+            int batchSize = Math.min(1 + ThreadLocalRandom.current().nextInt(averageBatchSize), entityEventsCount - i);
+
+            SendMessagesRequest sendMessagesRequest = new SendMessagesRequest();
+            for (int j = 0; j < batchSize; j++) {
+              var id = finalEntityId * entityEventsCount + i;
+              var testEvent = new TestEvent().setId(id).setEntityId(finalEntityId).setMessage(message);
+              sendMessagesRequest.addTkmsMessage(new TkmsMessage().setKey(String.valueOf(finalEntityId)).setTopic(testProperties.getTestTopic())
+                  .setValue(toJsonBytes(testEvent)));
+              i++;
+            }
+
+            transactionsHelper.withTransaction().run(() ->
+                transactionalKafkaMessageSender.sendMessages(sendMessagesRequest));
+          }
+
+          checkIfTransactionContextsHaveBeenCleared();
+        });
+      }
+      for (Thread thread : threads) {
+        thread.start();
+      }
+      final long startTimeMs = System.currentTimeMillis();
+      for (Thread thread : threads) {
+        thread.join();
+      }
+
+      await().until(() -> receivedCount.get() >= messagesCount);
+
+      log.info("Messages received: " + receivedCount.get());
+      log.info("Messages sent in " + (System.currentTimeMillis() - startTimeMs) + " ms.");
+
+      for (long i = 0; i < entitiesCount; i++) {
+        List<Long> entityEventsIds = receivedMap.get(i);
+        assertThat(entityEventsIds.size()).isEqualTo(entityEventsCount);
+        for (int j = 0; j < entityEventsIds.size(); j++) {
+          if (j > 0 && entityEventsIds.get(j) < entityEventsIds.get(j - 1)) {
+            throw new IllegalStateException("Invalid order detected for entity " + i);
+          }
+        }
+      }
+      waitUntilTablesAreEmpty();
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   @SneakyThrows
-  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled() {
+  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
         .hasMessageContaining("Topic NotExistingTopic not present in metadata");
   }
 
-  @Test
-  void sendingOutMessagesWithoutActiveTransactionsWillFail() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendingOutMessagesWithoutActiveTransactionsWillFail(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     assertThatThrownBy(() -> transactionalKafkaMessageSender
         .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("No active transaction detected.");
   }
 
-  @Test
-  void sendingMultipleMessagesWorks() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendingMultipleMessagesWorks(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     byte[] value = "{\"message\" : \"Hello Nerius!\"}".getBytes(StandardCharsets.UTF_8);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -371,7 +499,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
         ));
 
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
-    assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
+    if (deferUntilCommit) {
+      assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNull();
+    } else {
+      assertThat(sendMessagesResult.getResults().get(1).getStorageId()).isNotNull();
+    }
     assertThat(sendMessagesResult.getResults().get(1).getShardPartition().getShard()).isEqualTo(1);
     assertThat(sendMessagesResult.getResults().get(2).getShardPartition().getShard()).isZero();
 
@@ -391,8 +523,137 @@ abstract class EndToEndIntTest extends BaseIntTest {
     waitUntilTablesAreEmpty();
   }
 
-  @Test
-  void testThatSendingLargeMessagesWillNotCauseAnIssue() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendingMultipleMessagesWithMultipleStatementsWorks(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+    tkmsStorageToKafkaProxy.pause();
+
+    byte[] value = "{\"message\" : \"Hello Ajmal!\"}".getBytes(StandardCharsets.UTF_8);
+
+    AtomicInteger receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter =
+        cr -> ExceptionUtils.doUnchecked(receivedCount::incrementAndGet);
+
+    testMessagesListener.registerConsumer(messageCounter);
+
+    String topic = testProperties.getTestTopic();
+
+    await().until(() -> tkmsStorageToKafkaProxy.isPaused());
+
+    transactionsHelper.withTransaction().run(() -> {
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
+      );
+
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(deferUntilCommit)
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value)));
+
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value)));
+
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+      );
+
+      var messagesCount = tkmsTestDao.getMessagesCount(TkmsShardPartition.of(0, 0))
+          + tkmsTestDao.getMessagesCount(TkmsShardPartition.of(1, 0));
+
+      if (deferUntilCommit) {
+        assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(0);
+        // Messages are not in the database yet.
+        assertThat(messagesCount).isEqualTo(0);
+      } else {
+        assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(testProperties.getTestTopic()).size()).isEqualTo(8);
+        assertThat(messagesCount).isEqualTo(8);
+      }
+    });
+
+    tkmsStorageToKafkaProxy.resume();
+
+    assertThat(tkmsRegisteredMessagesCollector.getRegisteredMessages(topic).size()).isEqualTo(8);
+
+    assertThat(meterRegistry.find(TkmsMetricsTemplate.SUMMARY_MESSAGES_IN_TRANSACTION).summary().count()).isEqualTo(1);
+    assertThat(meterRegistry.find(TkmsMetricsTemplate.SUMMARY_MESSAGES_IN_TRANSACTION).summary().max()).isEqualTo(8);
+
+    try {
+      await().until(() -> receivedCount.get() == 8);
+
+      log.info("Messages received: " + receivedCount.get());
+    } finally {
+      testMessagesListener.unregisterConsumer(messageCounter);
+      System.out.println("Received count: " + receivedCount);
+    }
+
+    waitUntilTablesAreEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void mixingDeferredAndNotDeferredMessagesIsPrevented(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
+    byte[] value = "{\"message\" : \"Hello Ajmal!\"}".getBytes(StandardCharsets.UTF_8);
+
+    String topic = testProperties.getTestTopic();
+
+    assertThatThrownBy(() -> {
+      transactionsHelper.withTransaction().run(() -> {
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+        );
+
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+        );
+      });
+    }).hasMessage("You can not mix deferred and not deferred messages in the same transaction, as it will break the ordering guarantees.");
+
+    assertThatThrownBy(() -> {
+      transactionsHelper.withTransaction().run(() -> {
+        transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
+            .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+        );
+
+        transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+            .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+        );
+      });
+    }).hasMessage("You can not mix deferred and not deferred messages in the same transaction, as it will break the ordering guarantees.");
+
+    // We can mix it between shard-partitions, because between those the order is not important.
+    transactionsHelper.withTransaction().run(() -> {
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0))
+      );
+
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+      );
+    });
+
+    transactionsHelper.withTransaction().run(() -> {
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0))
+      );
+
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+      );
+    });
+
+    waitUntilTablesAreEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatSendingLargeMessagesWillNotCauseAnIssue(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     StringBuilder sb = new StringBuilder();
     // We generate message as large as maximum allowed bytes but this is set up to fail, as there is additional information
     // added by kafka producer.
@@ -450,8 +711,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
   /**
    * If `TkmsStorageToKafkaProxy has some important lines switched around "lastId" logic, the test will start failing.
    */
-  @Test
-  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind() {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatTemporaryDeleteFailureDoesNotLeaveTrashBehind(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     String message = "Hello Peeter!";
     int messagesCount = 1000;
 
@@ -479,7 +743,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
       faultInjectedTkmsDao.setDeleteMessagesFails(false);
 
-      await().until(() -> getTablesRowsCount() == 0);
+      waitUntilTablesAreEmpty();
 
       int messagesSentToKafka = 0;
       for (var counter : meterRegistry.get("tw_tkms_proxy_message_send").tags("success", "true").counters()) {
@@ -505,45 +769,79 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testThatInsertFailureDoesNotLeaveTrashBehind(boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
+    String message = "Hello Ahti!";
+
+    var receivedCount = new AtomicInteger();
+    Consumer<ConsumerRecord<String, String>> messageCounter = cr -> ExceptionUtils.doUnchecked(() -> {
+      TestEvent receivedEvent = objectMapper.readValue(cr.value(), TestEvent.class);
+      if (receivedEvent.getMessage().equals(message)) {
+        receivedCount.incrementAndGet();
+      } else {
+        throw new IllegalStateException("Wrong message receive: " + receivedEvent.getMessage());
+      }
+    });
+
+    faultInjectedTkmsDao.setInsertMessagesErrorLatch(1);
+    testMessagesListener.registerConsumer(messageCounter);
+    try {
+      var testEvent0 = new TestEvent().setId(0L).setMessage(message);
+      var testEvent1 = new TestEvent().setId(1L).setMessage(message);
+
+      assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> {
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent0)).setShard(0));
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent1)).setShard(1));
+      })).hasMessage("Haha, inserts are failing lol.");
+
+      assertThat(receivedCount.get()).isEqualTo(0);
+      // Everything got rolled back
+      assertThat(getTablesRowsCount()).isEqualTo(0);
+
+      checkIfTransactionContextsHaveBeenCleared();
+    } finally {
+      faultInjectedTkmsDao.setInsertMessagesErrorLatch(null);
+      testMessagesListener.unregisterConsumer(messageCounter);
+    }
+  }
+
   @SneakyThrows
   protected byte[] toJsonBytes(Object value) {
     return objectMapper.writeValueAsBytes(value);
   }
 
-  protected void waitUntilTablesAreEmpty() {
-    try {
-      await().until(() -> getTablesRowsCount() == 0);
-    } catch (ConditionTimeoutException ignored) {
-      // To get a good cause message.
-      assertThatTablesAreEmpty();
-    }
-  }
-
-  protected void assertThatTablesAreEmpty() {
-    for (int s = 0; s < tkmsProperties.getShardsCount(); s++) {
-      for (int p = 0; p < tkmsProperties.getPartitionsCount(s); p++) {
-        TkmsShardPartition sp = TkmsShardPartition.of(s, p);
-        int rowsCount = tkmsTestDao.getMessagesCount(sp);
-
-        assertThat(rowsCount).as("Row count for " + sp + " is zero.").isZero();
-      }
-    }
-  }
-
   private static Stream<Arguments> compressionInput() {
-    return Stream.of(
-        Arguments.of(CompressionAlgorithm.GZIP, 102, 103),
-        Arguments.of(CompressionAlgorithm.NONE, 1163, 1163),
-        Arguments.of(CompressionAlgorithm.LZ4, 126, 126),
-        Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158),
-        Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156),
-        Arguments.of(CompressionAlgorithm.ZSTD, 92, 92)
-    );
+    var deferUntilCommits = List.of(false, true);
+    var arguments = new ArrayList<Arguments>();
+
+    for (var deferUntilCommit : deferUntilCommits) {
+      arguments.add(Arguments.of(CompressionAlgorithm.GZIP, 102, 103, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.NONE, 1163, 1163, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.LZ4, 126, 126, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.ZSTD, 92, 92, deferUntilCommit));
+    }
+
+    return arguments.stream();
+  }
+
+  private void checkIfTransactionContextsHaveBeenCleared() {
+    // We are not clearing the thread local for performance reasons
+    assertThat(TransactionContext.storage.get()).isNotNull();
+    assertThat(TransactionContext.storage.get().getValue()).isNull();
   }
 
   @ParameterizedTest
   @MethodSource("compressionInput")
-  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt) {
+  void testMessageIsCompressed(CompressionAlgorithm algorithm, int expectedSerializedSize, int expectedSerializedSizeAlt, boolean deferUntilCommit) {
+    setupConfig(deferUntilCommit);
+
     var message = StringUtils.repeat("Hello Aivo!", 100);
 
     AtomicInteger receivedCount = new AtomicInteger();
@@ -570,10 +868,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
                   .setCompression(new Compression().setAlgorithm(algorithm))));
 
       await().until(() -> receivedCount.get() > 0);
-      await().until(() -> getTablesRowsCount() == 0);
+      waitUntilTablesAreEmpty();
 
-      counter =
-          meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
+      counter = meterRegistry.find("tw_tkms_dao_serialization_serialized_size_bytes").tag("algorithm", algorithm.name().toLowerCase()).counter();
       double serializedSizeBytes = counter == null ? 0 : counter.count();
       assertThat((int) (serializedSizeBytes - startingSerializedSizeBytes)).isIn(expectedSerializedSize, expectedSerializedSizeAlt);
 

@@ -155,7 +155,7 @@ public class TkmsProperties implements InitializingBean {
    */
   @NotNull
   @jakarta.validation.constraints.NotNull
-  private Duration proxyTimeToLive = Duration.ofMinutes(10);
+  private Duration proxyTimeToLive = Duration.ofHours(1);
 
   /**
    * Safety net for validating message sizes before registering them with tw-tkms.
@@ -172,6 +172,16 @@ public class TkmsProperties implements InitializingBean {
    * <p>Can be useful in development environments, where environment owner wants to restrict resource usages globally.
    */
   private Duration minPollingInterval;
+
+  /**
+   * How long to wait for the `TkmsStorageToKafkaProxy` to stop, before giving up and logging a timeout error.
+   *
+   * <p>This could need to be increased to make graceful shutdown noise-free.
+   * For example, in case Tkms is configured to use really large batches and/or database is slow.
+   */
+  @NotNull
+  @jakarta.validation.constraints.NotNull
+  private Duration proxyStopTimeout = Duration.ofSeconds(15);
 
   /**
    * List topics used by the lib.
@@ -201,6 +211,19 @@ public class TkmsProperties implements InitializingBean {
    * Every shard can override settings from default configuration.
    */
   private Map<Integer, ShardProperties> shards = new HashMap<>();
+
+  /**
+   * When enabled, the messages are not immediately written to the database, but collected in memory and written to database just before commit.
+   *
+   * <p>Allows to reduce transactions latency in case multiple individual messages are registered over the course of that transaction.
+   * The latency is reduced by batch inserting all the collected messages in the pre-commit hook.
+   *
+   * <p>The tradeoff is that higher application memory is required for transactions sending out huge number or/and huge messages.
+   * However, in practical applications, large transactions should be avoided anyway.
+   *
+   * <p>May default to true for Postgres in upcoming versions. Or even default to true in all situations.
+   */
+  private boolean deferMessageRegistrationUntilCommit = false;
 
   @Valid
   @jakarta.validation.Valid
@@ -260,7 +283,9 @@ public class TkmsProperties implements InitializingBean {
     private Duration pollingInterval;
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
+    private Duration proxyStopTimeout;
     private boolean compressionOverridden;
+    private Boolean deferRegisteredMessagesUntilCommit;
     @Valid
     @jakarta.validation.Valid
     private Compression compression = new Compression();
@@ -275,8 +300,16 @@ public class TkmsProperties implements InitializingBean {
     private Map<String, String> kafka = new HashMap<>();
   }
 
+  public Duration getProxyStopTimeout(int shard) {
+    var shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getProxyStopTimeout() != null) {
+      return shardProperties.getProxyStopTimeout();
+    }
+    return proxyStopTimeout;
+  }
+
   public String getTableBaseName(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getTableBaseName() != null) {
       return shardProperties.getTableBaseName();
     }
@@ -284,7 +317,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public DatabaseDialect getDatabaseDialect(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getDatabaseDialect() != null) {
       return shardProperties.getDatabaseDialect();
     }
@@ -292,7 +325,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public int getPartitionsCount(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getPartitionsCount() != null) {
       return shardProperties.getPartitionsCount();
     }
@@ -300,7 +333,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public int getPollerBatchSize(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getPollerBatchSize() != null) {
       return shardProperties.getPollerBatchSize();
     }
@@ -308,15 +341,23 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public Duration getPollingInterval(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getPollingInterval() != null) {
       return shardProperties.getPollingInterval();
     }
     return pollingInterval;
   }
 
+  public boolean deferMessageRegistrationUntilCommit(int shard) {
+    var shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getDeferRegisteredMessagesUntilCommit() != null) {
+      return shardProperties.getDeferRegisteredMessagesUntilCommit();
+    }
+    return deferMessageRegistrationUntilCommit;
+  }
+
   public Duration getPauseTimeOnErrors(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getPauseTimeOnErrors() != null) {
       return shardProperties.getPauseTimeOnErrors();
     }
@@ -324,7 +365,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public int getInsertBatchSize(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getInsertBatchSize() != null) {
       return shardProperties.getInsertBatchSize();
     }
@@ -332,7 +373,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public Compression getCompression(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.isCompressionOverridden()) {
       return shardProperties.getCompression();
     }
@@ -340,7 +381,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public EarliestVisibleMessages getEarliestVisibleMessages(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.getEarliestVisibleMessages() != null) {
       return shardProperties.getEarliestVisibleMessages();
     }
@@ -348,7 +389,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public List<Integer> getDeleteBatchSizes(int shard) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.deleteBatchSizes != null && !shardProperties.deleteBatchSizes.isEmpty()) {
       return shardProperties.deleteBatchSizes;
     }
@@ -357,7 +398,7 @@ public class TkmsProperties implements InitializingBean {
   }
 
   public NotificationLevel getNotificationLevels(int shard, NotificationType type) {
-    ShardProperties shardProperties = shards.get(shard);
+    var shardProperties = shards.get(shard);
     if (shardProperties != null && shardProperties.notificationLevels.get(type) != null) {
       return shardProperties.notificationLevels.get(type);
     }
@@ -393,9 +434,18 @@ public class TkmsProperties implements InitializingBean {
   @Accessors(chain = true)
   public static class Environment {
 
+    /**
+     * Marks that previous deployment version in a specific environment (e.g. production) is at least this.
+     *
+     * <p>Used for controlling migration path for breaking changes.
+     *
+     * <p>Does not need to get updated with every upgrade of this library.
+     *
+     * <p>NB! Never set it higher that you have in a specific environment.
+     */
     @ResolvedValue
     @LegacyResolvedValue
-    private String previousVersion;
+    private String previousVersionAtLeast;
   }
 
   @Data
@@ -409,6 +459,21 @@ public class TkmsProperties implements InitializingBean {
     private String tableName = "tw_tkms_earliest_visible_messages";
 
     private Duration lookBackPeriod = Duration.ofMinutes(5);
+
+    /**
+     * Interval, after which we will poll all records, even when earliest message system has calculated a look-back id.
+     *
+     * <p>This is for situations where an application has a risk of having long-running transactions, which register messages over its duration.
+     * Those messages could get auto incremented id, which is too "old" for the proxy component to see.
+     *
+     * <p>Notice however, that the order of the messages may change, when the proxy actually finds and forwards those messages with too "old" ids.
+     *
+     * <p>In case this is set, the first poll without id limit will be done when `StorageToKafkaProxy` acquires a lock.
+     * I.e. when a new node starts, or the same nodes starts again, to proxy messages from the database to the Kafka.
+     *
+     * <p>In most cases you want to set this higher than `proxyTimeToLive`, so it will happen only once per proxy lifecycle (default up to 1 hour).
+     */
+    private Duration pollAllInterval = null;
   }
 
   @Data

@@ -14,7 +14,7 @@ public class BaseEnvironmentValidator implements IEnvironmentValidator {
 
   @Override
   public void validate() {
-    String previousVersion = properties.getEnvironment().getPreviousVersion();
+    String previousVersion = properties.getEnvironment().getPreviousVersionAtLeast();
     if (StringUtils.trimToNull(previousVersion) == null) {
       throw new IllegalStateException("Previous version has not been specified.");
     }

@@ -11,7 +11,7 @@ public interface ITkmsMetricsTemplate {
 
   void recordProxyMessageSendFailure(TkmsShardPartition shardPartition, String topic);
 
-  void recordMessageRegistering(String topic, TkmsShardPartition shardPartition);
+  void recordMessageRegistering(String topic, TkmsShardPartition shardPartition, boolean deferred);
 
   void recordDaoMessageInsert(TkmsShardPartition shardPartition, String topic);
 
@@ -55,4 +55,6 @@ public interface ITkmsMetricsTemplate {
   void recordProxyCyclePause(TkmsShardPartition shardPartition, long durationMs);
 
   Object registerPollingInProgressGauge(TkmsShardPartition shardPartition);
+
+  void registerMessagesInTransactionCount(long registeredMessagesCount, boolean success);
 }

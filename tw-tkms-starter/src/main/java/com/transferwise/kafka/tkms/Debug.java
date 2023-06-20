@@ -9,7 +9,7 @@ import lombok.experimental.UtilityClass;
  */
 @UtilityClass
 public class Debug {
-  
+
   /*
     To allow to understand a flaky test failure in `EarliestMessageTrackingIntTest.testIfEarliestMessageTrackerBehavesAsExpected`.
    */

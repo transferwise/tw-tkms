@@ -12,7 +12,7 @@ spring:
       transaction-isolation: 2
 
   kafka:
-    bootstrap-servers: "${KAFKA_TCP_HOST:localhost}:${KAFKA_TCP_9092}"
+    bootstrap-servers: "${TW_TKMS_KAFKA_TCP_HOST:localhost}:${TW_TKMS_KAFKA_TCP_9092}"
     consumer:
       group-id: ${spring.application.name}
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -32,7 +32,7 @@ tw-tkms:
   shards-count: 2
   insert-batch-size: 2
   kafka:
-    bootstrap.servers: "${KAFKA_TCP_HOST:localhost}:${KAFKA_TCP_9092}"
+    bootstrap.servers: "${TW_TKMS_KAFKA_TCP_HOST:localhost}:${TW_TKMS_KAFKA_TCP_9092}"
   shards:
     1:
       polling-interval: 6ms
@@ -46,7 +46,7 @@ tw-tkms:
     algorithm: random
     min-size: 10
   environment:
-    previous-version: 0.7.3
+    previous-version-at-least: 0.7.3
   monitoring:
     start-delay: 0s
   internals:

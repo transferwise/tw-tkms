@@ -47,9 +47,9 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
-  protected boolean isUsingIndexScan(String sql) {
-    return sql.contains("Index Scan using") || sql.contains("Index Only Scan Backward using")
-        || sql.contains("Index Only Scan using") || sql.contains("Bitmap Heap Scan");
+  protected boolean isUsingIndexScan(String explainPlan) {
+    return explainPlan.contains("Index Scan using") || explainPlan.contains("Index Only Scan Backward using")
+        || explainPlan.contains("Index Only Scan using") || explainPlan.contains("Bitmap Heap Scan");
   }
 
   @Override
