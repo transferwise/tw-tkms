@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
@@ -50,6 +51,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Autowired
   private TkmsProperties properties;
   @Autowired
+  private ApplicationContext applicationContext;
+  @Autowired
   private ITkmsKafkaProducerProvider kafkaProducerProvider;
   @Autowired
   private IEnvironmentValidator environmentValidator;
@@ -58,10 +61,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Autowired
   private IProblemNotifier problemNotifier;
 
-  @Autowired
-  @Lazy
-  private List<ITkmsEventsListener> tkmsEventsListeners;
-
+  private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
   @Override
@@ -467,8 +467,15 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     });
   }
 
-  // Allow to override for older Spring services not supporting Lazy annotation properly.
+  // Lazy to avoid any circular dependencies from low-quality apps.
   protected List<ITkmsEventsListener> getTkmsEventsListeners() {
+    if (tkmsEventsListeners == null) {
+      synchronized (this) {
+        if (tkmsEventsListeners == null) {
+          tkmsEventsListeners = new ArrayList<>(applicationContext.getBeansOfType(ITkmsEventsListener.class).values());
+        }
+      }
+    }
     return tkmsEventsListeners;
   }
 
