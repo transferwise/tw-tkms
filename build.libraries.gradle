@@ -14,7 +14,7 @@ ext {
             lz4Java                         : 'org.lz4:lz4-java:1.8.0',
             protobufJava                    : "com.google.protobuf:protobuf-java:${protobufVersion}",
             semver4j                        : "com.vdurmont:semver4j:3.1.0",
-            snappyJava                      : 'org.xerial.snappy:snappy-java:1.1.9.1',
+            snappyJava                      : 'org.xerial.snappy:snappy-java:1.1.10.1',
             spotbugsAnnotations             : "com.github.spotbugs:spotbugs-annotations:${spotbugs.toolVersion.get()}",
             springBootDependencies          : "org.springframework.boot:spring-boot-dependencies:${springBootVersion}",
             twBaseUtils                     : 'com.transferwise.common:tw-base-utils:1.10.1',
