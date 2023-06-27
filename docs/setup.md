@@ -84,6 +84,59 @@ update mysql.innodb_table_stats set n_rows=1000000 where table_name like "outgoi
 
 But notice, that anyone running `ANALYZE` on those tables, will rewrite statistics entries, and you would have to replay the statements above.
 
+### Troubleshooting
+If you run into issues when testing locally or on CI, your flyway user may be missing the required permissions to run the migration script.
+
+#### Local Development
+
+1. Add a sql script named `db-setup.sql` into the directory where your `docker-compose.yml` file is located. Use the following script, where `test` is the username of your mysql user.
+
+<!-- @formatter:off -->
+```mariadb
+GRANT ALL PRIVILEGES ON *.* TO 'test'@'%';
+GRANT SELECT, UPDATE ON mysql.innodb_index_stats to 'test'@'%';
+GRANT SELECT, UPDATE ON mysql.innodb_table_stats to 'test'@'%';
+GRANT reload ON *.* TO 'test'@'%';
+```
+<!-- @formatter:on -->
+
+2. Add the following into your `docker-compose.yml` file, under your MariaDb image:
+
+<!-- @formatter:off -->
+```yml
+volumes:
+  - ./db-setup.sql:/docker-entrypoint-initdb.d/db-setup.sql
+```
+<!-- @formatter:on -->
+
+#### CI
+1. Ensure your test configuration uses environment variables to set the credentials for Flyway. For example:
+<!-- @formatter:off -->
+```yml
+maria-db:
+  flyway:
+    username: "${ENV_DB_FLYWAY_USERNAME:test}"
+    password: "${ENV_DB_FLYWAY_PASSWORD:test}"
+```
+
+2. Inject environment variables in your `build.gradle` file to use root credentials for Flyway. For example:
+<!-- @formatter:off -->
+```
+workflow {
+    configService {
+        dockerServices = [
+                standardDockerServices.mariaDb(),
+                standardDockerServices.zookeeper(),
+                standardDockerServices.kafkaZookeeper(),
+                standardDockerServices.kafka(),
+        ]
+        env = [ENV_DB_FLYWAY_USERNAME: "root", ENV_DB_FLYWAY_PASSWORD: "admin"]
+    }
+}
+```
+<!-- @formatter:on -->
+
+
 ## Postgres
 
 It is utmost important to have [pg_hint_plan](https://github.com/ossc-db/pg_hint_plan) extension installed in Postgres.
@@ -127,6 +180,13 @@ For example:
 ```yaml
 tw-curator:
   zookeeper-connect-string: "localhost:2181"
+```
+
+If you are using GradleWise, the Zookeeper path is automatically set using environment variables. You can use the following configuration:
+
+```yaml
+tw-curator:
+  zookeeper-connect-string: ${ZK_SERVICE_HOST:localhost}:${ZOOKEEPER_PORT_MAPPING:2181}
 ```
 
 ## Multiple datasources
