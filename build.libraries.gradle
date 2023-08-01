@@ -1,6 +1,6 @@
 ext {
     protobufVersion = "3.22.4"
-    springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '2.6.14'}"
+    springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '2.6.15'}"
     libraries = [
             // version defined
             awaitility                      : 'org.awaitility:awaitility:4.2.0',
