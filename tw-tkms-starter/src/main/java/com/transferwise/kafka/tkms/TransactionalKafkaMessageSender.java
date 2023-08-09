@@ -26,10 +26,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -215,14 +215,19 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
               var tkmsMessageWithSequence = tkmsMessageWithSequences.get(i);
               var insertMessageResult = insertMessageResults.get(i);
 
-              fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
+              MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(insertMessageResult.getStorageId()));
+              try {
+                fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
 
-              metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, false);
+                metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, false);
 
-              responses[insertMessageResult.getSequence()] =
-                  new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+                responses[insertMessageResult.getSequence()] =
+                    new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
 
-              transactionContext.countMessage();
+                transactionContext.countMessage();
+              } finally {
+                MDC.remove(properties.getMdc().getMessageIdKey());
+              }
             }
           }
         } finally {
@@ -284,10 +289,16 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
           var tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
           var insertMessageResult = tkmsDao.insertMessage(shardPartition, message);
-          fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
-          metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), false);
-          transactionContext.countMessage();
-          return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+
+          MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(insertMessageResult.getStorageId()));
+          try {
+            fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), message);
+            metricsTemplate.recordMessageRegistering(topic, insertMessageResult.getShardPartition(), false);
+            transactionContext.countMessage();
+            return new SendMessageResult().setStorageId(insertMessageResult.getStorageId()).setShardPartition(shardPartition);
+          } finally {
+            MDC.remove(properties.getMdc().getMessageIdKey());
+          }
         });
       }
     } finally {
@@ -337,10 +348,14 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
         for (int i = 0; i < messagesWithSequences.size(); i++) {
           var tkmsMessageWithSequence = messagesWithSequences.get(i);
           var insertMessageResult = insertMessageResults.get(i);
+          MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(insertMessageResult.getStorageId()));
+          try {
+            fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
 
-          fireMessageRegisteredEvent(shardPartition, insertMessageResult.getStorageId(), tkmsMessageWithSequence.getTkmsMessage());
-
-          metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, true);
+            metricsTemplate.recordMessageRegistering(tkmsMessageWithSequence.getTkmsMessage().getTopic(), shardPartition, true);
+          } finally {
+            MDC.remove(properties.getMdc().getMessageIdKey());
+          }
         }
       }
     }

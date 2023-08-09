@@ -84,6 +84,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
     tkmsStorageToKafkaProxy.setTkmsDaoProvider(tkmsDaoProvider);
     ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(tkmsDaoProvider);
     tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
+    tkmsProperties.setValidateSerialization(false);
   }
 
   protected void setupConfig(boolean deferUntilCommit) {
@@ -159,9 +160,13 @@ abstract class EndToEndIntTest extends BaseIntTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testExactlyOnceDelivery(boolean deferUntilCommit) throws Exception {
+  @ValueSource(ints = {0, 1, 2, 3})
+  void testExactlyOnceDelivery(int scenario) throws Exception {
+    var deferUntilCommit = scenario == 0 || scenario == 2;
+    var validateSerialization = scenario == 1 || scenario == 3;
+
     setupConfig(deferUntilCommit);
+    tkmsProperties.setValidateSerialization(validateSerialization);
 
     String message = "Hello World!";
     int threadsCount = 20;

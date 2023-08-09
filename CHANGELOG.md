@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2023-08-09
+
+### Added
+
+* Message id into error logs.
+* Message id into MDC.
+* `validateSerialization` option as a guardrail for corrupted gzip inflation, due to zlib bugs etc.
+
+### Changed
+
+* `protobuf-java` will be shaded to avoid incompatibility issues in services.
+  Articles point out that it is recommended to use the same `protobuf-java` version which was used to generate java stubs (in our case StoredMessage).
+  Even when historically `protobuf-java` has had good backward compatibility then it is not guaranteed. And forward compatibility had been pretty bad
+  in our experience.
+
 ## [0.24.3] - 2023-08-01
 
 ### Added
@@ -37,9 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   In case there is a rare long-running transaction and its messages need to get sent out.
 
 * An option to defer insertion of messages into the database to the very end of a transaction, just before commit
-  - `deferMessageRegistrationUntilCommit`
-    This would generate fairly recent ids for the messages and earliest visible messages system has less chance to not see and thus skip those.
-    With that, the earliest visible message system can configure a fairly small look-back window and reduce CPU consumption even further.
+    - `deferMessageRegistrationUntilCommit`
+      This would generate fairly recent ids for the messages and earliest visible messages system has less chance to not see and thus skip those.
+      With that, the earliest visible message system can configure a fairly small look-back window and reduce CPU consumption even further.
 
   It can also help to reduce total transaction latency, as all individual messages collected are sent out in batches.
 

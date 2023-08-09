@@ -3,14 +3,19 @@ plugins {
     id 'idea'
     id "com.google.protobuf"
     id "docker-compose"
+    id 'com.github.johnrengelman.shadow'
+    id 'maven-publish'
+    id 'signing'
 }
 
+ext.projectGitHubRepoName = "tw-tkms"
+ext.projectScmUrl = "https://github.com/transferwise/${projectGitHubRepoName}"
+ext.projectScmConnection = "scm:git:git://github.com/transferwise/${projectGitHubRepoName}.git"
 ext.projectName = "tw-tkms-starter"
 ext.projectDescription = "tw-tkms-starter"
 ext.projectArtifactName = "tw-tkms-starter"
 
 apply from: "$rootProject.rootDir/build.common.gradle"
-apply from: "$rootProject.rootDir/build.library.gradle"
 
 dependencies {
     annotationProcessor libraries.springBootConfigurationProcessor
@@ -97,5 +102,118 @@ dockerCompose {
 test {
     doFirst {
         dockerCompose.exposeAsEnvironment(test)
+    }
+}
+
+/*
+   Protobuf version in a service may not be compatible with our generated `StoredMessage`.
+   It is safer and better to shadow the version we used.
+ */
+shadowJar {
+    dependencies {
+        dependencies {
+            exclude(dependency {
+                it.moduleName != 'protobuf-java'
+            })
+        }
+    }
+    manifest {
+        attributes 'Implementation-Version': "$project.version"
+    }
+    relocate('com.google.protobuf', 'com.transferwise.kafka.tkms.shadow.com.google.protobuf')
+    
+    // Minimize does not reduce the jar much (1.9->1.5 MB), so let's not risk/mess with that.
+    /*
+      minimize {}
+    */
+}
+
+jar.enabled = false
+jar.dependsOn shadowJar
+
+shadowJar {
+    archiveClassifier.set('')
+}
+
+publishing {
+    publications {
+        entrypoints(MavenPublication) { publication ->
+            artifactId projectArtifactName
+
+            artifacts = [shadowJar, javadocJar, sourcesJar]
+            /*
+             This ensures that libraries will have explicit dependency versions in their Maven POM and Gradle module files, so that there would be less
+             ambiguity and less chances of dependency conflicts.
+            */
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+            }
+
+            pom {
+                name = projectName
+                description = projectDescription
+                url = projectScmUrl
+                packaging = "jar"
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0, Copyright 2021 TransferWise Ltd'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'onukristo'
+                        name = 'Kristo Kuusküll'
+                        email = "kristo.kuuskull@transferwise.com"
+                        organization = "Transferwise Ltd"
+                        organizationUrl = "https://github.com/transferwise"
+                    }
+                }
+                scm {
+                    connection = projectScmConnection
+                    developerConnection = projectScmConnection
+                    url = projectScmUrl
+                }
+                withXml { xml ->
+                    def dependenciesNode = xml.asNode().get('dependencies') ?: xml.asNode().appendNode('dependencies')
+
+                    project.configurations.getByName("runtimeClasspath").resolvedConfiguration.firstLevelModuleDependencies.forEach {
+                        if (it.configuration != "platform-runtime" && it.moduleName != 'protobuf-java') {
+                            def dependencyNode = dependenciesNode.appendNode('dependency')
+                            dependencyNode.appendNode('groupId', it.moduleGroup)
+                            dependencyNode.appendNode('artifactId', it.moduleName)
+                            dependencyNode.appendNode('version', it.moduleVersion)
+                            dependencyNode.appendNode('scope', 'runtime')
+                        }
+                    }
+
+                    if (!asNode().dependencyManagement.isEmpty()) {
+                        throw new IllegalStateException("There should not be any `dependencyManagement` block in POM.")
+                    }
+                }
+            }
+        }
+    }
+
+    if (System.getenv("OSS_SIGNING_KEY")) {
+        signing {
+            useInMemoryPgpKeys(System.getenv("OSS_SIGNING_KEY"), System.getenv("OSS_SIGNING_PASSWORD"))
+            sign publishing.publications.entrypoints
+        }
+    }
+    
+    repositories {
+        maven {
+            url System.getenv("MAVEN_URL")
+            credentials {
+                username = System.getenv("MAVEN_USER")
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
     }
 }
