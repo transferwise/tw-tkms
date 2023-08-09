@@ -186,10 +186,12 @@ public class TkmsProperties implements InitializingBean {
   /**
    * Tries to deserialize a message before writing it into database.
    *
-   * <p>We have had case where JDK's GZIP generated a corrupted output for a message. This in turn stopped the messages proxying.
-   * Enabling this option would allow to detect that situation early on.
+   * <p>We have had a case where JDK's GZIP implementation generated a corrupted output. This in turn stopped the messages proxying, because next
+   * message could not be deserialized.
    *
-   * <p>This has a small CPU and memory allocation hit per every message.
+   * <p>Enabling this option would allow to detect that situation early on and isolate the fault to few messages only.
+   *
+   * <p>It has a small CPU and memory allocation hit per every message.
    */
   private boolean validateSerialization = false;
 

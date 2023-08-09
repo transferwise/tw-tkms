@@ -114,15 +114,21 @@ public class TkmsMessageSerializer implements ITkmsMessageSerializer {
       var deSerializedMessage = deserialize(shardPartition, new UnsynchronizedByteArrayInputStream(serializedBytes));
 
       if (!Arrays.equals(deSerializedMessage.getValue().toByteArray(), tkmsMessage.getValue())
-          || !Objects.equals(deSerializedMessage.getKey(), tkmsMessage.getKey())
-          || !Objects.equals(deSerializedMessage.getTopic(), tkmsMessage.getTopic())
+          || !areSimilar(deSerializedMessage.getKey(), tkmsMessage.getKey())
+          || !areSimilar(deSerializedMessage.getTopic(), tkmsMessage.getTopic())
       ) {
         throw new IllegalStateException("Data corruption detected. Serialized and deserialized messages are not equal.");
       }
-
     }
 
     return new UnsynchronizedByteArrayInputStream(serializedBytes);
+  }
+
+  private boolean areSimilar(String s0, String s1) {
+    if ((s0 == null || s0.length() == 0) && (s1 == null || s1.length() == 0)) {
+      return true;
+    }
+    return Objects.equals(s0, s1);
   }
 
   @Override
