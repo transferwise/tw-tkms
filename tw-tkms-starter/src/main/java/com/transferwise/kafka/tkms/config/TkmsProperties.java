@@ -184,6 +184,18 @@ public class TkmsProperties implements InitializingBean {
   private Duration proxyStopTimeout = Duration.ofSeconds(15);
 
   /**
+   * Tries to deserialize a message before writing it into database.
+   *
+   * <p>We have had a case where JDK's GZIP implementation generated a corrupted output. This in turn stopped the messages proxying, because next
+   * message could not be deserialized.
+   *
+   * <p>Enabling this option would allow to detect that situation early on and isolate the fault to few messages only.
+   *
+   * <p>It has a small CPU and memory allocation hit per every message.
+   */
+  private boolean validateSerialization = false;
+
+  /**
    * List topics used by the lib.
    *
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
@@ -268,6 +280,11 @@ public class TkmsProperties implements InitializingBean {
     @ResolvedValue
     @LegacyResolvedValue
     private String partitionKey = "tkmsPartition";
+    @NotBlank
+    @jakarta.validation.constraints.NotBlank
+    @ResolvedValue
+    @LegacyResolvedValue
+    private String messageIdKey = "tkmsMessageId";
   }
 
   @Data
@@ -286,6 +303,7 @@ public class TkmsProperties implements InitializingBean {
     private Duration proxyStopTimeout;
     private boolean compressionOverridden;
     private Boolean deferRegisteredMessagesUntilCommit;
+    private Boolean validateSerialization;
     @Valid
     @jakarta.validation.Valid
     private Compression compression = new Compression();
@@ -298,6 +316,14 @@ public class TkmsProperties implements InitializingBean {
     @ResolvedValue
     @LegacyResolvedValue
     private Map<String, String> kafka = new HashMap<>();
+  }
+
+  public boolean isValidateSerialization(int shard) {
+    var shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getValidateSerialization() != null) {
+      return shardProperties.getValidateSerialization();
+    }
+    return validateSerialization;
   }
 
   public Duration getProxyStopTimeout(int shard) {

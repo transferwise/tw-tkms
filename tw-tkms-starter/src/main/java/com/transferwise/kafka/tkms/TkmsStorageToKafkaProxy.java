@@ -46,6 +46,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -223,7 +224,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                     // Essentially forces polling of all records
                     earliestMessageIdToUse = -1L;
 
-                    log.info("Polling all messages for {}, to make sure we are not missing some created by long running transactions.",
+                    log.info("Polling all messages for '{}', to make sure we are not missing some created by long running transactions.",
                         shardPartition);
 
                     lastPollAllTimeMs.setValue(System.currentTimeMillis());
@@ -271,57 +272,65 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
                 for (int i = 0; i < records.size(); i++) {
                   MessageRecord messageRecord = records.get(i);
-                  ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
-                  ProducerRecord<String, byte[]> producerRecord =
-                      preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
-                  contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
-                      .setShardPartition(shardPartition);
-                  MessageProcessingContext context = contexts[i];
 
-                  MessageInterceptionDecision interceptionDecision = interceptionDecisions == null ? null : interceptionDecisions.get(i);
-                  if (interceptionDecision != null) {
-                    if (interceptionDecision == MessageInterceptionDecision.DISCARD) {
-                      log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
-                      context.setAcked(true);
-                      continue;
-                    } else if (interceptionDecision == MessageInterceptionDecision.RETRY) {
-                      // In this context retry means - allowing interceptors to try to execute their logic again.
-                      continue;
-                    }
-                  }
-
+                  MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(messageRecord.getId()));
                   try {
-                    // Theoretically, to be absolutely sure, about the ordering, we would need to wait for the future result immediately.
-                    // But it would not be practical. I mean we could send one message from each partitions concurrently, but
-                    // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
-                    // TODO: Consider transactions. They would need heavy performance testing though.
-                    Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
-                      try {
-                        shardPartition.putIntoMdc();
+                    ProducerRecord<String, byte[]> preCreatedProducerRecord = producerRecordMap.get(i);
+                    ProducerRecord<String, byte[]> producerRecord =
+                        preCreatedProducerRecord == null ? toProducerRecord(messageRecord) : preCreatedProducerRecord;
+                    contexts[i] = new MessageProcessingContext().setProducerRecord(producerRecord).setMessageRecord(messageRecord)
+                        .setShardPartition(shardPartition);
+                    MessageProcessingContext context = contexts[i];
 
-                        if (exception == null) {
-                          context.setAcked(true);
-                          fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
-                          Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
-                              ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
-                          metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
-                        } else {
-                          failedSendsCount.incrementAndGet();
-                          handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.",
-                              exception,
-                              context);
-                          metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
-                        }
-                      } finally {
-                        shardPartition.removeFromMdc();
+                    MessageInterceptionDecision interceptionDecision = interceptionDecisions == null ? null : interceptionDecisions.get(i);
+                    if (interceptionDecision != null) {
+                      if (interceptionDecision == MessageInterceptionDecision.DISCARD) {
+                        log.warn("Discarding message {}:{}.", shardPartition, messageRecord.getId());
+                        context.setAcked(true);
+                        continue;
+                      } else if (interceptionDecision == MessageInterceptionDecision.RETRY) {
+                        // In this context retry means - allowing interceptors to try to execute their logic again.
+                        continue;
                       }
-                    });
-                    atLeastOneSendDone = true;
+                    }
 
-                    contexts[i].setKafkaSenderFuture(future);
-                  } catch (Throwable t) {
-                    failedSendsCount.incrementAndGet();
-                    handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
+                    try {
+                      // Theoretically, to be absolutely sure, about the ordering, we would need to wait for the future result immediately.
+                      // But it would not be practical. I mean we could send one message from each partitions concurrently, but
+                      // there is a high chance that all the messages in this thread would reside in the same transaction, so it would not work.
+                      // TODO: Consider transactions. They would need heavy performance testing though.
+                      Future<RecordMetadata> future = kafkaProducer.send(producerRecord, (metadata, exception) -> {
+                        MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(messageRecord.getId()));
+                        try {
+                          shardPartition.putIntoMdc();
+
+                          if (exception == null) {
+                            context.setAcked(true);
+                            fireMessageAcknowledgedEvent(shardPartition, messageRecord.getId(), producerRecord);
+                            Instant insertTime = messageRecord.getMessage().hasInsertTimestamp()
+                                ? Instant.ofEpochMilli(messageRecord.getMessage().getInsertTimestamp().getValue()) : null;
+                            metricsTemplate.recordProxyMessageSendSuccess(shardPartition, producerRecord.topic(), insertTime);
+                          } else {
+                            failedSendsCount.incrementAndGet();
+                            handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.",
+                                exception,
+                                context);
+                            metricsTemplate.recordProxyMessageSendFailure(shardPartition, producerRecord.topic());
+                          }
+                        } finally {
+                          shardPartition.removeFromMdc();
+                          MDC.remove(properties.getMdc().getMessageIdKey());
+                        }
+                      });
+                      atLeastOneSendDone = true;
+
+                      contexts[i].setKafkaSenderFuture(future);
+                    } catch (Throwable t) {
+                      failedSendsCount.incrementAndGet();
+                      handleKafkaError(shardPartition, "Sending message " + messageRecord.getId() + " in " + shardPartition + " failed.", t, context);
+                    }
+                  } finally {
+                    MDC.remove(properties.getMdc().getMessageIdKey());
                   }
                 }
 
@@ -335,7 +344,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                     try {
                       context.getKafkaSenderFuture().get();
                     } catch (Throwable t) {
-                      handleKafkaError(shardPartition, "Sending message in " + shardPartition + " failed.", t, context);
+                      handleKafkaError(shardPartition, "Sending message " + context.getMessageRecord().getId() + " in " + shardPartition + " failed.",
+                          t, context);
                     }
                   }
                 }

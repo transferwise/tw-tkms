@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -106,12 +107,16 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
         try {
           var sql = insertMessageSqls.computeIfAbsent(shardPartition, this::getInsertSql);
           var ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          var closeableStreams = new ArrayList<InputStream>();
           try {
             var batchSize = Math.min(properties.getInsertBatchSize(shardPartition.getShard()), tkmsMessages.size() - idx.intValue());
 
             for (int i = 0; i < batchSize; i++) {
               TkmsMessageWithSequence tkmsMessageWithSequence = tkmsMessages.get(idx.intValue() + i);
-              ps.setBinaryStream(1, serializeMessage(shardPartition, tkmsMessageWithSequence.getTkmsMessage()));
+              var serializedMessageStream = serializeMessage(shardPartition, tkmsMessageWithSequence.getTkmsMessage());
+
+              closeableStreams.add(serializedMessageStream);
+              ps.setBinaryStream(1, serializedMessageStream);
 
               ps.addBatch();
 
@@ -141,6 +146,13 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
             idx.add(batchSize);
           } finally {
             ps.close();
+            for (var is : closeableStreams) {
+              try {
+                is.close();
+              } catch (Throwable t) {
+                log.error("Failed to close input stream.", t);
+              }
+            }
           }
         } finally {
           DataSourceUtils.releaseConnection(con, dataSource);
@@ -157,16 +169,21 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
 
     final KeyHolder keyHolder = new GeneratedKeyHolder();
     var sql = insertMessageSqls.computeIfAbsent(shardPartition, k -> getInsertSql(shardPartition));
-    jdbcTemplate.update(con -> {
-      PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-      try {
-        ps.setBinaryStream(1, serializeMessage(shardPartition, message));
-        return ps;
-      } catch (Exception e) {
-        ps.close();
-        throw e;
+
+    ExceptionUtils.doUnchecked(() -> {
+      try (var is = serializeMessage(shardPartition, message)) {
+        jdbcTemplate.update(con -> ExceptionUtils.doUnchecked(() -> {
+          PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+          try {
+            ps.setBinaryStream(1, is);
+            return ps;
+          } catch (Exception e) {
+            ps.close();
+            throw e;
+          }
+        }), keyHolder);
       }
-    }, keyHolder);
+    });
 
     metricsTemplate.recordDaoMessageInsert(shardPartition, message.getTopic());
 
@@ -206,11 +223,20 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
                 metricsTemplate.recordDaoPollFirstResult(shardPartition, startNanoTime);
               }
 
-              MessageRecord messageRecord = new MessageRecord();
-              messageRecord.setId(rs.getLong(1));
-              messageRecord.setMessage(messageSerializer.deserialize(shardPartition, rs.getBinaryStream(2)));
+              var messageId = rs.getLong(1);
+              MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(messageId));
+              try {
+                MessageRecord messageRecord = new MessageRecord();
+                messageRecord.setId(messageId);
+                messageRecord.setMessage(messageSerializer.deserialize(shardPartition, rs.getBinaryStream(2)));
 
-              records.add(messageRecord);
+                records.add(messageRecord);
+              } catch (Throwable t) {
+                throw new RuntimeException(
+                    "Failed to deserialize message " + messageId + ", retrieved from table '" + getTableName(shardPartition) + "'.", t);
+              } finally {
+                MDC.remove(properties.getMdc().getMessageIdKey());
+              }
             }
           }
 
