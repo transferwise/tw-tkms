@@ -137,7 +137,7 @@ shadowJar {
 
 publishing {
     publications {
-        entrypoints(MavenPublication) { publication ->
+        twTkmsStarter(MavenPublication) { publication ->
             artifactId projectArtifactName
 
             artifacts = [shadowJar, javadocJar, sourcesJar]
@@ -203,7 +203,7 @@ publishing {
     if (System.getenv("OSS_SIGNING_KEY")) {
         signing {
             useInMemoryPgpKeys(System.getenv("OSS_SIGNING_KEY"), System.getenv("OSS_SIGNING_PASSWORD"))
-            sign publishing.publications.entrypoints
+            sign publishing.publications.twTkmsStarter
         }
     }
     
