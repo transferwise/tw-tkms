@@ -44,6 +44,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
       configs.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
       configs.put(ProducerConfig.LINGER_MS_CONFIG, "5");
+      configs.put(ProducerConfig.METADATA_MAX_AGE_CONFIG, "120000");
 
       configs.putAll(tkmsProperties.getKafka());
 
