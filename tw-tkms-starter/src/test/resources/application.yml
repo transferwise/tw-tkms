@@ -68,12 +68,13 @@ spring:
   datasource:
     url: "jdbc:postgresql://${POSTGRES_TCP_HOST:localhost}:${POSTGRES_TCP_5432}/postgres"
     username: "postgres"
+    password: "example-password-change-me"
   flyway:
     locations: "classpath:db/migration/postgres"
   config:
     activate:
       on-profile: postgres
-  
+
 tw-tkms:
   database-dialect: POSTGRES
   delete-batch-sizes: "51, 11, 5, 1"
@@ -102,7 +103,7 @@ tw-tkms:
   earliest-visible-messages:
     enabled: true
     look-back-period: 10s
-    table-name: earliestmessage.tw_tkms_earliest_visible_messages 
+    table-name: earliestmessage.tw_tkms_earliest_visible_messages
   shards-count: 2
   table-base-name: earliestmessage.outgoing_message
   monitoring:
@@ -111,6 +112,6 @@ tw-tkms:
     1:
       earliest-visible-messages:
         table-name: earliestmessage.tw_tkms_earliest_visible_messages
-        
+
 tw-tkms-test:
   test-topic: TestTopicEarliestMessage
