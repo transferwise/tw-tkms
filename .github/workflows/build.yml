@@ -30,7 +30,7 @@ jobs:
       TW_TKMS_KAFKA_TCP_9092: 9092
       TW_TKMS_KAFKA_TCP_HOST: kafka1
       ZOOKEEPER_TCP_2181: 2181
-      ZOOKEEPER_TCP_HOST: zk-service1
+      ZOOKEEPER_TCP_HOST: zookeeper1
       POSTGRES_TCP_HOST: postgres1
       POSTGRES_TCP_5432: 5432
     container:
