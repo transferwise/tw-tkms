@@ -472,8 +472,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
       assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
           .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
           .hasMessageContaining("Topic NotExistingTopic not present in metadata");
-    }
-    finally {
+    } finally {
       // Stop logs spam about not existing topic in metadata.
       tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
     }
