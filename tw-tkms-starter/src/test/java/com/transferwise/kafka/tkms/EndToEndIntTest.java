@@ -251,13 +251,19 @@ abstract class EndToEndIntTest extends BaseIntTest {
   void testThatMessagesWithSameKeyEndUpInOnePartition(boolean deferUntilCommit) {
     setupConfig(deferUntilCommit);
 
-    String message = "Hello World!";
+    String protoMessage = "Hello Estonia!";
+    String message = StringUtils.repeat(protoMessage, 100);
     String key = "GrailsRocks";
-    int n = 20;
+    int n = 200;
     ConcurrentHashMap<Integer, AtomicInteger> partitionsMap = new ConcurrentHashMap<>();
     AtomicInteger receivedCount = new AtomicInteger();
 
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
+      var testEvent = ExceptionUtils.doUnchecked(() -> objectMapper.readValue(cr.value(), TestEvent.class));
+      if (!message.equals(testEvent.getMessage())) {
+        throw new IllegalStateException("Unexpected message '" + message + "' received.");
+      }
+
       partitionsMap.computeIfAbsent(cr.partition(), (k) -> new AtomicInteger()).incrementAndGet();
       receivedCount.incrementAndGet();
     };
