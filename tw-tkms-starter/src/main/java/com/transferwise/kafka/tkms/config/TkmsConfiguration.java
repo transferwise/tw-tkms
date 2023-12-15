@@ -4,11 +4,13 @@ import com.transferwise.common.baseutils.meters.cache.IMeterCache;
 import com.transferwise.kafka.tkms.EnvironmentValidator;
 import com.transferwise.kafka.tkms.IEnvironmentValidator;
 import com.transferwise.kafka.tkms.IProblemNotifier;
+import com.transferwise.kafka.tkms.ITkmsInterrupterService;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
 import com.transferwise.kafka.tkms.JavaxValidationEnvironmentValidator;
 import com.transferwise.kafka.tkms.ProblemNotifier;
+import com.transferwise.kafka.tkms.TkmsInterrupterService;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
@@ -169,5 +171,11 @@ public class TkmsConfiguration {
   @ConditionalOnMissingBean(IProblemNotifier.class)
   public ProblemNotifier tkmsProblemNotifier() {
     return new ProblemNotifier();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsInterrupterService.class)
+  public TkmsInterrupterService tkmsInterrupterService() {
+    return new TkmsInterrupterService();
   }
 }

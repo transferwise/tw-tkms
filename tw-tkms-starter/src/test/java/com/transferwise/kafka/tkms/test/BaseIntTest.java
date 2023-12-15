@@ -36,9 +36,12 @@ public class BaseIntTest {
 
   @Autowired
   protected TkmsProperties tkmsProperties;
-  
+
   @Autowired
   protected TkmsTestDao tkmsTestDao;
+
+  @Autowired
+  protected TestProperties testProperties;
 
   @AfterEach
   public void cleanup() {
@@ -52,17 +55,14 @@ public class BaseIntTest {
   @BeforeEach
   public void setup() {
     for (Meter meter : meterRegistry.getMeters()) {
-      if (!(meter instanceof Gauge) && !(isKafkaProducerMeter(meter))) {
+      if (!(meter instanceof Gauge)) {
         meterRegistry.remove(meter);
       }
     }
     meterCache.clear();
 
-    TkmsClockHolder.reset();
-  }
 
-  private boolean isKafkaProducerMeter(Meter meter) {
-    return meter.getId().getName().startsWith("kafka.producer.");
+    TkmsClockHolder.reset();
   }
 
   protected int getTablesRowsCount() {

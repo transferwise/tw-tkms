@@ -523,6 +523,15 @@ public class TkmsProperties implements InitializingBean {
   public static class Internals {
 
     private int assertionLevel = 0;
+
+    /**
+     * We use quite large duration.
+     *
+     * <p>But the idea is to at least detect hangs and possibly allow self-recovery.
+     *
+     * <p>Too low values may cause very large batches to fail.
+     */
+    private Duration flushInterruptionDuration = Duration.ofSeconds(30);
   }
 
   public enum NotificationLevel {

@@ -5,8 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2023-12-14
+
+### Removed
+
+- Support for Spring Boot 2.6 .
+
+### Changed
+
+- Every proxy has its own, independent, Kafka producer.
+  Before, one producer was shared by all partitions. And, the default shard's producer was also used for topics validation.
+
+- Kafka producer's flush will be now interrupted from another thread, by a separate housekeeping service.
+  Wise had an incident, where the `flush()` call hanged forever, and it was not easy to derive that this is the case.
+  Now we will at least get clear error logs, when this happens.
+
+- Proxies' Kafka producers will be closed after the poll loop exits.
+  This would allow to recover from unforeseen kafka clients' bugs and also release resources when another pod takes over the proxying.
+
+- The default linger time on kafka producer was increased from 5 ms. to 1000 ms.
+  This would allow potentially larger batches to get formed. We are not increasing the latency, because we override the
+  lingering mechanism via `flush` call anyway.
+
 ## [0.25.1] - 2023-10-30
+
 ### Added
+
 - Setting METADATA_MAX_AGE_CONFIG to two minutes for producer
 
 ## [0.25.0] - 2023-08-09
@@ -56,9 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   In case there is a rare long-running transaction and its messages need to get sent out.
 
 * An option to defer insertion of messages into the database to the very end of a transaction, just before commit
-    - `deferMessageRegistrationUntilCommit`
-      This would generate fairly recent ids for the messages and earliest visible messages system has less chance to not see and thus skip those.
-      With that, the earliest visible message system can configure a fairly small look-back window and reduce CPU consumption even further.
+  - `deferMessageRegistrationUntilCommit`
+    This would generate fairly recent ids for the messages and earliest visible messages system has less chance to not see and thus skip those.
+    With that, the earliest visible message system can configure a fairly small look-back window and reduce CPU consumption even further.
 
   It can also help to reduce total transaction latency, as all individual messages collected are sent out in batches.
 

@@ -14,6 +14,7 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider.UseCase;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
@@ -71,7 +72,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     environmentValidator.validate();
 
     for (String topic : properties.getTopics()) {
-      validateTopic(properties.getDefaultShard(), topic);
+      validateTopic(TkmsShardPartition.of(properties.getDefaultShard(), 0), topic);
     }
 
     validateDeleteBatchSizes();
@@ -168,7 +169,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       var topic = tkmsMessage.getTopic();
       if (!validatedTopics.contains(topic)) {
-        validateTopic(shardPartition.getShard(), topic);
+        validateTopic(shardPartition, topic);
         validatedTopics.add(topic);
       }
 
@@ -264,7 +265,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       validateMessageSize(message, 0);
 
       var topic = message.getTopic();
-      validateTopic(shardPartition.getShard(), topic);
+      validateTopic(shardPartition, topic);
 
       if (deferMessageRegistrationUntilCommit) {
         // Transaction is guaranteed to be active here.
@@ -374,8 +375,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   /**
    * Every call to normal `KafkaProducer.send()` uses metadata for a topic as well, so should be very fast.
    */
-  protected void validateTopic(int shard, String topic) {
-    kafkaProducerProvider.getKafkaProducer(shard).partitionsFor(topic);
+  protected void validateTopic(TkmsShardPartition shardPartition, String topic) {
+    kafkaProducerProvider.getKafkaProducer(shardPartition, UseCase.TOPIC_VALIDATION).partitionsFor(topic);
   }
 
   protected void validateMessages(SendMessagesRequest request) {

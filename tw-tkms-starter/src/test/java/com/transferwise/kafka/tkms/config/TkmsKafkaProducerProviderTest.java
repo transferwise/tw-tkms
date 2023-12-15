@@ -2,6 +2,8 @@ package com.transferwise.kafka.tkms.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider.UseCase;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import java.lang.reflect.Field;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -16,7 +18,7 @@ class TkmsKafkaProducerProviderTest extends BaseIntTest {
 
   @Test
   void shardKafkaPropertiesAreApplied() throws Exception {
-    KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(1);
+    KafkaProducer<String, byte[]> kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(TkmsShardPartition.of(1, 0), UseCase.PROXY);
 
     Field producerConfigField = kafkaProducer.getClass().getDeclaredField("producerConfig");
     producerConfigField.setAccessible(true);
