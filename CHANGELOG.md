@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This would allow potentially larger batches to get formed. We are not increasing the latency, because we override the
   lingering mechanism via `flush` call anyway.
 
+- Enabled idempotency on producers and increased the in flight requests count to 5.
+
 ## [0.25.1] - 2023-10-30
 
 ### Added
