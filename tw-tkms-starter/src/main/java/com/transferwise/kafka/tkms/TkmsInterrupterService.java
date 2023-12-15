@@ -4,7 +4,6 @@ import com.transferwise.common.baseutils.concurrency.IExecutorServicesProvider;
 import com.transferwise.common.baseutils.concurrency.ScheduledTaskExecutor;
 import com.transferwise.common.baseutils.concurrency.ScheduledTaskExecutor.TaskHandle;
 import java.time.Duration;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +15,6 @@ public class TkmsInterrupterService implements ITkmsInterrupterService, Initiali
   private IExecutorServicesProvider executorServicesProvider;
   private ScheduledTaskExecutor scheduledTaskExecutor;
 
-  @PostConstruct
   public void afterPropertiesSet() {
     this.scheduledTaskExecutor = executorServicesProvider.getGlobalScheduledTaskExecutor();
   }
