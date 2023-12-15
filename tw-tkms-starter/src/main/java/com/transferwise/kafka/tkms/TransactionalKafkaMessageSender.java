@@ -14,7 +14,6 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
-import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider.UseCase;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
@@ -72,7 +71,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     environmentValidator.validate();
 
     for (String topic : properties.getTopics()) {
-      validateTopic(TkmsShardPartition.of(properties.getDefaultShard(), 0), topic);
+      validateTopic(topic);
     }
 
     validateDeleteBatchSizes();
@@ -169,7 +168,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       var topic = tkmsMessage.getTopic();
       if (!validatedTopics.contains(topic)) {
-        validateTopic(shardPartition, topic);
+        validateTopic(topic);
         validatedTopics.add(topic);
       }
 
@@ -265,7 +264,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       validateMessageSize(message, 0);
 
       var topic = message.getTopic();
-      validateTopic(shardPartition, topic);
+      validateTopic(topic);
 
       if (deferMessageRegistrationUntilCommit) {
         // Transaction is guaranteed to be active here.
@@ -375,8 +374,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   /**
    * Every call to normal `KafkaProducer.send()` uses metadata for a topic as well, so should be very fast.
    */
-  protected void validateTopic(TkmsShardPartition shardPartition, String topic) {
-    kafkaProducerProvider.getKafkaProducer(shardPartition, UseCase.TOPIC_VALIDATION).partitionsFor(topic);
+  protected void validateTopic(String topic) {
+    kafkaProducerProvider.getKafkaProducerForTopicValidation().partitionsFor(topic);
   }
 
   protected void validateMessages(SendMessagesRequest request) {
@@ -393,7 +392,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       Preconditions.checkArgument(message.getPartition() >= 0, "%s: Partition number can not be negative: %s", messageIdx, message.getPartition());
     }
     if (message.getKey() != null) {
-      Preconditions.checkArgument(message.getKey().length() > 0, "%s: Key can not be an empty string.", messageIdx);
+      Preconditions.checkArgument(!message.getKey().isEmpty(), "%s: Key can not be an empty string.", messageIdx);
     }
     if (message.getShard() != null) {
       Preconditions.checkArgument(message.getShard() >= 0, "%s: Shard number can not be negative :%s", messageIdx, message.getShard());
@@ -463,7 +462,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   protected void fireMessageRegisteredEvent(TkmsShardPartition shardPartition, Long id, TkmsMessage message) {
     var listeners = getTkmsEventsListeners();
     if (log.isDebugEnabled()) {
-      log.debug("Message was registered for {} with storage id {}. Listeners count: ", shardPartition, id, listeners.size());
+      log.debug("Message was registered for {} with storage id {}. Listeners count: {}.", shardPartition, id, listeners.size());
     }
 
     if (tkmsEventsListeners.isEmpty()) {

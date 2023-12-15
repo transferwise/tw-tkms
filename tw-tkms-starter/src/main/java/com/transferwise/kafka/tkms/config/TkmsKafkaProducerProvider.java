@@ -40,7 +40,12 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.ACKS_CONFIG, "all");
       configs.put(ProducerConfig.BATCH_SIZE_CONFIG, "163840");
       configs.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, String.valueOf(tkmsProperties.getMaximumMessageBytes()));
-      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+
+      // The following block is to guarantee the messages order.
+      configs.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+      configs.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+      configs.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE);
+
       configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify 'tw-tkms.kafka.bootstrap.servers'.");
       configs.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
@@ -70,6 +75,11 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   }
 
   @Override
+  public KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation() {
+    return getKafkaProducer(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), UseCase.TOPIC_VALIDATION);
+  }
+
+  @Override
   public void closeKafkaProducer(TkmsShardPartition shardPartition, UseCase useCase) {
     var producerEntry = producers.remove(Pair.of(shardPartition, useCase));
 
@@ -84,6 +94,11 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
     } catch (Throwable t) {
       log.error("Closing Kafka producer for shard partiton " + shardPartition + " failed.", t);
     }
+  }
+
+  @Override
+  public void closeKafkaProducerForTopicValidation() {
+    closeKafkaProducer(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), UseCase.TOPIC_VALIDATION);
   }
 
   @Override
