@@ -23,8 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proxies' Kafka producers will be closed after the poll loop exits.
   This would allow to recover from unforeseen kafka clients' bugs and also release resources when another pod takes over the proxying.
 
-- The default linger time on kafka producer was increased from 5 ms. to 1000 ms.
-  This would allow potentially larger batches to get formed. We are not increasing the latency, because we override the
+- The default linger time on proxies' kafka producer was increased from 5 ms. to 1000 ms.
+  This would allow potentially larger batches to get formed. We are not increasing the latency substantially, because we override the
   lingering mechanism via `flush` call anyway.
 
 - Enabled idempotency on producers and increased the in flight requests count to 5.
