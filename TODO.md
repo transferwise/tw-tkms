@@ -34,3 +34,5 @@ It’s possible to have our own partitioner and producer interceptor to avoid do
 
 10. Consider changing default partitioner to `RoundRobinPartitioner`.
     In that keys messages with <null> keys will be distributed more around and consumers can have smaller latencies.
+
+11. Restructure the docs around deferred messages inserts. Make sure it plays together with "the risks" paragraph etc.

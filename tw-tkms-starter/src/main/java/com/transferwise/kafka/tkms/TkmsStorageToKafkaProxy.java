@@ -17,6 +17,7 @@ import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider.UseCase;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.dao.ITkmsDao.MessageRecord;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
@@ -41,8 +42,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.mutable.MutableObject;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.errors.RetriableException;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
@@ -77,6 +80,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private ITkmsMessageInterceptors messageIntereceptors;
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
+  @Autowired
+  private ITkmsInterrupterService tkmsInterrupterService;
 
   @TestOnly
   private volatile boolean paused = false;
@@ -86,7 +91,6 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private final List<LeaderSelectorV2> leaderSelectors = new ArrayList<>();
   private RateLimiter exceptionRateLimiter = RateLimiter.create(2);
-
 
   @Override
   public void afterPropertiesSet() {
@@ -153,6 +157,16 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   }
 
   private void poll(Control control, TkmsShardPartition shardPartition) {
+    var kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition, UseCase.PROXY);
+
+    try {
+      poll0(control, shardPartition, kafkaProducer);
+    } finally {
+      tkmsKafkaProducerProvider.closeKafkaProducer(shardPartition, UseCase.PROXY);
+    }
+  }
+
+  private void poll0(Control control, TkmsShardPartition shardPartition, KafkaProducer<String, byte[]> kafkaProducer) {
 
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
     long startTimeMs = System.currentTimeMillis();
@@ -257,7 +271,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 var contexts = new MessageProcessingContext[records.size()];
 
                 final var kafkaSendStartNanoTime = System.nanoTime();
-                var kafkaProducer = tkmsKafkaProducerProvider.getKafkaProducer(shardPartition.getShard());
+
                 boolean atLeastOneSendDone = false;
 
                 producerRecordMap.clear();
@@ -335,7 +349,13 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 }
 
                 if (atLeastOneSendDone) {
-                  kafkaProducer.flush();
+                  var interruptionHandle =
+                      tkmsInterrupterService.interruptAfter(Thread.currentThread(), properties.getInternals().getFlushInterruptionDuration());
+                  try {
+                    kafkaProducer.flush();
+                  } finally {
+                    tkmsInterrupterService.cancelInterruption(interruptionHandle);
+                  }
                 }
 
                 for (int i = 0; i < records.size(); i++) {
@@ -372,6 +392,10 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                 if (failedSendsCount.get() > 0) {
                   proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));
                 }
+              } catch (InterruptException e) {
+                log.error("Kafka producer was interrupted for " + shardPartition + ".", e);
+                // Rethrow and force the recreation of the producer.
+                throw e;
               } catch (Throwable t) {
                 log.error(t.getMessage(), t);
                 proxyCyclePauseRequest.setValue(tkmsPaceMaker.getPollingPauseOnError(shardPartition));

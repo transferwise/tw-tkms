@@ -16,6 +16,7 @@ import com.transferwise.kafka.tkms.api.TkmsMessage.Compression;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.dao.FaultInjectedTkmsDao;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
@@ -65,6 +66,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
   private ITkmsDaoProvider tkmsDaoProvider;
   @Autowired
   private TkmsStorageToKafkaProxy tkmsStorageToKafkaProxy;
+  @Autowired
+  private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
 
   private FaultInjectedTkmsDao faultInjectedTkmsDao;
 
@@ -168,7 +171,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
     setupConfig(deferUntilCommit);
     tkmsProperties.setValidateSerialization(validateSerialization);
 
-    String message = "Hello World!";
+    // For producer to create more batches and spread messages around different partitions.
+    String message = StringUtils.repeat("Hello World!", 100);
     int threadsCount = 20;
     int batchesCount = 20;
     int batchSize = 20;
@@ -247,13 +251,19 @@ abstract class EndToEndIntTest extends BaseIntTest {
   void testThatMessagesWithSameKeyEndUpInOnePartition(boolean deferUntilCommit) {
     setupConfig(deferUntilCommit);
 
-    String message = "Hello World!";
+    String protoMessage = "Hello Estonia!";
+    String message = StringUtils.repeat(protoMessage, 100);
     String key = "GrailsRocks";
-    int n = 20;
+    int n = 200;
     ConcurrentHashMap<Integer, AtomicInteger> partitionsMap = new ConcurrentHashMap<>();
     AtomicInteger receivedCount = new AtomicInteger();
 
     Consumer<ConsumerRecord<String, String>> messageCounter = cr -> {
+      var testEvent = ExceptionUtils.doUnchecked(() -> objectMapper.readValue(cr.value(), TestEvent.class));
+      if (!message.equals(testEvent.getMessage())) {
+        throw new IllegalStateException("Unexpected message '" + message + "' received.");
+      }
+
       partitionsMap.computeIfAbsent(cr.partition(), (k) -> new AtomicInteger()).incrementAndGet();
       receivedCount.incrementAndGet();
     };
@@ -462,11 +472,16 @@ abstract class EndToEndIntTest extends BaseIntTest {
   @ValueSource(booleans = {false, true})
   @SneakyThrows
   void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit) {
-    setupConfig(deferUntilCommit);
+    try {
+      setupConfig(deferUntilCommit);
 
-    assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
-        .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
-        .hasMessageContaining("Topic NotExistingTopic not present in metadata");
+      assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
+          .hasMessageContaining("Topic NotExistingTopic not present in metadata");
+    } finally {
+      // Stop logs spam about not existing topic in metadata.
+      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+    }
   }
 
   @ParameterizedTest

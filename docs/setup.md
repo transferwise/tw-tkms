@@ -1,6 +1,6 @@
 # Setup
 
-We are assuming you are using Spring Boot, at least version 2.5.
+We are assuming you are using Spring Boot, at least version 2.7.
 
 First ensure that you have the `mavenCentral` repository available in your Gradle buildscript:
 

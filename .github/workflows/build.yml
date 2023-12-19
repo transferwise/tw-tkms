@@ -18,10 +18,9 @@ jobs:
       max-parallel: 100
       matrix:
         spring_boot_version:
-          - 3.1.2
-          - 3.0.7
-          - 2.7.13
-          - 2.6.15
+          - 3.1.6
+          - 3.0.13
+          - 2.7.18
     env:
       SPRING_BOOT_VERSION: ${{ matrix.spring_boot_version }}
       GRADLE_OPTS: "-Djava.security.egd=file:/dev/./urandom -Dorg.gradle.parallel=true"
@@ -31,7 +30,7 @@ jobs:
       TW_TKMS_KAFKA_TCP_9092: 9092
       TW_TKMS_KAFKA_TCP_HOST: kafka1
       ZOOKEEPER_TCP_2181: 2181
-      ZOOKEEPER_TCP_HOST: zk-service1
+      ZOOKEEPER_TCP_HOST: zookeeper1
       POSTGRES_TCP_HOST: postgres1
       POSTGRES_TCP_5432: 5432
     container:
@@ -46,13 +45,8 @@ jobs:
         image: transferwiseworkspace/postgres12
         env:
           POSTGRES_PASSWORD: example-password-change-me
-      zk-service1:
-        image: bitnami/zookeeper:3.5.5
-        env:
-          ALLOW_ANONYMOUS_LOGIN: "yes"
-          JVMFLAGS: "-Xmx512m -Xms64m"
-      zk1:
-        image: bitnami/zookeeper:3.4.14
+      zookeeper1:
+        image: bitnami/zookeeper:3.7.1
         env:
           ALLOW_ANONYMOUS_LOGIN: "yes"
           JVMFLAGS: "-Xmx512m -Xms64m"
@@ -60,7 +54,7 @@ jobs:
         image: wurstmeister/kafka:2.12-2.2.0
         env:
           KAFKA_BROKER_ID: 1
-          KAFKA_ZOOKEEPER_CONNECT: zk1:2181
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181
           KAFKA_LISTENERS: PLAINTEXT://:9092
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
           KAFKA_MESSAGE_MAX_BYTES: "10485760"
@@ -78,7 +72,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: 8.1.1
+          gradle-version: 8.5
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false
@@ -157,7 +151,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          gradle-version: 8.1.1
+          gradle-version: 8.5
           gradle-home-cache-cleanup: true
           # Comment out when you are upgrading gradle in a branch and doing tons of commits you would need to test.
           # cache-read-only: false
