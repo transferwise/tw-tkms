@@ -31,6 +31,8 @@ tw-tkms:
   polling-interval: 5ms
   shards-count: 2
   insert-batch-size: 2
+  topics:
+    - TestTopic
   kafka:
     bootstrap.servers: "${TW_TKMS_KAFKA_TCP_HOST:localhost}:${TW_TKMS_KAFKA_TCP_9092}"
   shards:
@@ -78,6 +80,7 @@ spring:
 tw-tkms:
   database-dialect: POSTGRES
   delete-batch-sizes: "51, 11, 5, 1"
+  use-admin-client-for-topics-validation: true
 
 tw-tkms-test:
   test-topic: TestTopicPostgres

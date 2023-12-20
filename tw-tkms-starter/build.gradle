@@ -24,6 +24,7 @@ dependencies {
     compileOnly libraries.javaxValidationApi
     compileOnly libraries.jakartaValidationApi
 
+    implementation libraries.caffeine
     implementation libraries.commonsLang3
     implementation libraries.curatorRecipes
     implementation libraries.guava
@@ -121,7 +122,7 @@ shadowJar {
         attributes 'Implementation-Version': "$project.version"
     }
     relocate('com.google.protobuf', 'com.transferwise.kafka.tkms.shadow.com.google.protobuf')
-    
+
     // Minimize does not reduce the jar much (1.9->1.5 MB), so let's not risk/mess with that.
     /*
       minimize {}
@@ -206,7 +207,7 @@ publishing {
             sign publishing.publications.twTkmsStarter
         }
     }
-    
+
     repositories {
         maven {
             url System.getenv("MAVEN_URL")

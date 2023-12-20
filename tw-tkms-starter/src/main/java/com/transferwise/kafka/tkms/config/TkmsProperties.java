@@ -206,6 +206,22 @@ public class TkmsProperties implements InitializingBean {
   @LegacyResolvedValue
   private List<String> topics = new ArrayList<>();
 
+  /**
+   * Uses AdminClient to validate topics.
+   *
+   * <p>AdminClient would allow us to also check if topics have suitable ACLs.
+   *
+   * <p>Experimental option.
+   *
+   * <p>May be the default in the future.
+   */
+  private boolean useAdminClientForTopicsValidation = false;
+
+  /**
+   * How many topics validations are we doing in parallel, during the initialization of Tkms.
+   */
+  private int adminClientTopicsValidationConcurrency = 10;
+
   @Valid
   @jakarta.validation.Valid
   private EarliestVisibleMessages earliestVisibleMessages = new EarliestVisibleMessages();
@@ -555,6 +571,8 @@ public class TkmsProperties implements InitializingBean {
     TOO_MANY_DELETE_BATCHES,
     EARLIEST_MESSAGES_SYSTEM_DISABLED,
     ENGINE_INDEPENDENT_STATS_NOT_ENABLED,
-    NO_ACTIVE_TRANSACTION
+    NO_ACTIVE_TRANSACTION,
+
+    TOPIC_ACLS_NOT_AVAILABLE, TOPIC_NOT_VALIDATED_AT_INIT
   }
 }
