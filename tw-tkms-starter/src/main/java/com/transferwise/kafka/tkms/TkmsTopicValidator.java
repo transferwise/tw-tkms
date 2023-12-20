@@ -145,6 +145,10 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
     var response = topicDescriptionsCache.get(new FetchTopicDescriptionRequest().setTopic(topic));
 
+    if (response == null) {
+      throw new NullPointerException("Could not fetch topic description for topic '" + topic + "'.");
+    }
+
     if (response.getThrowable() != null) {
       String message;
       if (response.getThrowable() instanceof UnknownTopicOrPartitionException) {
