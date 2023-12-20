@@ -548,6 +548,11 @@ public class TkmsProperties implements InitializingBean {
      * <p>Too low values may cause very large batches to fail.
      */
     private Duration flushInterruptionDuration = Duration.ofSeconds(30);
+
+    /**
+     * How long do we wait for topics to get pre-validated.
+     */
+    private Duration topicPreValidationTimeout = Duration.ofMinutes(1);
   }
 
   public enum NotificationLevel {

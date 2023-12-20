@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Topic validation can now be done via Kafka Admin, instead of Kafka Producer.
-  The new logic is under a feature flag, until the logic gets more battle tested.
+  The new logic is under a feature flag, until it gets more battle tested.
 
 ## [0.26.0] - 2023-12-14
 

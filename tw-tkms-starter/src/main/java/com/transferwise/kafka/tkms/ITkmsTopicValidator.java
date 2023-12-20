@@ -4,7 +4,7 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 
 public interface ITkmsTopicValidator {
 
-  void validate();
+  void preValidateAll();
 
   void validate(TkmsShardPartition tkmsShardPartition, String topic, Integer partition);
 }

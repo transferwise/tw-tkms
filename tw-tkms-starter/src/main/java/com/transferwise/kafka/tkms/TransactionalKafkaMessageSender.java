@@ -70,7 +70,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   public void afterPropertiesSet() {
     environmentValidator.validate();
 
-    tkmsTopicValidator.validate();
+    tkmsTopicValidator.preValidateAll();
 
     validateDeleteBatchSizes();
 

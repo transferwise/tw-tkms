@@ -78,15 +78,18 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
   }
 
   @Override
-  public void validate() {
+  public void preValidateAll() {
     final var topics = tkmsProperties.getTopics();
 
     final var semaphore = new Semaphore(tkmsProperties.getAdminClientTopicsValidationConcurrency());
     final var failures = new AtomicInteger();
     final var countDownLatch = new CountDownLatch(topics.size());
+    final var startTimeEpochMs = System.currentTimeMillis();
 
     for (var topic : topics) {
-      if (ExceptionUtils.doUnchecked(() -> semaphore.tryAcquire(1, TimeUnit.MINUTES))) {
+      topicsValidatedDuringInitializationOrNotified.put(topic, Boolean.TRUE);
+      final var timeoutMs = tkmsProperties.getInternals().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
+      if (ExceptionUtils.doUnchecked(() -> semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS))) {
         /*
           We are validating one by one, to get the proper error messages from Kafka.
           And, we are doing it concurrently to speed things up.
@@ -94,6 +97,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         executor.execute(() -> {
           try {
             validate(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), topic, null);
+
+            log.info("Topic '{}' successfully pre-validated.", topic);
           } catch (Throwable t) {
             log.error("Topic validation for '" + topic + "' failed.", t);
             failures.incrementAndGet();
@@ -103,9 +108,14 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
           }
         });
       }
+      else {
+        break;
+      }
     }
 
-    if (!ExceptionUtils.doUnchecked(() -> countDownLatch.await(1, TimeUnit.MINUTES))) {
+    final var timeoutMs = tkmsProperties.getInternals().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
+
+    if (!ExceptionUtils.doUnchecked(() -> countDownLatch.await(timeoutMs, TimeUnit.MILLISECONDS))) {
       tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
       throw new IllegalStateException("Topic validation is taking too long.");
     }
