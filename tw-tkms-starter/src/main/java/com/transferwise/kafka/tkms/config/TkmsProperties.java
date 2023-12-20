@@ -209,7 +209,7 @@ public class TkmsProperties implements InitializingBean {
   /**
    * Uses AdminClient to validate topics.
    *
-   * <p>AdminClient would allow us to also check if topics have suitable ACLs.
+   * <p>AdminClient allows us to also check if topics have suitable ACLs.
    *
    * <p>Experimental option.
    *

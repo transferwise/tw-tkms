@@ -72,6 +72,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         .executor(executor)
         .expireAfterWrite(Duration.ofMinutes(5))
         .refreshAfterWrite(Duration.ofSeconds(30))
+        .recordStats()
         .build(this::fetchTopicDescription);
 
     CaffeineCacheMetrics.monitor(meterRegistry, topicDescriptionsCache, "tkmsTopicDescriptions");
@@ -166,7 +167,6 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       tkmsMetricsTemplate.registerNoAclOperationsFetched(shardPartition, topic);
     } else if (!aclOperations.contains(AclOperation.ALL)
         && !aclOperations.contains(AclOperation.WRITE)
-        && !aclOperations.contains(AclOperation.IDEMPOTENT_WRITE)
     ) {
       throw new IllegalStateException("The service does not have any ACLs of ALL/WRITE/IDEMPOTENT_WRITE on topic '" + topic + "'."
           + " The ACLs available are '" + StringUtils.join(aclOperations, ",") + "'.");
