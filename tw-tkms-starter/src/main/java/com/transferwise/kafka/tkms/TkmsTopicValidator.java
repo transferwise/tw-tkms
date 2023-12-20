@@ -61,7 +61,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
   private LoadingCache<FetchTopicDescriptionRequest, FetchTopicDescriptionResponse> topicDescriptionsCache;
 
-  private Map<String, Boolean> topicsValidatedDuringInitializationOrNotified = new ConcurrentHashMap<>();
+  private final Map<String, Boolean> topicsValidatedDuringInitializationOrNotified = new ConcurrentHashMap<>();
 
   private ExecutorService executor;
 
@@ -72,7 +72,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         .executor(executor)
         .expireAfterWrite(Duration.ofMinutes(5))
         .refreshAfterWrite(Duration.ofSeconds(30))
-        .build(request -> fetchTopicDescription(request));
+        .build(this::fetchTopicDescription);
 
     CaffeineCacheMetrics.monitor(meterRegistry, topicDescriptionsCache, "tkmsTopicDescriptions");
   }
@@ -107,8 +107,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
             semaphore.release();
           }
         });
-      }
-      else {
+      } else {
         break;
       }
     }
