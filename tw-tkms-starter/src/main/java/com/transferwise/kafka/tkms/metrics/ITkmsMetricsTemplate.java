@@ -57,4 +57,9 @@ public interface ITkmsMetricsTemplate {
   Object registerPollingInProgressGauge(TkmsShardPartition shardPartition);
 
   void registerMessagesInTransactionCount(long registeredMessagesCount, boolean success);
+
+  /*
+   * Allows to debug if something is misconfigured and the ACLs are not returned by the server.
+   */
+  void registerNoAclOperationsFetched(TkmsShardPartition shardPartition, String topic);
 }

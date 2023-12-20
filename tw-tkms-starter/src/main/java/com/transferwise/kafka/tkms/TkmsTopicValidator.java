@@ -13,6 +13,7 @@ import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
+import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import java.time.Duration;
@@ -26,6 +27,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.DescribeTopicsOptions;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.acl.AclOperation;
@@ -53,6 +55,9 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
   @Autowired
   protected ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;
+
+  @Autowired
+  protected ITkmsMetricsTemplate tkmsMetricsTemplate;
 
   private LoadingCache<FetchTopicDescriptionRequest, FetchTopicDescriptionResponse> topicDescriptionsCache;
 
@@ -143,16 +148,15 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
     final var topicDescription = response.getTopicDescription();
 
-    if (topicDescription.authorizedOperations().isEmpty()) {
-      problemNotifier.notify(shardPartition.getShard(), NotificationType.TOPIC_ACLS_NOT_AVAILABLE, NotificationLevel.BLOCK,
-          () -> "ACLs not available for topic '" + topic + "'.");
-    }
-
-    if (!topicDescription.authorizedOperations().contains(AclOperation.ALL)
-        && !topicDescription.authorizedOperations().contains(AclOperation.WRITE)
-        && !topicDescription.authorizedOperations().contains(AclOperation.IDEMPOTENT_WRITE)
+    final var aclOperations = topicDescription.authorizedOperations();
+    if (aclOperations == null || aclOperations.isEmpty()) {
+      tkmsMetricsTemplate.registerNoAclOperationsFetched(shardPartition, topic);
+    } else if (!aclOperations.contains(AclOperation.ALL)
+        && !aclOperations.contains(AclOperation.WRITE)
+        && !aclOperations.contains(AclOperation.IDEMPOTENT_WRITE)
     ) {
-      throw new IllegalStateException("The service does not have any ACLs of ALL/WRITE/IDEMPOTENT_WRITE on topic '" + topic + "'.");
+      throw new IllegalStateException("The service does not have any ACLs of ALL/WRITE/IDEMPOTENT_WRITE on topic '" + topic + "'."
+          + " The ACLs available are '" + StringUtils.join(aclOperations, ",") + "'.");
     }
 
     if (partition != null) {

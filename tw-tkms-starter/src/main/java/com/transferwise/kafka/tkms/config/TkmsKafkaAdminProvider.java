@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, GracefulShutdownStrategy {
+
+  /**
+   * Keep the kafka-clients' MBean registration happy.
+   */
+  private static final AtomicInteger sequence = new AtomicInteger();
 
   @Autowired
   private TkmsProperties tkmsProperties;
@@ -32,7 +38,7 @@ public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, Graceful
       var configs = new HashMap<String, Object>();
 
       configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify 'tw-tkms.kafka.bootstrap.servers'.");
-      configs.put(AdminClientConfig.CLIENT_ID_CONFIG, "tw-tkms-topic-validation");
+      configs.put(AdminClientConfig.CLIENT_ID_CONFIG, "tw-tkms-topic-validation-" + sequence.incrementAndGet());
       configs.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
       configs.put(AdminClientConfig.RECONNECT_BACKOFF_MS_CONFIG, 100);
       configs.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 5000);

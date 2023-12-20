@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, GracefulShutdownStrategy {
+
+  /**
+   * Keep the kafka-clients' MBean registration happy.
+   */
+  private static final AtomicInteger sequence = new AtomicInteger();
 
   @Autowired
   private TkmsProperties tkmsProperties;
@@ -51,7 +57,8 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
       configs.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
       configs.put(ProducerConfig.CLIENT_ID_CONFIG,
-          "tw-tkms-" + shardPartition.getShard() + "-" + shardPartition.getPartition() + "-" + useCase.name().toLowerCase());
+          "tw-tkms-" + shardPartition.getShard() + "-" + shardPartition.getPartition() + "-" + useCase.name().toLowerCase()
+              + "-" + sequence.incrementAndGet());
 
       if (useCase == UseCase.PROXY) {
         // We use large lingering time, because we are calling the `.flush()` anyway.
