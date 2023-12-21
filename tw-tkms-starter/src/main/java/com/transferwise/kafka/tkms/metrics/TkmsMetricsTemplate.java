@@ -63,6 +63,8 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   public static final String GAUGE_DAO_EARLIEST_MESSAGE_ID = "tw_tkms_dao_earliest_message_id";
   public static final String COUNTER_DAO_EARLIEST_MESSAGE_ID_COMMIT = "tw_tkms_dao_earliest_message_id_commit";
 
+  public static final String COUNTER_NO_ACL_OPERATIONS_FETCHED = "tw_tkms_no_acl_operations_fetched";
+
   public static final Tag NA_SHARD_TAG = Tag.of("shard", "N/A");
   public static final Tag NA_PARTITION_TAG = Tag.of("partition", "N/A");
   public static final Tag TAG_SUCCESS_TRUE = Tag.of("success", "true");
@@ -430,6 +432,11 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   @Override
   public void registerMessagesInTransactionCount(long registeredMessagesCount, boolean success) {
     meterCache.summary(SUMMARY_MESSAGES_IN_TRANSACTION, TagsSet.of(successTag(success))).record(registeredMessagesCount);
+  }
+
+  @Override
+  public void registerNoAclOperationsFetched(TkmsShardPartition shardPartition, String topic) {
+    meterCache.counter(COUNTER_NO_ACL_OPERATIONS_FETCHED, TagsSet.of(shardTag(shardPartition), topicTag(topic))).increment();
   }
 
   protected MetricHandle registerGauge(String name, Supplier<Number> supplier, Tag... tags) {

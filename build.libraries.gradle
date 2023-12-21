@@ -27,6 +27,7 @@ ext {
             zstdJni                         : 'com.github.luben:zstd-jni:1.5.2-1',
 
             // versions managed by spring-boot-dependencies platform
+            caffeine                        : "com.github.ben-manes.caffeine:caffeine",
             commonsLang3                    : 'org.apache.commons:commons-lang3',
             flywayCore                      : 'org.flywaydb:flyway-core',
             flywayMysql                     : 'org.flywaydb:flyway-mysql',

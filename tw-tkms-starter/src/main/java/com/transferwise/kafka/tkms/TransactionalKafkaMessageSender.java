@@ -13,7 +13,6 @@ import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
-import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
@@ -25,7 +24,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import lombok.Data;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,26 +55,22 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Autowired
   private ApplicationContext applicationContext;
   @Autowired
-  private ITkmsKafkaProducerProvider kafkaProducerProvider;
-  @Autowired
   private IEnvironmentValidator environmentValidator;
   @Autowired
   private ITransactionsHelper transactionsHelper;
   @Autowired
   private IProblemNotifier problemNotifier;
+  @Autowired
+  private ITkmsTopicValidator tkmsTopicValidator;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
 
   @Override
   public void afterPropertiesSet() {
-    Assertions.setLevel(properties.getInternals().getAssertionLevel());
-
     environmentValidator.validate();
 
-    for (String topic : properties.getTopics()) {
-      validateTopic(topic);
-    }
+    tkmsTopicValidator.preValidateAll();
 
     validateDeleteBatchSizes();
 
@@ -168,7 +166,9 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       var topic = tkmsMessage.getTopic();
       if (!validatedTopics.contains(topic)) {
-        validateTopic(topic);
+        tkmsTopicValidator.validate(shardPartition, topic, tkmsMessage.getPartition());
+
+        // TODO: Remove when we leave only admin client based validations in.
         validatedTopics.add(topic);
       }
 
@@ -264,7 +264,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
       validateMessageSize(message, 0);
 
       var topic = message.getTopic();
-      validateTopic(topic);
+      tkmsTopicValidator.validate(shardPartition, topic, message.getPartition());
 
       if (deferMessageRegistrationUntilCommit) {
         // Transaction is guaranteed to be active here.
@@ -369,13 +369,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       TransactionContext.unbind();
     }
-  }
-
-  /**
-   * Every call to normal `KafkaProducer.send()` uses metadata for a topic as well, so should be very fast.
-   */
-  protected void validateTopic(String topic) {
-    kafkaProducerProvider.getKafkaProducerForTopicValidation().partitionsFor(topic);
   }
 
   protected void validateMessages(SendMessagesRequest request) {
@@ -522,4 +515,20 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     return ThreadLocalRandom.current().nextInt(tablesCount);
   }
 
+
+  @Data
+  @Accessors(chain = true)
+  protected static class FetchTopicDescriptionRequest {
+
+    private String topic;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  protected static class FetchTopicDescriptionResponse {
+
+    private Throwable throwable;
+
+    private TopicDescription topicDescription;
+  }
 }

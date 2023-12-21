@@ -7,6 +7,7 @@ import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.ITkmsInterrupterService;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
+import com.transferwise.kafka.tkms.ITkmsTopicValidator;
 import com.transferwise.kafka.tkms.ITkmsZookeeperOperations;
 import com.transferwise.kafka.tkms.JavaxValidationEnvironmentValidator;
 import com.transferwise.kafka.tkms.ProblemNotifier;
@@ -14,6 +15,7 @@ import com.transferwise.kafka.tkms.TkmsInterrupterService;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
+import com.transferwise.kafka.tkms.TkmsTopicValidator;
 import com.transferwise.kafka.tkms.TkmsZookeeperOperations;
 import com.transferwise.kafka.tkms.TransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
@@ -177,5 +179,17 @@ public class TkmsConfiguration {
   @ConditionalOnMissingBean(ITkmsInterrupterService.class)
   public TkmsInterrupterService tkmsInterrupterService() {
     return new TkmsInterrupterService();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsKafkaAdminProvider.class)
+  public ITkmsKafkaAdminProvider tkmsKafkaAdminProvider() {
+    return new TkmsKafkaAdminProvider();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsTopicValidator.class)
+  public ITkmsTopicValidator tkmsTopicValidator() {
+    return new TkmsTopicValidator();
   }
 }

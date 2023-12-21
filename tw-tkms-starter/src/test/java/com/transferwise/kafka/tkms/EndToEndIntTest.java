@@ -88,6 +88,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
     ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(tkmsDaoProvider);
     tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
     tkmsProperties.setValidateSerialization(false);
+    tkmsProperties.setUseAdminClientForTopicsValidation(false);
   }
 
   protected void setupConfig(boolean deferUntilCommit) {
@@ -468,16 +469,29 @@ abstract class EndToEndIntTest extends BaseIntTest {
     }
   }
 
+  private static Stream<Arguments> unknownTopicsMatrix() {
+    return Stream.of(
+        Arguments.of(true, true),
+        Arguments.of(true, false),
+        Arguments.of(false, true),
+        Arguments.of(false, false)
+    );
+  }
+
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
+  @MethodSource("unknownTopicsMatrix")
   @SneakyThrows
-  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit) {
+  void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit, boolean useAdminClient) {
     try {
       setupConfig(deferUntilCommit);
+      tkmsProperties.setUseAdminClientForTopicsValidation(useAdminClient);
+
+      var expectedMessage =
+          useAdminClient ? "Topic 'NotExistingTopic' does not exist." : "Topic NotExistingTopic not present in metadata after";
 
       assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
           .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
-          .hasMessageContaining("Topic NotExistingTopic not present in metadata");
+          .hasMessageContaining(expectedMessage);
     } finally {
       // Stop logs spam about not existing topic in metadata.
       tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
