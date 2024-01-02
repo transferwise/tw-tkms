@@ -37,11 +37,6 @@ public class TkmsProperties implements InitializingBean {
   private Map<NotificationType, NotificationLevel> notificationLevels = new HashMap<>();
 
   /**
-   * Provides more metrics at performance penalty.
-   */
-  private boolean debugEnabled;
-
-  /**
    * The default number of partitions in a shard.
    *
    * <p>You can increase it to increase the throughput or reduce the latency.
@@ -206,21 +201,9 @@ public class TkmsProperties implements InitializingBean {
   @LegacyResolvedValue
   private List<String> topics = new ArrayList<>();
 
-  /**
-   * Uses AdminClient to validate topics.
-   *
-   * <p>AdminClient allows us to also check if topics have suitable ACLs.
-   *
-   * <p>Experimental option.
-   *
-   * <p>May be the default in the future.
-   */
-  private boolean useAdminClientForTopicsValidation = false;
-
-  /**
-   * How many topics validations are we doing in parallel, during the initialization of Tkms.
-   */
-  private int adminClientTopicsValidationConcurrency = 10;
+  @Valid
+  @jakarta.validation.Valid
+  private TopicValidation topicValidation = new TopicValidation();
 
   @Valid
   @jakarta.validation.Valid
@@ -549,10 +532,34 @@ public class TkmsProperties implements InitializingBean {
      */
     private Duration flushInterruptionDuration = Duration.ofSeconds(30);
 
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class TopicValidation {
+
     /**
      * How long do we wait for topics to get pre-validated.
      */
     private Duration topicPreValidationTimeout = Duration.ofMinutes(1);
+
+    /**
+     * Uses AdminClient to validate topics.
+     *
+     * <p>AdminClient allows us to also check if topics have suitable ACLs.
+     *
+     * <p>Experimental option.
+     *
+     * <p>May be the default in the future.
+     */
+    private boolean useAdminClient = false;
+
+    /**
+     * How many topics validations are we doing in parallel, during the initialization of Tkms.
+     */
+    private int validationConcurrency = 10;
+
+    private boolean tryToAutoCreateTopic = true;
   }
 
   public enum NotificationLevel {
