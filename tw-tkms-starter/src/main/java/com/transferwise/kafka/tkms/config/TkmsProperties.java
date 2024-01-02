@@ -557,9 +557,15 @@ public class TkmsProperties implements InitializingBean {
     /**
      * How many topics validations are we doing in parallel, during the initialization of Tkms.
      */
-    private int validationConcurrency = 10;
+    private int validationConcurrencyAtInitialization = 10;
 
-    private boolean tryToAutoCreateTopic = true;
+    /**
+     * Tries to auto create topic using the producer, when admin client based topic validation fails.
+     *
+     * <p>This would allow us still to use the capable admin client based validation in environments
+     * where topics are expected to be auto created.
+     */
+    private boolean tryToAutoCreateTopics = true;
   }
 
   public enum NotificationLevel {

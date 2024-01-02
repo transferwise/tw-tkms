@@ -82,8 +82,9 @@ tw-tkms:
   topic-validation:
     use-admin-client: true
 
+# We will not pre-create the topic in order to test the
 tw-tkms-test:
-  test-topic: TeestTopicPostgres
+  test-topic: TestTopicPostgres
 
 ---
 

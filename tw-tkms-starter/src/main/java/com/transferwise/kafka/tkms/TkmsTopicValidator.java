@@ -82,7 +82,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
   public void preValidateAll() {
     final var topics = tkmsProperties.getTopics();
 
-    final var semaphore = new Semaphore(tkmsProperties.getTopicValidation().getValidationConcurrency());
+    final var semaphore = new Semaphore(tkmsProperties.getTopicValidation().getValidationConcurrencyAtInitialization());
     final var failures = new AtomicInteger();
     final var countDownLatch = new CountDownLatch(topics.size());
     final var startTimeEpochMs = System.currentTimeMillis();
@@ -194,7 +194,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
     if (result.getThrowable() != null
         && result.getThrowable() instanceof UnknownTopicOrPartitionException
-        && tkmsProperties.getTopicValidation().isTryToAutoCreateTopic()) {
+        && tkmsProperties.getTopicValidation().isTryToAutoCreateTopics()) {
       final var topic = request.getTopic();
       try {
         validateUsingProducer(topic);
