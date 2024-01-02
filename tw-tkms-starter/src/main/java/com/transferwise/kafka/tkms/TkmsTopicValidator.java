@@ -82,14 +82,15 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
   public void preValidateAll() {
     final var topics = tkmsProperties.getTopics();
 
-    final var semaphore = new Semaphore(tkmsProperties.getAdminClientTopicsValidationConcurrency());
+    final var semaphore = new Semaphore(tkmsProperties.getTopicValidation().getValidationConcurrencyAtInitialization());
     final var failures = new AtomicInteger();
     final var countDownLatch = new CountDownLatch(topics.size());
     final var startTimeEpochMs = System.currentTimeMillis();
 
     for (var topic : topics) {
       topicsValidatedDuringInitializationOrNotified.put(topic, Boolean.TRUE);
-      final var timeoutMs = tkmsProperties.getInternals().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
+      final var timeoutMs =
+          tkmsProperties.getTopicValidation().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
       if (ExceptionUtils.doUnchecked(() -> semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS))) {
         /*
           We are validating one by one, to get the proper error messages from Kafka.
@@ -113,7 +114,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       }
     }
 
-    final var timeoutMs = tkmsProperties.getInternals().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
+    final var timeoutMs =
+        tkmsProperties.getTopicValidation().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
 
     if (!ExceptionUtils.doUnchecked(() -> countDownLatch.await(timeoutMs, TimeUnit.MILLISECONDS))) {
       tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
@@ -128,7 +130,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
   @Override
   public void validate(TkmsShardPartition shardPartition, String topic, Integer partition) {
-    if (tkmsProperties.isUseAdminClientForTopicsValidation()) {
+    if (tkmsProperties.getTopicValidation().isUseAdminClient()) {
       validateUsingAdmin(shardPartition, topic, partition);
     } else {
       validateUsingProducer(topic);
@@ -188,6 +190,29 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
   }
 
   protected FetchTopicDescriptionResponse fetchTopicDescription(FetchTopicDescriptionRequest request) {
+    final var result = fetchTopicDescription0(request);
+
+    if (result.getThrowable() != null
+        && result.getThrowable() instanceof UnknownTopicOrPartitionException
+        && tkmsProperties.getTopicValidation().isTryToAutoCreateTopics()) {
+      final var topic = request.getTopic();
+      try {
+        validateUsingProducer(topic);
+
+        log.info("Succeeded in auto creating topic `{}`", topic);
+
+        return fetchTopicDescription0(request);
+      } catch (Throwable t) {
+        log.warn("Trying to auto create topic `{}` failed.", topic, t);
+        // Close the producer, so it would not spam the metadata fetch failures forever.
+        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+      }
+    }
+
+    return result;
+  }
+
+  protected FetchTopicDescriptionResponse fetchTopicDescription0(FetchTopicDescriptionRequest request) {
     final var topic = request.getTopic();
     TopicDescription topicDescription = null;
 

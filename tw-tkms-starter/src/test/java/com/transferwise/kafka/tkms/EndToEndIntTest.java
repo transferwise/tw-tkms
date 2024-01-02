@@ -88,7 +88,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
     ((TransactionalKafkaMessageSender) transactionalKafkaMessageSender).setTkmsDaoProvider(tkmsDaoProvider);
     tkmsProperties.setDeferMessageRegistrationUntilCommit(false);
     tkmsProperties.setValidateSerialization(false);
-    tkmsProperties.setUseAdminClientForTopicsValidation(false);
+    tkmsProperties.getTopicValidation().setUseAdminClient(false);
   }
 
   protected void setupConfig(boolean deferUntilCommit) {
@@ -484,7 +484,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
   void sendingToUnknownTopicWillBePreventedWhenTopicAutoCreationIsDisabled(boolean deferUntilCommit, boolean useAdminClient) {
     try {
       setupConfig(deferUntilCommit);
-      tkmsProperties.setUseAdminClientForTopicsValidation(useAdminClient);
+      tkmsProperties.getTopicValidation().setUseAdminClient(useAdminClient);
 
       var expectedMessage =
           useAdminClient ? "Topic 'NotExistingTopic' does not exist." : "Topic NotExistingTopic not present in metadata after";

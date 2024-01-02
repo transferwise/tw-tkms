@@ -43,7 +43,6 @@ tw-tkms:
           ms: 7
       earliest-visible-messages:
         enabled: true
-  debug-enabled: true
   compression:
     algorithm: random
     min-size: 10
@@ -80,8 +79,10 @@ spring:
 tw-tkms:
   database-dialect: POSTGRES
   delete-batch-sizes: "51, 11, 5, 1"
-  use-admin-client-for-topics-validation: true
+  topic-validation:
+    use-admin-client: true
 
+# We will not pre-create the topic in order to test the
 tw-tkms-test:
   test-topic: TestTopicPostgres
 

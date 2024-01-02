@@ -5,7 +5,7 @@ import lombok.Setter;
 import lombok.experimental.UtilityClass;
 
 /*
-   Mainly used to add verbose log to investigate specfic flaky tests.
+   Mainly used to add verbose log to investigate specific flaky tests.
  */
 @UtilityClass
 public class Debug {
