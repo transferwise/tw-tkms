@@ -204,6 +204,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         return fetchTopicDescription0(request);
       } catch (Throwable t) {
         log.warn("Trying to auto create topic `{}` failed.", topic, t);
+        // Close the producer, so it would not spam the metadata fetch failures forever.
+        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
       }
     }
 
