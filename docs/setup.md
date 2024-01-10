@@ -27,7 +27,7 @@ Minimum required configuration is:
 ```
 tw-tkms:
   database-dialect: POSTGRES # only required if using Postgres, MariaDb is the default
-  kafka.bootstrap.servers: ${ENV_SECURE_KAFKA_BOOTSTRAP_SERVERS}
+  kafka.bootstrap.servers: ${ENV_SECURE_KAFKA_DISCOVERY_BOOTSTRAP_SERVER}
   environment:
     previous-version-at-least: ${LIB_VERSION} # use current lib version for a new integration
 ```
