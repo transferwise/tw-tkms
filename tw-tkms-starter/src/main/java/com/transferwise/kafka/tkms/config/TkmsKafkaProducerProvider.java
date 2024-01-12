@@ -82,8 +82,8 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   }
 
   @Override
-  public KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation() {
-    return getKafkaProducer(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), UseCase.TOPIC_VALIDATION);
+  public KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition) {
+    return getKafkaProducer(TkmsShardPartition.of(shardPartition.getShard(), 0), UseCase.TOPIC_VALIDATION);
   }
 
   @Override

@@ -43,6 +43,8 @@ tw-tkms:
           ms: 7
       earliest-visible-messages:
         enabled: true
+      topics:
+        - TestTopic
   compression:
     algorithm: random
     min-size: 10
@@ -81,6 +83,8 @@ tw-tkms:
   delete-batch-sizes: "51, 11, 5, 1"
   topic-validation:
     use-admin-client: true
+  topics:
+    - TestTopicPostgres
 
 # We will not pre-create the topic in order to test the
 tw-tkms-test:
