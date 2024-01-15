@@ -27,8 +27,10 @@ jobs:
       IN_CI: true
       MARIADB_TCP_3306: 3306
       MARIADB_TCP_HOST: mysql1
-      TW_TKMS_KAFKA_TCP_9092: 9092
-      TW_TKMS_KAFKA_TCP_HOST: kafka1
+      TW_TKMS_KAFKA_1_TCP_9092: 9092
+      TW_TKMS_KAFKA_1_TCP_HOST: kafka1
+      TW_TKMS_KAFKA_2_TCP_9092: 9092
+      TW_TKMS_KAFKA_2_TCP_HOST: kafka2
       ZOOKEEPER_TCP_2181: 2181
       ZOOKEEPER_TCP_HOST: zookeeper1
       POSTGRES_TCP_HOST: postgres1
@@ -54,7 +56,19 @@ jobs:
         image: wurstmeister/kafka:2.12-2.2.0
         env:
           KAFKA_BROKER_ID: 1
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181/kafka1
+          KAFKA_LISTENERS: PLAINTEXT://:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_MESSAGE_MAX_BYTES: "10485760"
+          KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS: 20000
+          KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "true"
+          KAFKA_LEADER_IMBALANCE_CHECK_INTERVAL_SECONDS: 5
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      kafka2:
+        image: wurstmeister/kafka:2.12-2.2.0
+        env:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181/kafka2
           KAFKA_LISTENERS: PLAINTEXT://:9092
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
           KAFKA_MESSAGE_MAX_BYTES: "10485760"
