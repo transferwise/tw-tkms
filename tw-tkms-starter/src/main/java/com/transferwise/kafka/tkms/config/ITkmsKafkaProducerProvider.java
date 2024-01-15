@@ -11,7 +11,9 @@ public interface ITkmsKafkaProducerProvider {
 
   void closeKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
-  void closeKafkaProducerForTopicValidation();
+  void closeKafkaProducerForTopicValidation(TkmsShardPartition tkmsShardPartition);
+
+  void closeKafkaProducersForTopicValidation();
 
   enum UseCase {
     PROXY,

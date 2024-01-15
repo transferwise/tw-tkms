@@ -1,11 +1,14 @@
 package com.transferwise.kafka.tkms.config;
 
 import com.transferwise.common.gracefulshutdown.GracefulShutdownStrategy;
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
+import com.transferwise.kafka.tkms.config.TkmsProperties.ShardProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Data;
@@ -19,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Slf4j
 public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, GracefulShutdownStrategy {
 
+  private static final Set<String> CONFIG_NAMES = AdminClientConfig.configNames();
   /**
    * Keep the kafka-clients' MBean registration happy.
    */
@@ -30,11 +34,11 @@ public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, Graceful
   @Autowired
   private MeterRegistry meterRegistry;
 
-  private Map<Long, AdminEntry> admins = new ConcurrentHashMap<>();
+  private Map<TkmsShardPartition, AdminEntry> admins = new ConcurrentHashMap<>();
 
   @Override
-  public Admin getKafkaAdmin() {
-    return admins.computeIfAbsent(0L, key -> {
+  public Admin getKafkaAdmin(TkmsShardPartition tkmsShardPartition) {
+    return admins.computeIfAbsent(tkmsShardPartition, key -> {
       var configs = new HashMap<String, Object>();
 
       configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "Please specify 'tw-tkms.kafka.bootstrap.servers'.");
@@ -43,10 +47,18 @@ public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, Graceful
       configs.put(AdminClientConfig.RECONNECT_BACKOFF_MS_CONFIG, 100);
       configs.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 5000);
 
-      var configNames = AdminClientConfig.configNames();
       for (var e : tkmsProperties.getKafka().entrySet()) {
-        if (configNames.contains(e.getKey())) {
+        if (CONFIG_NAMES.contains(e.getKey())) {
           configs.put(e.getKey(), e.getValue());
+        }
+      }
+
+      ShardProperties shardProperties = tkmsProperties.getShards().get(tkmsShardPartition.getShard());
+      if (shardProperties != null) {
+        for (var e : shardProperties.getKafka().entrySet()) {
+          if (CONFIG_NAMES.contains(e.getKey())) {
+            configs.put(e.getKey(), e.getValue());
+          }
         }
       }
 
@@ -59,8 +71,8 @@ public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, Graceful
   }
 
   @Override
-  public void closeKafkaAdmin() {
-    var adminEntry = admins.remove(0L);
+  public void closeKafkaAdmin(TkmsShardPartition tkmsShardPartition) {
+    var adminEntry = admins.remove(tkmsShardPartition);
 
     if (adminEntry == null) {
       return;
@@ -77,7 +89,7 @@ public class TkmsKafkaAdminProvider implements ITkmsKafkaAdminProvider, Graceful
 
   @Override
   public void applicationTerminating() {
-    closeKafkaAdmin();
+    admins.keySet().forEach((this::closeKafkaAdmin));
   }
 
   @Override

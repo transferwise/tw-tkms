@@ -100,7 +100,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
     earliestMessageTracker.init();
 
     assertThat(earliestMessageTracker.getEarliestMessageId()).isEqualTo(committedValue);
-    
+
     assertThat(pollingAllRecordsHappened);
   }
 

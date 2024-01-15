@@ -12,7 +12,7 @@ spring:
       transaction-isolation: 2
 
   kafka:
-    bootstrap-servers: "${TW_TKMS_KAFKA_TCP_HOST:localhost}:${TW_TKMS_KAFKA_TCP_9092}"
+    bootstrap-servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
     consumer:
       group-id: ${spring.application.name}
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -29,12 +29,12 @@ tw-curator:
 
 tw-tkms:
   polling-interval: 5ms
-  shards-count: 2
+  shards-count: 3
   insert-batch-size: 2
   topics:
     - TestTopic
   kafka:
-    bootstrap.servers: "${TW_TKMS_KAFKA_TCP_HOST:localhost}:${TW_TKMS_KAFKA_TCP_9092}"
+    bootstrap.servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
   shards:
     1:
       polling-interval: 6ms
@@ -45,6 +45,9 @@ tw-tkms:
         enabled: true
       topics:
         - TestTopic
+    2:
+      kafka:
+        bootstrap.servers: "${TW_TKMS_KAFKA_2_TCP_HOST:localhost}:${TW_TKMS_KAFKA_2_TCP_9092}"
   compression:
     algorithm: random
     min-size: 10
@@ -54,6 +57,8 @@ tw-tkms:
     start-delay: 0s
   internals:
     assertion-level: 1
+  topic-validation:
+    try-to-auto-create-topics: false
 
 tw-graceful-shutdown:
   clients-reaction-time-ms: 1000
@@ -64,6 +69,13 @@ logging.level:
 
 tw-tkms-test:
   test-topic: TestTopic
+  kafka-servers:
+    - bootstrap-servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
+      topics:
+        - TestTopic
+    - bootstrap-servers: "${TW_TKMS_KAFKA_2_TCP_HOST:localhost}:${TW_TKMS_KAFKA_2_TCP_9092}"
+      topics:
+        - TestTopicInAnotherServer
 ---
 
 spring:
@@ -89,6 +101,13 @@ tw-tkms:
 # We will not pre-create the topic in order to test the
 tw-tkms-test:
   test-topic: TestTopicPostgres
+  kafka-servers:
+    - bootstrap-servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
+      topics:
+        - TestTopicPostgres
+    - bootstrap-servers: "${TW_TKMS_KAFKA_2_TCP_HOST:localhost}:${TW_TKMS_KAFKA_2_TCP_9092}"
+      topics:
+        - TestTopicPostgresAnotherServer
 
 ---
 
@@ -112,7 +131,6 @@ tw-tkms:
     enabled: true
     look-back-period: 10s
     table-name: earliestmessage.tw_tkms_earliest_visible_messages
-  shards-count: 2
   table-base-name: earliestmessage.outgoing_message
   monitoring:
     left-over-messages-check-start-delay: 1s
@@ -123,3 +141,7 @@ tw-tkms:
 
 tw-tkms-test:
   test-topic: TestTopicEarliestMessage
+  kafka-servers:
+    - bootstrap-servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
+      topics:
+        - TestTopicEarliestMessage

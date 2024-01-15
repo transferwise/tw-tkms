@@ -48,7 +48,7 @@ class TkmsDaoIntTest extends BaseIntTest {
   @ProductionBug("Delete worked, but batches were combined wrongly.")
   void deletingInBatchesWorks() {
     var tkmsDao = tkmsDaoProvider.getTkmsDao(0);
-    
+
     List<Long> records = new ArrayList<>();
     for (int i = 0; i < 1001; i++) {
       records.add(

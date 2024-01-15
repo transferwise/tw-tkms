@@ -142,12 +142,12 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
     try {
       phaser.awaitAdvanceInterruptibly(phase, timeoutMs, TimeUnit.MILLISECONDS);
     } catch (InterruptedException | TimeoutException e) {
-      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+      tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
       throw new IllegalStateException("Topic validation is taking too long.");
     }
 
     if (failures.get() > 0) {
-      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+      tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
       throw new IllegalStateException("There were failures with topics validations. Refusing to start.");
     }
   }
@@ -223,8 +223,10 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         && result.getThrowable() instanceof UnknownTopicOrPartitionException
         && tkmsProperties.getTopicValidation().isTryToAutoCreateTopics()) {
       final var topic = request.getTopic();
+      final var shardPartition = request.getShardPartition();
+
       try {
-        validateUsingProducer(request.getShardPartition(), topic);
+        validateUsingProducer(shardPartition, topic);
 
         log.info("Succeeded in auto creating topic `{}`", topic);
 
@@ -232,7 +234,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       } catch (Throwable t) {
         log.warn("Trying to auto create topic `{}` failed.", topic, t);
         // Close the producer, so it would not spam the metadata fetch failures forever.
-        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation(shardPartition);
       }
     }
 
@@ -246,9 +248,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
     Throwable throwable = null;
 
     try {
-      topicDescription = tkmsKafkaAdminProvider.getKafkaAdmin().describeTopics(Collections.singleton(topic),
-              new DescribeTopicsOptions().includeAuthorizedOperations(true))
-          .allTopicNames().get(30, TimeUnit.SECONDS).get(topic);
+      topicDescription = tkmsKafkaAdminProvider.getKafkaAdmin(request.getShardPartition()).describeTopics(Collections.singleton(topic),
+          new DescribeTopicsOptions().includeAuthorizedOperations(true)).allTopicNames().get(30, TimeUnit.SECONDS).get(topic);
     } catch (Throwable t) {
       if (t instanceof ExecutionException) {
         throwable = t.getCause();

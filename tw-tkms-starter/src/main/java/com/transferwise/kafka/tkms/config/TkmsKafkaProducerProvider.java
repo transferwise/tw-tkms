@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Data;
@@ -22,6 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, GracefulShutdownStrategy {
+
+  private static final Set<String> CONFIG_NAMES = ProducerConfig.configNames();
 
   /**
    * Keep the kafka-clients' MBean registration happy.
@@ -66,11 +69,19 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       }
       configs.put(ProducerConfig.METADATA_MAX_AGE_CONFIG, "120000");
 
-      configs.putAll(tkmsProperties.getKafka());
+      for (var e : tkmsProperties.getKafka().entrySet()) {
+        if (CONFIG_NAMES.contains(e.getKey())) {
+          configs.put(e.getKey(), e.getValue());
+        }
+      }
 
       ShardProperties shardProperties = tkmsProperties.getShards().get(shardPartition.getShard());
       if (shardProperties != null) {
-        configs.putAll(shardProperties.getKafka());
+        for (var e : shardProperties.getKafka().entrySet()) {
+          if (CONFIG_NAMES.contains(e.getKey())) {
+            configs.put(e.getKey(), e.getValue());
+          }
+        }
       }
 
       final var producer = new KafkaProducer<String, byte[]>(configs);
@@ -104,8 +115,14 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   }
 
   @Override
-  public void closeKafkaProducerForTopicValidation() {
-    closeKafkaProducer(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), UseCase.TOPIC_VALIDATION);
+  public void closeKafkaProducerForTopicValidation(TkmsShardPartition tkmsShardPartition) {
+    closeKafkaProducer(tkmsShardPartition, UseCase.TOPIC_VALIDATION);
+  }
+
+  @Override
+  public void closeKafkaProducersForTopicValidation() {
+    producers.keySet().stream().filter(key -> key.getRight() == UseCase.TOPIC_VALIDATION)
+        .forEach(key -> closeKafkaProducer(key.getLeft(), key.getRight()));
   }
 
   @Override

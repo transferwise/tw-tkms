@@ -28,7 +28,6 @@ spring:
     locations: "classpath:db/migration/mysql"
 tw-tkms:
   polling-interval: 5ms
-  shards-count: 1
   partitions-count: 1
   topics:
     - ComplexTest

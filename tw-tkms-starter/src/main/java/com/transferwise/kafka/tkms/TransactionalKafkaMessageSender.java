@@ -519,6 +519,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Data
   @Accessors(chain = true)
   protected static class FetchTopicDescriptionRequest {
+
     private TkmsShardPartition shardPartition;
     private String topic;
   }
