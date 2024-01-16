@@ -494,7 +494,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
           .hasMessageContaining(expectedMessage);
     } finally {
       // Stop logs spam about not existing topic in metadata.
-      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+      tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
     }
   }
 
@@ -702,7 +702,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
       if (receivedValue.equals(message.getValue())) {
         receivedCount.incrementAndGet();
       } else {
-        throw new IllegalStateException("Wrong message received.");
+        throw new IllegalStateException("Wrong message received: " + receivedValue);
       }
     });
 

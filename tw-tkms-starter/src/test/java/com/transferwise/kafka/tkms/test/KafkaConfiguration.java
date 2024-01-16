@@ -1,11 +1,15 @@
 package com.transferwise.kafka.tkms.test;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.kafka.tkms.test.TestProperties.KafkaServer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.DeleteTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -28,12 +32,23 @@ public class KafkaConfiguration implements InitializingBean {
   @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE")
   @Override
   public void afterPropertiesSet() {
-    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
-      deleteTopic(adminClient, tkmsProperties.getTestTopic());
+    for (var kafkaServer : tkmsProperties.getKafkaServers()) {
+      var props = getKafkaProperties(kafkaServer);
+      for (var testTopic : kafkaServer.getTopics()) {
+        try (AdminClient adminClient = AdminClient.create(props)) {
+          deleteTopic(adminClient, testTopic);
+        }
+        try (AdminClient adminClient = AdminClient.create(props)) {
+          createTopic(adminClient, testTopic, 10);
+        }
+      }
     }
-    try (AdminClient adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
-      createTopic(adminClient, tkmsProperties.getTestTopic(), 10);
-    }
+  }
+
+  protected Map<String, Object> getKafkaProperties(KafkaServer kafkaServer) {
+    var props = new HashMap<>(kafkaAdmin.getConfigurationProperties());
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaServer.getBootstrapServers());
+    return props;
   }
 
   protected void deleteTopic(AdminClient adminClient, String topicName) {

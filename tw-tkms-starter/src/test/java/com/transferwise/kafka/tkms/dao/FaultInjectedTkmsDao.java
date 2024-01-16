@@ -27,7 +27,7 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
         throw new IllegalStateException("Haha, inserts are failing lol.");
       }
     }
-    
+
     return delegate.insertMessage(shardPartition, message);
   }
 

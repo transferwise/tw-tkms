@@ -11,7 +11,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-class TkmsKafkaProducerProviderTest extends BaseIntTest {
+class TkmsKafkaProducerProviderTestServer extends BaseIntTest {
 
   @Autowired
   private ITkmsKafkaProducerProvider tkmsKafkaProducerProvider;

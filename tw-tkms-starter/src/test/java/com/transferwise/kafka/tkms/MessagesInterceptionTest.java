@@ -11,7 +11,6 @@ import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.TestMessagesInterceptor;
 import com.transferwise.kafka.tkms.test.TestProperties;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;

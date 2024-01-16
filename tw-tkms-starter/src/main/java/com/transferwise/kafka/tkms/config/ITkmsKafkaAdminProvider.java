@@ -1,11 +1,12 @@
 package com.transferwise.kafka.tkms.config;
 
+import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import org.apache.kafka.clients.admin.Admin;
 
 public interface ITkmsKafkaAdminProvider {
 
-  Admin getKafkaAdmin();
+  Admin getKafkaAdmin(TkmsShardPartition tkmsShardPartition);
 
-  void closeKafkaAdmin();
+  void closeKafkaAdmin(TkmsShardPartition tkmsShardPartition);
 
 }

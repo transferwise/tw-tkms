@@ -7,11 +7,13 @@ public interface ITkmsKafkaProducerProvider {
 
   KafkaProducer<String, byte[]> getKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
-  KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation();
+  KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition);
 
   void closeKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
-  void closeKafkaProducerForTopicValidation();
+  void closeKafkaProducerForTopicValidation(TkmsShardPartition tkmsShardPartition);
+
+  void closeKafkaProducersForTopicValidation();
 
   enum UseCase {
     PROXY,

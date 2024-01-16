@@ -12,7 +12,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-class KafkaMetricsIntTest extends BaseIntTest {
+class KafkaServerMetricsIntTest extends BaseIntTest {
 
 
   @Autowired

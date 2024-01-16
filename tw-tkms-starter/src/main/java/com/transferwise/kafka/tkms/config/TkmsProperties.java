@@ -196,6 +196,8 @@ public class TkmsProperties implements InitializingBean {
    * <p>It is not mandatory, but it allows to do some pre validation and prevent the service starting when something is wrong.
    *
    * <p>Also, so we can warm up their metadata, avoiding elevated latencies at the start of the service.
+   *
+   * <p>You may want to list some topics under a specific shard configuration. If those use a different Kafka Server or ACLs or else.
    */
   @ResolvedValue
   @LegacyResolvedValue
@@ -315,6 +317,10 @@ public class TkmsProperties implements InitializingBean {
     @ResolvedValue
     @LegacyResolvedValue
     private Map<String, String> kafka = new HashMap<>();
+
+    @ResolvedValue
+    @LegacyResolvedValue
+    private List<String> topics = new ArrayList<>();
   }
 
   public boolean isValidateSerialization(int shard) {

@@ -18,13 +18,15 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -80,50 +82,72 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
 
   @Override
   public void preValidateAll() {
-    final var topics = tkmsProperties.getTopics();
 
     final var semaphore = new Semaphore(tkmsProperties.getTopicValidation().getValidationConcurrencyAtInitialization());
     final var failures = new AtomicInteger();
-    final var countDownLatch = new CountDownLatch(topics.size());
+    final var phaser = new Phaser(1);
     final var startTimeEpochMs = System.currentTimeMillis();
 
-    for (var topic : topics) {
-      topicsValidatedDuringInitializationOrNotified.put(topic, Boolean.TRUE);
-      final var timeoutMs =
-          tkmsProperties.getTopicValidation().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
-      if (ExceptionUtils.doUnchecked(() -> semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS))) {
-        /*
-          We are validating one by one, to get the proper error messages from Kafka.
-          And, we are doing it concurrently to speed things up.
-         */
-        executor.execute(() -> {
-          try {
-            validate(TkmsShardPartition.of(tkmsProperties.getDefaultShard(), 0), topic, null);
+    for (int shard = 0; shard < tkmsProperties.getShardsCount(); shard++) {
+      var shardProperties = tkmsProperties.getShards().get(shard);
+      List<String> shardTopics = shardProperties == null ? null : shardProperties.getTopics();
 
-            log.info("Topic '{}' successfully pre-validated.", topic);
-          } catch (Throwable t) {
-            log.error("Topic validation for '" + topic + "' failed.", t);
-            failures.incrementAndGet();
-          } finally {
-            countDownLatch.countDown();
-            semaphore.release();
-          }
-        });
-      } else {
-        break;
+      if (shardTopics != null && shard == tkmsProperties.getDefaultShard()) {
+        throw new IllegalStateException("Topics for default shard have to be specified on 'tw-tkms.topics' property.");
+      }
+
+      if (shard == tkmsProperties.getDefaultShard()) {
+        shardTopics = tkmsProperties.getTopics();
+      }
+
+      if (shardTopics == null) {
+        continue;
+      }
+
+      for (var topic : shardTopics) {
+        topicsValidatedDuringInitializationOrNotified.put(topic, Boolean.TRUE);
+        final var timeoutMs =
+            tkmsProperties.getTopicValidation().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
+        if (ExceptionUtils.doUnchecked(() -> semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS))) {
+
+          final var finalShard = shard;
+          /*
+            We are validating one by one, to get the proper error messages from Kafka.
+            And, we are doing it concurrently to speed things up.
+           */
+          phaser.register();
+          executor.execute(() -> {
+            try {
+              validate(TkmsShardPartition.of(finalShard, 0), topic, null);
+
+              log.info("Topic '{}' successfully pre-validated.", topic);
+            } catch (Throwable t) {
+              log.error("Topic validation for '" + topic + "' failed.", t);
+              failures.incrementAndGet();
+            } finally {
+              phaser.arriveAndDeregister();
+              semaphore.release();
+            }
+          });
+        } else {
+          break;
+        }
       }
     }
 
     final var timeoutMs =
         tkmsProperties.getTopicValidation().getTopicPreValidationTimeout().toMillis() - System.currentTimeMillis() + startTimeEpochMs;
 
-    if (!ExceptionUtils.doUnchecked(() -> countDownLatch.await(timeoutMs, TimeUnit.MILLISECONDS))) {
-      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+    int phase = phaser.arrive();
+    try {
+      phaser.awaitAdvanceInterruptibly(phase, timeoutMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | TimeoutException e) {
+      tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
       throw new IllegalStateException("Topic validation is taking too long.");
     }
 
     if (failures.get() > 0) {
-      tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+      tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
       throw new IllegalStateException("There were failures with topics validations. Refusing to start.");
     }
   }
@@ -133,7 +157,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
     if (tkmsProperties.getTopicValidation().isUseAdminClient()) {
       validateUsingAdmin(shardPartition, topic, partition);
     } else {
-      validateUsingProducer(topic);
+      validateUsingProducer(shardPartition, topic);
     }
   }
 
@@ -146,7 +170,10 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       return Boolean.TRUE;
     });
 
-    var response = topicDescriptionsCache.get(new FetchTopicDescriptionRequest().setTopic(topic));
+    var response = topicDescriptionsCache.get(new FetchTopicDescriptionRequest()
+        .setTopic(topic)
+        .setShardPartition(shardPartition)
+    );
 
     if (response == null) {
       throw new NullPointerException("Could not fetch topic description for topic '" + topic + "'.");
@@ -185,8 +212,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
     Legacy logic.
     We keep it in, in case some service would run into issues with the admin client based validation.
    */
-  protected void validateUsingProducer(String topic) {
-    tkmsKafkaProducerProvider.getKafkaProducerForTopicValidation().partitionsFor(topic);
+  protected void validateUsingProducer(TkmsShardPartition shardPartition, String topic) {
+    tkmsKafkaProducerProvider.getKafkaProducerForTopicValidation(shardPartition).partitionsFor(topic);
   }
 
   protected FetchTopicDescriptionResponse fetchTopicDescription(FetchTopicDescriptionRequest request) {
@@ -196,8 +223,10 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
         && result.getThrowable() instanceof UnknownTopicOrPartitionException
         && tkmsProperties.getTopicValidation().isTryToAutoCreateTopics()) {
       final var topic = request.getTopic();
+      final var shardPartition = request.getShardPartition();
+
       try {
-        validateUsingProducer(topic);
+        validateUsingProducer(shardPartition, topic);
 
         log.info("Succeeded in auto creating topic `{}`", topic);
 
@@ -205,7 +234,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       } catch (Throwable t) {
         log.warn("Trying to auto create topic `{}` failed.", topic, t);
         // Close the producer, so it would not spam the metadata fetch failures forever.
-        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation();
+        tkmsKafkaProducerProvider.closeKafkaProducerForTopicValidation(shardPartition);
       }
     }
 
@@ -219,9 +248,8 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
     Throwable throwable = null;
 
     try {
-      topicDescription = tkmsKafkaAdminProvider.getKafkaAdmin().describeTopics(Collections.singleton(topic),
-              new DescribeTopicsOptions().includeAuthorizedOperations(true))
-          .allTopicNames().get(30, TimeUnit.SECONDS).get(topic);
+      topicDescription = tkmsKafkaAdminProvider.getKafkaAdmin(request.getShardPartition()).describeTopics(Collections.singleton(topic),
+          new DescribeTopicsOptions().includeAuthorizedOperations(true)).allTopicNames().get(30, TimeUnit.SECONDS).get(topic);
     } catch (Throwable t) {
       if (t instanceof ExecutionException) {
         throwable = t.getCause();
