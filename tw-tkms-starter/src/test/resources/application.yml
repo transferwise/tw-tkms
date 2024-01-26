@@ -36,6 +36,9 @@ tw-tkms:
   kafka:
     bootstrap.servers: "${TW_TKMS_KAFKA_1_TCP_HOST:localhost}:${TW_TKMS_KAFKA_1_TCP_9092}"
   shards:
+    # Covers a bug with topics validation
+    0:
+      polling-interval: 6ms
     1:
       polling-interval: 6ms
       kafka:

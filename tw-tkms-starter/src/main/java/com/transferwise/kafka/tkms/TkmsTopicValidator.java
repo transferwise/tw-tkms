@@ -92,7 +92,7 @@ public class TkmsTopicValidator implements ITkmsTopicValidator, InitializingBean
       var shardProperties = tkmsProperties.getShards().get(shard);
       List<String> shardTopics = shardProperties == null ? null : shardProperties.getTopics();
 
-      if (shardTopics != null && shard == tkmsProperties.getDefaultShard()) {
+      if (shardTopics != null && !shardTopics.isEmpty() && shard == tkmsProperties.getDefaultShard()) {
         throw new IllegalStateException("Topics for default shard have to be specified on 'tw-tkms.topics' property.");
       }
 
