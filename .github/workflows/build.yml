@@ -18,6 +18,7 @@ jobs:
       max-parallel: 100
       matrix:
         spring_boot_version:
+          - 3.2.2
           - 3.1.6
           - 3.0.13
           - 2.7.18
