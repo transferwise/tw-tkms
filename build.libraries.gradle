@@ -31,6 +31,7 @@ ext {
             commonsLang3                    : 'org.apache.commons:commons-lang3',
             flywayCore                      : 'org.flywaydb:flyway-core',
             flywayMysql                     : 'org.flywaydb:flyway-mysql',
+            flywayPostgresql                : 'org.flywaydb:flyway-postgresql',
             jacksonDatabind                 : 'com.fasterxml.jackson.core:jackson-databind',
             kafkaClients                    : 'org.apache.kafka:kafka-clients',
             lombok                          : 'org.projectlombok:lombok',
