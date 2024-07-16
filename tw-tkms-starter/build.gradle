@@ -58,6 +58,9 @@ dependencies {
     if (!springBootVersion.startsWith("2.6")) {
         testImplementation libraries.flywayMysql
     }
+    if (springBootVersion.startsWith("3.3")) {
+        testImplementation libraries.flywayPostgresql
+    }
     testImplementation libraries.flywayCore
     testImplementation libraries.lombok
     testImplementation libraries.springBootStarterActuator
