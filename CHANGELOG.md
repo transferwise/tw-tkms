@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.29.0] - 2024-07-16
 
-### Changed
+### Added
 
 - Added Spring Boot 3.3 support.
+
+### Removed
 - Removed support for spring boot 3.1 and 2.7.
 
 ## [0.28.3] - 2024-02-20
