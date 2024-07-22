@@ -55,12 +55,10 @@ dependencies {
     testImplementation project(":tw-tkms-test-starter")
 
     testImplementation libraries.awaitility
-    if (!springBootVersion.startsWith("2.6")) {
-        testImplementation libraries.flywayMysql
-    }
     if (springBootVersion.startsWith("3.3")) {
         testImplementation libraries.flywayPostgresql
     }
+    testImplementation libraries.flywayMysql
     testImplementation libraries.flywayCore
     testImplementation libraries.lombok
     testImplementation libraries.springBootStarterActuator
