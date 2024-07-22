@@ -55,9 +55,11 @@ dependencies {
     testImplementation project(":tw-tkms-test-starter")
 
     testImplementation libraries.awaitility
-    if (!springBootVersion.startsWith("2.6")) {
-        testImplementation libraries.flywayMysql
+    // If we are running on spring boot 3.3 or newer then we need to use the flyway-postgresql dependency.
+    if (!springBootVersion.startsWith("3.2")) {
+        testImplementation libraries.flywayPostgresql
     }
+    testImplementation libraries.flywayMysql
     testImplementation libraries.flywayCore
     testImplementation libraries.lombok
     testImplementation libraries.springBootStarterActuator
