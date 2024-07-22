@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.28.4] - 2024-07-16
+## [0.29.0] - 2024-07-16
 
 ### Changed
 
-Added Spring Boot 3.3 support.
+- Added Spring Boot 3.3 support.
+- Removed support for spring boot 3.1 and 2.7.
 
 ## [0.28.3] - 2024-02-20
 
