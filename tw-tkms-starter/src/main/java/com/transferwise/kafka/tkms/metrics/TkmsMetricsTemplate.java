@@ -34,7 +34,9 @@ import org.springframework.beans.factory.InitializingBean;
 @Slf4j
 public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBean {
 
-  public static final String GAUGE_LIBRARY_INFO = "tw_library_info";
+  // Miccrometer 1.13 (which comes with Spring boot 3.3) doesn't properly convert gauge metrics with info suffix when using underscore,
+  // using dot here as a workaround
+  public static final String GAUGE_LIBRARY_INFO = "tw.library.info";
   public static final String TIMER_PROXY_POLL = "tw_tkms_proxy_poll";
   public static final String GAUGE_PROXY_POLL_IN_PROGRESS = "tw_tkms_proxy_poll_in_progress";
   public static final String TIMER_PROXY_CYCLE = "tw_tkms_proxy_cycle";
