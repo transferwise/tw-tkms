@@ -58,7 +58,7 @@ class MessageDecorationTest extends BaseIntTest {
   private void checkForHeader(SentMessage sentMessage, String key, String value) {
     assertTrue(
         StreamSupport.stream(sentMessage.getProducerRecord().headers().spliterator(), false)
-            .anyMatch(h -> h.key().equals(key) && value.equals(new String(h.value())))
+            .anyMatch(h -> h.key().equals(key) && value.equals(new String(h.value(), StandardCharsets.UTF_8)))
     );
   }
 }
