@@ -147,10 +147,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessagesResult sendMessages(SendMessagesRequest request) {
-    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
     request.getTkmsMessages().forEach(message -> messageDecorators.forEach(message::accept));
     validateMessages(request);
 
+    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
     var validatedTopics = new HashSet<String>();
 
     int seq = 0;

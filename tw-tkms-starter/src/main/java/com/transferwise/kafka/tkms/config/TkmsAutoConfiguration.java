@@ -8,6 +8,8 @@ import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHel
 import com.transferwise.common.baseutils.transactionsmanagement.TransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITkmsMessageDecorator;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Collections;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,8 +18,6 @@ import org.springframework.boot.autoconfigure.validation.ValidationAutoConfigura
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import java.util.Collections;
-import java.util.List;
 
 @Configuration
 @AutoConfigureAfter({FlywayAutoConfiguration.class, ValidationAutoConfiguration.class})
@@ -42,7 +42,7 @@ public class TkmsAutoConfiguration {
   public TransactionsHelper twTransactionsHelper() {
     return new TransactionsHelper();
   }
-
+  
   @Bean
   @ConditionalOnMissingBean(ITkmsMessageDecorator.class)
   public List<ITkmsMessageDecorator> messageDecorators() {
