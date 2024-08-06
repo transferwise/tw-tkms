@@ -8,6 +8,7 @@ import com.transferwise.kafka.tkms.TransactionContext.Mode;
 import com.transferwise.kafka.tkms.TransactionContext.ShardPartitionMessages;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener;
 import com.transferwise.kafka.tkms.api.ITkmsEventsListener.MessageRegisteredEvent;
+import com.transferwise.kafka.tkms.api.ITkmsMessageDecorator;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsMessage.Header;
@@ -62,6 +63,8 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   private IProblemNotifier problemNotifier;
   @Autowired
   private ITkmsTopicValidator tkmsTopicValidator;
+  @Autowired
+  private List<ITkmsMessageDecorator> messageDecorators;
 
   private volatile List<ITkmsEventsListener> tkmsEventsListeners;
   private RateLimiter errorLogRateLimiter = RateLimiter.create(2);
@@ -144,10 +147,10 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
   @Override
   public SendMessagesResult sendMessages(SendMessagesRequest request) {
-    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
-
+    request.getTkmsMessages().forEach(message -> messageDecorators.forEach(message::accept));
     validateMessages(request);
 
+    var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
     var validatedTopics = new HashSet<String>();
 
     int seq = 0;
@@ -250,7 +253,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
     var message = request.getTkmsMessage();
     var shardPartition = getShardPartition(message);
-
+    messageDecorators.forEach(message::accept);
     try {
       shardPartition.putIntoMdc();
 

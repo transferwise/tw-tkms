@@ -79,6 +79,19 @@ public class TkmsMessage {
     return this;
   }
 
+  public TkmsMessage accept(ITkmsMessageDecorator decorator) {
+    var headers = decorator.getAdditionalHeaders(this);
+    if (headers != null) {
+      headers.forEach(this::addHeader);
+    }
+    var overridedPartition = decorator.getOverridedPartition(this);
+    if (overridedPartition != null) {
+      setShard(overridedPartition.getShard());
+      setPartition(overridedPartition.getPartition());
+    }
+    return this;
+  }
+
   /**
    * Forces specified compression.
    */
