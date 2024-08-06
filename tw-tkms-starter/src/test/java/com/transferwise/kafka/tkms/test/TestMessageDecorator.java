@@ -24,7 +24,7 @@ public class TestMessageDecorator implements ITkmsMessageDecorator {
     if (message.getValue() != null && new String(message.getValue(), StandardCharsets.UTF_8).startsWith("Here from")) {
       return new TkmsShardPartition(0, 0);
     }
-    return new TkmsShardPartition(message.getShard(), message.getPartition());
+    return null;
   }
 
 }
