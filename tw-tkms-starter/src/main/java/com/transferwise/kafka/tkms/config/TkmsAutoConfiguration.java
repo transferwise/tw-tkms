@@ -42,7 +42,7 @@ public class TkmsAutoConfiguration {
   public TransactionsHelper twTransactionsHelper() {
     return new TransactionsHelper();
   }
-  
+
   @Bean
   @ConditionalOnMissingBean(ITkmsMessageDecorator.class)
   public List<ITkmsMessageDecorator> messageDecorators() {

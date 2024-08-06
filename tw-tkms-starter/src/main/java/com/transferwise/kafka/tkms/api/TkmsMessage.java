@@ -80,9 +80,14 @@ public class TkmsMessage {
   }
 
   public TkmsMessage accept(ITkmsMessageDecorator decorator) {
-    var headers = decorator.getHeaders(this);
+    var headers = decorator.getAdditionalHeaders(this);
     if (headers != null) {
       headers.forEach(this::addHeader);
+    }
+    var overridedPartition = decorator.getOverridedPartition(this);
+    if (overridedPartition != null) {
+      setShard(overridedPartition.getShard());
+      setPartition(overridedPartition.getPartition());
     }
     return this;
   }

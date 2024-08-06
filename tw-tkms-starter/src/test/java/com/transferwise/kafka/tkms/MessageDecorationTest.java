@@ -43,8 +43,8 @@ class MessageDecorationTest extends BaseIntTest {
 
     transactionsHelper.withTransaction().run(() ->
         transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("adam-jones").setValue(someValue))
-            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("danny-carey").setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("adam-jones").setShard(4).setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("danny-carey").setPartition(5).setValue(someValue))
         ));
 
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
@@ -52,7 +52,11 @@ class MessageDecorationTest extends BaseIntTest {
 
     assertEquals(2, messages.size());
     checkForHeader(messages.get(0), "tool", "jambi");
+    assertEquals(0, messages.get(0).getShardPartition().getShard());
+    assertEquals(0, messages.get(0).getShardPartition().getPartition());
     checkForHeader(messages.get(1), "tool", "jambi");
+    assertEquals(0, messages.get(1).getShardPartition().getShard());
+    assertEquals(0, messages.get(1).getShardPartition().getPartition());
   }
 
   private void checkForHeader(SentMessage sentMessage, String key, String value) {

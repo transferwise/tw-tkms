@@ -17,7 +17,7 @@ public class TkmsShardPartition {
   private Tag micrometerPartitionTag;
   private String stringPresentation;
 
-  private TkmsShardPartition(int shard, int partition) {
+  public TkmsShardPartition(int shard, int partition) {
     this.shard = shard;
     this.partition = partition;
     this.micrometerShardTag = Tag.of("shard", String.valueOf(shard));
