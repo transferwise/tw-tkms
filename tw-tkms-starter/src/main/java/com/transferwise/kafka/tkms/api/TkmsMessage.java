@@ -79,6 +79,14 @@ public class TkmsMessage {
     return this;
   }
 
+  public TkmsMessage accept(ITkmsMessageDecorator decorator){
+    var headers = decorator.getHeaders(this);
+    if(headers != null){
+      headers.forEach(this::addHeader);
+    }
+    return this;
+  }
+
   /**
    * Forces specified compression.
    */
