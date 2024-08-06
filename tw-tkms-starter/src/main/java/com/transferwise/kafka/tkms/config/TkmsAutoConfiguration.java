@@ -44,7 +44,7 @@ public class TkmsAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean
+  @ConditionalOnMissingBean(ITkmsMessageDecorator.class)
   public List<ITkmsMessageDecorator> messageDecorators() {
     return Collections.emptyList();
   }
