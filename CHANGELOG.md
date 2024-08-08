@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.1] - 2024-08-08
+### Changed
+- MeterFilter's applied by the library are no longer explicitly applied and are instead
+
 ## [0.30.0] 2024-08-06
 ### Added
 - Added `ITkmsMessageDecorator` that kicks in before message is registered and adds custom headers
