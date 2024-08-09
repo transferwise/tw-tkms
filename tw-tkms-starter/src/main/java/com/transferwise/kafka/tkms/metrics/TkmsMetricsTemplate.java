@@ -81,41 +81,7 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
 
   @Override
   public void afterPropertiesSet() {
-    Map<String, double[]> slos = new HashMap<>();
-    double[] defaultSlos = new double[]{1, 5, 25, 125, 625, 3125, 15625};
-    slos.put(TIMER_PROXY_POLL, defaultSlos);
-    slos.put(TIMER_PROXY_CYCLE, defaultSlos);
-    slos.put(TIMER_PROXY_CYCLE_PAUSE, defaultSlos);
-    slos.put(TIMER_DAO_POLL_FIRST_RESULT, defaultSlos);
-    slos.put(TIMRE_DAO_POLL_ALL_RESULTS, defaultSlos);
-    slos.put(TIMER_DAO_POLL_GET_CONNECTION, defaultSlos);
-    slos.put(TIMER_PROXY_KAFKA_MESSAGES_SEND, defaultSlos);
-    slos.put(TIMER_PROXY_MESSAGES_DELETION, defaultSlos);
-    slos.put(SUMMARY_DAO_POLL_ALL_RESULTS_COUNT, defaultSlos);
-    slos.put(TIMER_MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 15625});
-    slos.put(SUMMARY_DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2, 4});
-    slos.put(SUMMARY_MESSAGES_IN_TRANSACTION, new double[]{1, 5, 25, 125, 625, 3125, 15625, 5 * 15625});
 
-    meterCache.getMeterRegistry().config().meterFilter(new MeterFilter() {
-      @Override
-      public DistributionStatisticConfig configure(Meter.Id id, DistributionStatisticConfig config) {
-        double[] sloConfigValues = slos.get(id.getName());
-        if (sloConfigValues != null) {
-          double[] sloValues = Arrays.copyOf(sloConfigValues, sloConfigValues.length);
-          if (id.getType() == Type.TIMER) {
-            for (int i = 0; i < sloValues.length; i++) {
-              sloValues[i] = sloValues[i] * 1_000_000L;
-            }
-          }
-          return DistributionStatisticConfig.builder()
-              .percentilesHistogram(false)
-              .serviceLevelObjectives(sloValues)
-              .build()
-              .merge(config);
-        }
-        return config;
-      }
-    });
   }
 
   @Override

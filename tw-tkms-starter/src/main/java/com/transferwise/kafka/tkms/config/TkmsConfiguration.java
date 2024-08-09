@@ -28,6 +28,13 @@ import com.transferwise.kafka.tkms.dao.TkmsMessageSerializer;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
 import com.transferwise.kafka.tkms.metrics.TkmsClusterWideStateMonitor;
 import com.transferwise.kafka.tkms.metrics.TkmsMetricsTemplate;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Meter.Type;
+import io.micrometer.core.instrument.config.MeterFilter;
+import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +64,46 @@ public class TkmsConfiguration {
   @ConditionalOnMissingBean(ITkmsMetricsTemplate.class)
   public TkmsMetricsTemplate tkmsMetricsTemplate(IMeterCache meterCache, TkmsProperties tkmsProperties) {
     return new TkmsMetricsTemplate(meterCache, tkmsProperties);
+  }
+
+  @Bean
+  @ConditionalOnBean(ITkmsMetricsTemplate.class)
+  public MeterFilter tkmsMeterFilter() {
+    Map<String, double[]> slos = new HashMap<>();
+    double[] defaultSlos = new double[]{1, 5, 25, 125, 625, 3125, 15625};
+    slos.put(TkmsMetricsTemplate.TIMER_PROXY_POLL, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_PROXY_CYCLE, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_PROXY_CYCLE_PAUSE, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_DAO_POLL_FIRST_RESULT, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMRE_DAO_POLL_ALL_RESULTS, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_DAO_POLL_GET_CONNECTION, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_PROXY_KAFKA_MESSAGES_SEND, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_PROXY_MESSAGES_DELETION, defaultSlos);
+    slos.put(TkmsMetricsTemplate.SUMMARY_DAO_POLL_ALL_RESULTS_COUNT, defaultSlos);
+    slos.put(TkmsMetricsTemplate.TIMER_MESSAGE_INSERT_TO_ACK, new double[]{1, 5, 25, 125, 625, 3125, 15625});
+    slos.put(TkmsMetricsTemplate.SUMMARY_DAO_COMPRESSION_RATIO_ACHIEVED, new double[]{0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 2, 4});
+    slos.put(TkmsMetricsTemplate.SUMMARY_MESSAGES_IN_TRANSACTION, new double[]{1, 5, 25, 125, 625, 3125, 15625, 5 * 15625});
+
+    return new MeterFilter() {
+      @Override
+      public DistributionStatisticConfig configure(Meter.Id id, DistributionStatisticConfig config) {
+        double[] sloConfigValues = slos.get(id.getName());
+        if (sloConfigValues != null) {
+          double[] sloValues = Arrays.copyOf(sloConfigValues, sloConfigValues.length);
+          if (id.getType() == Type.TIMER) {
+            for (int i = 0; i < sloValues.length; i++) {
+              sloValues[i] = sloValues[i] * 1_000_000L;
+            }
+          }
+          return DistributionStatisticConfig.builder()
+              .percentilesHistogram(false)
+              .serviceLevelObjectives(sloValues)
+              .build()
+              .merge(config);
+        }
+        return config;
+      }
+    };
   }
 
   @Bean
