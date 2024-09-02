@@ -1,13 +1,19 @@
 package com.transferwise.kafka.tkms.config;
 
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 
 public interface ITkmsKafkaProducerProvider {
 
-  KafkaProducer<String, byte[]> getKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
+  Producer<String, byte[]> getKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
-  KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition);
+  Producer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition);
+
+  default void addPostProcessor(ITkmsKafkaProducerPostProcessor postProcessor) {
+  }
+
+  default void removePostProcessors() {
+  }
 
   void closeKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
