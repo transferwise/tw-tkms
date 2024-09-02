@@ -16,6 +16,7 @@ import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageIntercepti
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptors;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.ITkmsDaoProvider;
+import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerPostProcessor;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider;
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerProvider.UseCase;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.InterruptException;
@@ -78,6 +80,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private ApplicationContext applicationContext;
   @Autowired
   private ITkmsMessageInterceptors messageIntereceptors;
+  @Autowired
+  private ITkmsKafkaProducerPostProcessor tkmsKafkaProducerPostProcessor;
   @Autowired
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
   @Autowired
@@ -166,7 +170,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
     }
   }
 
-  private void poll0(Control control, TkmsShardPartition shardPartition, KafkaProducer<String, byte[]> kafkaProducer) {
+  private void poll0(Control control, TkmsShardPartition shardPartition, Producer<String, byte[]> kafkaProducer) {
 
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
     long startTimeMs = System.currentTimeMillis();
