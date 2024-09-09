@@ -1,7 +1,6 @@
 package com.transferwise.kafka.tkms.test;
 
 import com.transferwise.kafka.tkms.config.ITkmsKafkaProducerPostProcessor;
-import com.transferwise.kafka.tkms.config.TkmsKafkaProducerProvider;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -11,19 +10,14 @@ import java.util.Arrays;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class TestKafkaProducerPostProcessor implements ITkmsKafkaProducerPostProcessor, InitializingBean {
+public class TestKafkaProducerPostProcessor implements ITkmsKafkaProducerPostProcessor {
 
   public static final byte[] TEST_MESSAGE = "Testing ProducerPostProcessing".getBytes(StandardCharsets.UTF_8);
 
   private ProxyInvocationHandler handler;
-
-  @Autowired
-  TkmsKafkaProducerProvider tkmsKafkaProducerProvider;
 
   @SuppressWarnings("unchecked")
   @Override
@@ -34,11 +28,6 @@ public class TestKafkaProducerPostProcessor implements ITkmsKafkaProducerPostPro
             TestKafkaProducerPostProcessor.class.getClassLoader(),
             new Class<?>[] {Producer.class},
             handler);
-  }
-
-  @Override
-  public void afterPropertiesSet() throws Exception {
-    tkmsKafkaProducerProvider.addPostProcessor(this);
   }
 
   private static class ProxyInvocationHandler implements InvocationHandler {

@@ -10,35 +10,28 @@ import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.test.BaseIntTest;
 import com.transferwise.kafka.tkms.test.ITkmsSentMessagesCollector;
+import com.transferwise.kafka.tkms.test.TestMessagesInterceptor;
 import com.transferwise.kafka.tkms.test.TestProperties;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MessagePostProcessingTest extends BaseIntTest {
 
   @Autowired
+  private TestMessagesInterceptor testMessagesInterceptor;
+  @Autowired
   private TransactionalKafkaMessageSender transactionalKafkaMessageSender;
-
   @Autowired
   private TestProperties testProperties;
-
   @Autowired
   private ITransactionsHelper transactionsHelper;
 
-  @BeforeEach
-  void setupTest() {
-    tkmsSentMessagesCollector.clear();
-  }
-
   @AfterEach
   void cleanupTest() {
-    tkmsSentMessagesCollector.clear();
+    testMessagesInterceptor.setBeforeSendingToKafkaFunction(null);
   }
 
   @Test

@@ -23,7 +23,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.util.Assert;
 
 @Slf4j
 public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, GracefulShutdownStrategy {
@@ -43,18 +42,9 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
 
   private Map<Pair<TkmsShardPartition, UseCase>, ProducerEntry> producers = new ConcurrentHashMap<>();
 
+  @Autowired
   private List<ITkmsKafkaProducerPostProcessor> postProcessors = new ArrayList<>();
 
-  @Override
-  public void addPostProcessor(ITkmsKafkaProducerPostProcessor postProcessor) {
-    Assert.notNull(postProcessor, "'postProcessor' cannot be null");
-    this.postProcessors.add(postProcessor);
-  }
-
-  @Override
-  public void removePostProcessors() {
-    this.postProcessors.clear();
-  }
 
   @Override
   public Producer<String, byte[]> getKafkaProducer(TkmsShardPartition shardPartition, UseCase useCase) {

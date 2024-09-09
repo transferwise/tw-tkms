@@ -9,12 +9,6 @@ public interface ITkmsKafkaProducerProvider {
 
   Producer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition);
 
-  default void addPostProcessor(ITkmsKafkaProducerPostProcessor postProcessor) {
-  }
-
-  default void removePostProcessors() {
-  }
-
   void closeKafkaProducer(TkmsShardPartition tkmsShardPartition, UseCase useCase);
 
   void closeKafkaProducerForTopicValidation(TkmsShardPartition tkmsShardPartition);
