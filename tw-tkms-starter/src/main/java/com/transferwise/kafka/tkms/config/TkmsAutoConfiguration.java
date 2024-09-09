@@ -37,8 +37,6 @@ public class TkmsAutoConfiguration {
     return new MeterCache(meterRegistry);
   }
 
-
-
   @Bean
   @ConditionalOnMissingBean(ITransactionsHelper.class)
   public TransactionsHelper twTransactionsHelper() {
@@ -51,4 +49,9 @@ public class TkmsAutoConfiguration {
     return Collections.emptyList();
   }
 
+  @Bean
+  @ConditionalOnMissingBean(ITkmsKafkaProducerPostProcessor.class)
+  public List<ITkmsKafkaProducerPostProcessor> producerPostProcessors() {
+    return Collections.emptyList();
+  }
 }
