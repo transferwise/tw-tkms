@@ -2,6 +2,7 @@ package com.transferwise.kafka.tkms;
 
 import static org.awaitility.Awaitility.await;
 
+import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -74,7 +75,13 @@ class ManualIntTest extends BaseIntTest {
         try {
           transactionsHelper.withTransaction().run(() -> {
             for (int i = 0; i < batchSize; i++) {
-              transactionalKafkaMessageSender.sendMessage(new TkmsMessage().setTopic("TestTopicPostgres").setKey("a").setValue(contentBytes));
+              transactionalKafkaMessageSender.sendMessage(
+                  new TkmsMessage()
+                      .setUuid(UuidUtils.generatePrefixCombUuid())
+                      .setTopic("TestTopicPostgres")
+                      .setKey("a")
+                      .setValue(contentBytes)
+              );
             }
           });
           log.info("Inserted batch #" + finalT);

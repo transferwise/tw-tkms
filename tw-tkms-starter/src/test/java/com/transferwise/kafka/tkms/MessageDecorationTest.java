@@ -4,6 +4,7 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -42,10 +43,26 @@ class MessageDecorationTest extends BaseIntTest {
     String topic = testProperties.getTestTopic();
 
     transactionsHelper.withTransaction().run(() ->
-        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("adam-jones").setShard(4).setValue(someValue))
-            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("danny-carey").setPartition(5).setValue(someValue))
-        ));
+        transactionalKafkaMessageSender.sendMessages(
+            new SendMessagesRequest()
+                .addTkmsMessage(
+                    new TkmsMessage()
+                        .setUuid(UuidUtils.generatePrefixCombUuid())
+                        .setTopic(topic)
+                        .setKey("adam-jones")
+                        .setShard(4)
+                        .setValue(someValue)
+                )
+                .addTkmsMessage(
+                    new TkmsMessage()
+                        .setUuid(UuidUtils.generatePrefixCombUuid())
+                        .setTopic(topic)
+                        .setKey("danny-carey")
+                        .setPartition(5)
+                        .setValue(someValue)
+                )
+        )
+    );
 
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
     var messages = tkmsSentMessagesCollector.getSentMessages(topic);

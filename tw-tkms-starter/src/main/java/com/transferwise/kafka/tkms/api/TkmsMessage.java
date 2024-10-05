@@ -1,11 +1,13 @@
 package com.transferwise.kafka.tkms.api;
 
+import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
@@ -70,6 +72,31 @@ public class TkmsMessage {
    * from others.
    */
   private Map<?, ?> metadata;
+
+  /**
+   * Uniquely identifies this message for consumers.
+   *
+   * <p>If value is set then it will be added to headers with {@code x-wise-uuid} key.
+   *
+   * <p>Having UUID in header allows consumer to run deduplication check on this value without need to deserialize payload.
+   * If payload provides uuid it must be the same as this value so that consumers that depend on either of these values can have consistent
+   * deduplication.
+   *
+   * <p>Prefer using sequential uuids (e.g. {@link UuidUtils#generatePrefixCombUuid()}) which are proved to yield better performance.
+   */
+  private UUID uuid;
+
+  /**
+   * Defines priority of this message for consumers.
+   *
+   * <p>Lower value means higher priority. For example, 0 is higher priority than 10.
+   *
+   * <p>If value is set then it will be added to headers with {@code x-wise-priority} key.
+   *
+   * <p>Having priority in header allows consumer to derive priority without need to deserialize payload. For example, it can be useful
+   * when consumers filter messages based on priority before deciding how to process those.
+   */
+  private Long priority;
 
   public TkmsMessage addHeader(Header header) {
     if (headers == null) {
