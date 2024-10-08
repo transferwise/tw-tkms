@@ -127,11 +127,11 @@ abstract class EndToEndIntTest extends BaseIntTest {
         assertThat(new String(criticalityHeader.value(), StandardCharsets.UTF_8)).isEqualTo("PrettyLowLol");
 
         org.apache.kafka.common.header.Header priorityHeader = cr.headers().toArray()[1];
-        assertThat(priorityHeader.key()).isEqualTo(StandardHeaders.X_WISE_PRIORITY);
+        assertThat(priorityHeader.key()).isEqualTo("x-wise-priority");
         assertThat(Long.parseLong(new String(priorityHeader.value(), StandardCharsets.UTF_8))).isEqualTo(priority);
 
         org.apache.kafka.common.header.Header uuidHeader = cr.headers().toArray()[2];
-        assertThat(uuidHeader.key()).isEqualTo(StandardHeaders.X_WISE_UUID);
+        assertThat(uuidHeader.key()).isEqualTo("x-wise-uuid");
         assertThat(UUID.fromString(new String(uuidHeader.value(), StandardCharsets.UTF_8))).isEqualTo(uuid);
 
         receivedCount.incrementAndGet();
@@ -149,8 +149,6 @@ abstract class EndToEndIntTest extends BaseIntTest {
       transactionsHelper.withTransaction().run(() -> {
         var result = transactionalKafkaMessageSender.sendMessage(
             new TkmsMessage()
-                .setUuid(uuid)
-                .setPriority(priority)
                 .setTopic(testProperties.getTestTopic())
                 .setValue(toJsonBytes(testEvent))
                 .addHeader(
@@ -158,6 +156,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
                         .setKey("x-tw-criticality")
                         .setValue("PrettyLowLol".getBytes(StandardCharsets.UTF_8))
                 )
+                .addPriorityHeader(priority)
+                .addUuidHeader(uuid)
         );
 
         var messagesCount = tkmsTestDao.getMessagesCount(result.getShardPartition());

@@ -9,17 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-Added two new properties to the `TkmsMessage`:
+Added two new methods to the `TkmsMessage` that allow to conveniently use standard uuid and priority headers:
 
-- `uuid` - specifies uniqueness of the message. Will be delivered to consumers in the `x-wise-uuid` header.
-- `priority` - specifies priority of the message. Lower number - higher priority. Will be delivered to consumers in the `x-wise-uuid` header.
+- `x-wise-uuid` - defines uniqueness of the message.
+- `x-wise-priority` - defines priority of the message. Lower number - higher priority.
 
 Consumers of messages that have UUID and priority headers can efficiently use provided values for deduplication and other processing purposes with no need to deserialize payloads.
 
-Best practices for setting UUID value:
-- Likely the UUID value provided will be stored and indexed on consumer side. It's recommended to use sequential UUIDs in such scenarios, which proved to yield better performance. One way to generate sequential UUIDs is by using [tw-base-utils](https://github.com/transferwise/tw-base-utils/blob/master/tw-base-utils/src/main/java/com/transferwise/common/baseutils/UuidUtils.java#L37) library.
-- If payload already has UUID value then assign the same value to the corresponding `TkmsMessage`. It ensures that consumers of such messages can consistently deduplicate them by depending on one of those UUIDs. It simplifies consumers migration to standard header based UUID deduplication.
-- If custom message identification mechanism is used (not based on UUID), still generate and assign UUID to the messages. However, be mindful of cases when messages are sent in non-transactional environments. For example, the same message might be sent twice with different UUIDs but the same identity (according to the custom identification mechanism).
+Best practices for setting UUID header value:
+- Likely the UUID value provided will be stored and indexed on consumer side. It's recommended to use sequential UUIDs in such scenarios, which proved to yield better performance. One way to generate sequential UUIDs is by using [tw-base-utils](https://github.com/transferwise/tw-base-utils/blob/master/tw-base-utils/src/main/java/com/transferwise/common/baseutils/UuidUtils.java) library.
+- If payload already has UUID value then set the same value in header. It ensures that consumers of such messages can consistently deduplicate them by depending on one of those UUIDs. It simplifies consumers migration to standard header based UUID deduplication.
+- If custom message identification mechanism is used (not based on UUID), still generate and add UUID to the headers. However, be mindful of cases when messages are sent in non-transactional environments. For example, the same message might be sent twice with different UUIDs but the same identity (according to the custom identification mechanism).
 
 ## [0.30.1] - 2024-08-08
 ### Changed

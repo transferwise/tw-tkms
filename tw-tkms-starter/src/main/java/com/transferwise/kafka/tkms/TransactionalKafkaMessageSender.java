@@ -19,7 +19,6 @@ import com.transferwise.kafka.tkms.config.TkmsProperties.DatabaseDialect;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationLevel;
 import com.transferwise.kafka.tkms.config.TkmsProperties.NotificationType;
 import com.transferwise.kafka.tkms.metrics.ITkmsMetricsTemplate;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -149,11 +148,7 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
   @Override
   public SendMessagesResult sendMessages(SendMessagesRequest request) {
     request.getTkmsMessages().forEach(message -> messageDecorators.forEach(message::accept));
-    for (int i = 0; i < request.getTkmsMessages().size(); i++) {
-      TkmsMessage tkmsMessage = request.getTkmsMessages().get(i);
-      addStandardHeaders(tkmsMessage);
-      validateMessage(tkmsMessage, i);
-    }
+    validateMessages(request);
 
     var transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
     var validatedTopics = new HashSet<String>();
@@ -268,7 +263,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
 
       checkActiveTransaction(shardPartition.getShard(), transactionActive, deferMessageRegistrationUntilCommit);
 
-      addStandardHeaders(request.getTkmsMessage());
       validateMessage(message, 0);
       validateMessageSize(message, 0);
 
@@ -380,6 +374,13 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     }
   }
 
+  protected void validateMessages(SendMessagesRequest request) {
+    for (int i = 0; i < request.getTkmsMessages().size(); i++) {
+      var tkmsMessage = request.getTkmsMessages().get(i);
+      validateMessage(tkmsMessage, i);
+    }
+  }
+
   protected void validateMessage(TkmsMessage message, int messageIdx) {
     Preconditions.checkNotNull(message, "%s: No message provided.", messageIdx);
     Preconditions.checkArgument(!Strings.isNullOrEmpty(message.getTopic()), "%s: No topic provided.", messageIdx);
@@ -430,24 +431,6 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
     if (size >= properties.getMaximumMessageBytes()) {
       throw new IllegalArgumentException(
           "" + messageIdx + ": Estimated message size is " + size + ", which is larger than maximum of " + properties.getMaximumMessageBytes() + ".");
-    }
-  }
-
-  private static void addStandardHeaders(TkmsMessage tkmsMessage) {
-    if (tkmsMessage.getPriority() != null) {
-      tkmsMessage.addHeader(
-          new Header()
-              .setKey(StandardHeaders.X_WISE_PRIORITY)
-              .setValue(tkmsMessage.getPriority().toString().getBytes(StandardCharsets.UTF_8))
-      );
-    }
-    // uuid shall remain last header, so it can be quickly accessed using Headers#lastHeader
-    if (tkmsMessage.getUuid() != null) {
-      tkmsMessage.addHeader(
-          new Header()
-              .setKey(StandardHeaders.X_WISE_UUID)
-              .setValue(tkmsMessage.getUuid().toString().getBytes(StandardCharsets.UTF_8))
-      );
     }
   }
 
