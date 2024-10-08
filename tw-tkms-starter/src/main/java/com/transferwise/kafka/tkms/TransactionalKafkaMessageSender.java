@@ -395,22 +395,12 @@ public class TransactionalKafkaMessageSender implements ITransactionalKafkaMessa
           message.getShard(), properties.getShardsCount());
     }
     Preconditions.checkNotNull(message.getValue(), "%s: Value can not be null.", messageIdx);
-    boolean uuidHeaderPresent = false;
     if (message.getHeaders() != null) {
       for (int headerIdx = 0; headerIdx < message.getHeaders().size(); headerIdx++) {
         Header header = message.getHeaders().get(headerIdx);
         Preconditions.checkNotNull(header.getValue(), "%s: Header value @{%s} can not be null.", messageIdx, headerIdx);
         Preconditions.checkArgument(!Strings.isNullOrEmpty(header.getKey()), "%s: Header key @{%s} can not be null.", messageIdx, headerIdx);
-        uuidHeaderPresent |= StandardHeaders.X_WISE_UUID.equals(header.getKey());
       }
-    }
-    if (properties.isUuidHeaderRequired() && !uuidHeaderPresent) {
-      throw new IllegalArgumentException(
-          "%d: Message is required to have @{%s} header.".formatted(
-              messageIdx,
-              StandardHeaders.X_WISE_UUID
-          )
-      );
     }
   }
 

@@ -3,7 +3,6 @@ package com.transferwise.kafka.tkms.config;
 import com.transferwise.common.baseutils.validation.LegacyResolvedValue;
 import com.transferwise.common.baseutils.validation.ResolvedValue;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
-import com.transferwise.kafka.tkms.api.TkmsMessage;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -238,11 +237,6 @@ public class TkmsProperties implements InitializingBean {
    * <p>May default to true for Postgres in upcoming versions. Or even default to true in all situations.
    */
   private boolean deferMessageRegistrationUntilCommit = false;
-
-  /**
-   * Whether every message sent is required to have {@code x-wise-uuid} header. See {@link TkmsMessage#getUuid()} for more details.
-   */
-  private boolean uuidHeaderRequired = true;
 
   @Valid
   @jakarta.validation.Valid

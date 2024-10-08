@@ -1,7 +1,6 @@
 package com.transferwise.kafka.tkms.demoapp;
 
 import com.transferwise.common.baseutils.ExceptionUtils;
-import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
 import java.nio.charset.StandardCharsets;
@@ -51,8 +50,6 @@ public class MessagesProducer {
                 String key = String.valueOf(finalT * batchCount * batchSize + finalI * batchSize + j);
 
                 TkmsMessage message = new TkmsMessage()
-                    .setUuid(UuidUtils.generatePrefixCombUuid())
-                    .setPriority(17L)
                     .setTopic("MyTopic")
                     .setTimestamp(Instant.now())
                     .setKey(key).setValue(textMessage.getBytes(StandardCharsets.UTF_8));

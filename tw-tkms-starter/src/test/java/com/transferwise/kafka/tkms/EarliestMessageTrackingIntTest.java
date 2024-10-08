@@ -3,7 +3,6 @@ package com.transferwise.kafka.tkms;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.clock.TestClock;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -107,12 +106,7 @@ class EarliestMessageTrackingIntTest extends BaseIntTest {
 
   protected void sendMessageAndWaitForArrival() {
     transactionsHelper.withTransaction().run(() -> {
-          var result = tkms.sendMessage(
-              new TkmsMessage()
-                  .setUuid(UuidUtils.generatePrefixCombUuid())
-                  .setTopic(testTopic)
-                  .setValue("Hello Kristo!".getBytes(StandardCharsets.UTF_8))
-          );
+          var result = tkms.sendMessage(new TkmsMessage().setTopic(testTopic).setValue("Hello Kristo!".getBytes(StandardCharsets.UTF_8)));
           log.info("Registered a message with storage id " + result.getStorageId());
         }
     );

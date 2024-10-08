@@ -3,7 +3,6 @@ package com.transferwise.kafka.tkms;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITkmsMessageInterceptor.MessageInterceptionDecision;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessagesRequest;
@@ -68,31 +67,11 @@ class MessagesInterceptionTest extends BaseIntTest {
     String topic = testProperties.getTestTopic();
 
     transactionsHelper.withTransaction().run(() ->
-        transactionalKafkaMessageSender.sendMessages(
-            new SendMessagesRequest()
-                .addTkmsMessage(
-                    new TkmsMessage()
-                        .setUuid(UuidUtils.generatePrefixCombUuid())
-                        .setTopic(topic)
-                        .setKey("A")
-                        .setValue(someValue)
-                )
-                .addTkmsMessage(
-                    new TkmsMessage()
-                        .setUuid(UuidUtils.generatePrefixCombUuid())
-                        .setTopic(topic)
-                        .setKey("B")
-                        .setValue(someValue)
-                )
-                .addTkmsMessage(
-                    new TkmsMessage()
-                        .setUuid(UuidUtils.generatePrefixCombUuid())
-                        .setTopic(topic)
-                        .setKey("C")
-                        .setValue(someValue)
-                )
-        )
-    );
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("A").setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("B").setValue(someValue))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setKey("C").setValue(someValue))
+        ));
 
     await().until(() -> tkmsSentMessagesCollector.getSentMessages(topic).size() == 2);
 

@@ -8,9 +8,15 @@ import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Meter.Type;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.config.MeterFilter;
+import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import lombok.Data;
@@ -31,7 +37,6 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
   // Miccrometer 1.13 (which comes with Spring boot 3.3) doesn't properly convert gauge metrics with info suffix when using underscore,
   // using dot here as a workaround
   public static final String GAUGE_LIBRARY_INFO = "tw.library.info";
-  public static final String GAUGE_CONFIGURATION_UUID_HEADER_REQUIRED = "tw_tkms_configuration_uuid_header_required";
   public static final String TIMER_PROXY_POLL = "tw_tkms_proxy_poll";
   public static final String GAUGE_PROXY_POLL_IN_PROGRESS = "tw_tkms_proxy_poll_in_progress";
   public static final String TIMER_PROXY_CYCLE = "tw_tkms_proxy_cycle";
@@ -282,9 +287,6 @@ public class TkmsMetricsTemplate implements ITkmsMetricsTemplate, InitializingBe
 
     Gauge.builder(GAUGE_LIBRARY_INFO, () -> 1d).tags("version", version, "library", "tw-tkms")
         .description("Provides metadata about the library, for example the version.")
-        .register(meterCache.getMeterRegistry());
-    Gauge.builder(GAUGE_CONFIGURATION_UUID_HEADER_REQUIRED, tkmsProperties, props -> props.isUuidHeaderRequired() ? 1d : 0d)
-        .description("0 - uuid header isn't required, 1 - uuid header is required")
         .register(meterCache.getMeterRegistry());
   }
 

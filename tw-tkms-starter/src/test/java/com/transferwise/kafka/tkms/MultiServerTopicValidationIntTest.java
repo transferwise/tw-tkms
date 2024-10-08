@@ -2,7 +2,6 @@ package com.transferwise.kafka.tkms;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.TkmsMessage;
@@ -63,10 +62,7 @@ public class MultiServerTopicValidationIntTest extends BaseIntTest {
   protected void sendMessage(String topic, Integer shard) {
     try {
       transactionsHelper.withTransaction().run(() -> {
-        var message = new TkmsMessage()
-            .setUuid(UuidUtils.generatePrefixCombUuid())
-            .setTopic(topic)
-            .setValue("Stuff".getBytes(StandardCharsets.UTF_8));
+        var message = new TkmsMessage().setTopic(topic).setValue("Stuff".getBytes(StandardCharsets.UTF_8));
         if (shard != null) {
           message.setShard(shard);
         }

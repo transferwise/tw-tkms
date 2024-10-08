@@ -1,12 +1,12 @@
 package com.transferwise.kafka.tkms;
 
-import static com.transferwise.common.baseutils.UuidUtils.generatePrefixCombUuid;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.transferwise.common.baseutils.ExceptionUtils;
+import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.common.baseutils.transactionsmanagement.ITransactionsHelper;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender;
 import com.transferwise.kafka.tkms.api.ITransactionalKafkaMessageSender.SendMessageRequest;
@@ -109,7 +109,7 @@ abstract class EndToEndIntTest extends BaseIntTest {
     for (int i = 0; i < messageMultiplier; i++) {
       sb.append(messagePart);
     }
-    var uuid = generatePrefixCombUuid();
+    var uuid = UuidUtils.generatePrefixCombUuid();
     var priority = 17L;
 
     tkmsStorageToKafkaProxy.pause();
@@ -229,12 +229,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
               for (long i = 0; i < batchSize; i++) {
                 long id = finalT * threadsCount * batchesCount + finalB * batchesCount + i;
                 TestEvent testEvent = new TestEvent().setId(id).setMessage(message);
-                transactionalKafkaMessageSender.sendMessage(
-                    new TkmsMessage()
-                        .setUuid(generatePrefixCombUuid())
-                        .setTopic(testProperties.getTestTopic())
-                        .setValue(objectMapper.writeValueAsBytes(testEvent))
-                );
+                transactionalKafkaMessageSender
+                    .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(objectMapper.writeValueAsBytes(testEvent)));
               }
               return null;
             });
@@ -302,14 +298,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
         transactionsHelper.withTransaction().run(() ->
-            transactionalKafkaMessageSender.sendMessage(
-                new TkmsMessage()
-                    .setUuid(generatePrefixCombUuid())
-                    .setKey(key)
-                    .setTopic(testProperties.getTestTopic())
-                    .setValue(toJsonBytes(testEvent))
-            )
-        );
+            transactionalKafkaMessageSender
+                .sendMessage(new TkmsMessage().setKey(key).setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -345,14 +335,10 @@ abstract class EndToEndIntTest extends BaseIntTest {
         TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
         transactionsHelper.withTransaction().run(() ->
-            transactionalKafkaMessageSender.sendMessage(
-                new TkmsMessage()
-                    .setUuid(generatePrefixCombUuid())
-                    .setPartition(partition)
-                    .setTopic(testProperties.getTestTopic())
-                    .setValue(toJsonBytes(testEvent))
-            )
-        );
+            transactionalKafkaMessageSender
+                .sendMessage(
+                    new TkmsMessage().setPartition(partition).setTopic(testProperties.getTestTopic())
+                        .setValue(toJsonBytes(testEvent))));
       }
       await().until(() -> receivedCount.get() >= n);
 
@@ -396,14 +382,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
             long id = finalEntityId * entityEventsCount + i;
             TestEvent testEvent = new TestEvent().setId(id).setEntityId(finalEntityId).setMessage(message);
             transactionsHelper.withTransaction().run(() ->
-                transactionalKafkaMessageSender.sendMessage(
-                    new TkmsMessage()
-                        .setUuid(generatePrefixCombUuid())
-                        .setKey(String.valueOf(finalEntityId))
-                        .setTopic(testProperties.getTestTopic())
-                        .setValue(toJsonBytes(testEvent))
-                )
-            );
+                transactionalKafkaMessageSender
+                    .sendMessage(new TkmsMessage().setKey(String.valueOf(finalEntityId)).setTopic(testProperties.getTestTopic())
+                        .setValue(toJsonBytes(testEvent))));
 
             checkIfTransactionContextsHaveBeenCleared();
           }
@@ -471,13 +452,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
             for (int j = 0; j < batchSize; j++) {
               var id = finalEntityId * entityEventsCount + i;
               var testEvent = new TestEvent().setId(id).setEntityId(finalEntityId).setMessage(message);
-              sendMessagesRequest.addTkmsMessage(
-                  new TkmsMessage()
-                      .setUuid(generatePrefixCombUuid())
-                      .setKey(String.valueOf(finalEntityId))
-                      .setTopic(testProperties.getTestTopic())
-                      .setValue(toJsonBytes(testEvent))
-              );
+              sendMessagesRequest.addTkmsMessage(new TkmsMessage().setKey(String.valueOf(finalEntityId)).setTopic(testProperties.getTestTopic())
+                  .setValue(toJsonBytes(testEvent)));
               i++;
             }
 
@@ -536,16 +512,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
       var expectedMessage =
           useAdminClient ? "Topic 'NotExistingTopic' does not exist." : "Topic NotExistingTopic not present in metadata after";
 
-      assertThatThrownBy(
-          () -> transactionsHelper.withTransaction().run(
-              () -> transactionalKafkaMessageSender.sendMessage(
-                  new TkmsMessage()
-                      .setUuid(generatePrefixCombUuid())
-                      .setTopic("NotExistingTopic")
-                      .setValue("Stuff".getBytes(StandardCharsets.UTF_8))
-              )
-          )
-      ).hasMessageContaining(expectedMessage);
+      assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+          .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8)))))
+          .hasMessageContaining(expectedMessage);
     } finally {
       // Stop logs spam about not existing topic in metadata.
       tkmsKafkaProducerProvider.closeKafkaProducersForTopicValidation();
@@ -557,14 +526,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
   void sendingOutMessagesWithoutActiveTransactionsWillFail(boolean deferUntilCommit) {
     setupConfig(deferUntilCommit);
 
-    assertThatThrownBy(
-        () -> transactionalKafkaMessageSender.sendMessage(
-            new TkmsMessage()
-                .setUuid(generatePrefixCombUuid())
-                .setTopic("NotExistingTopic")
-                .setValue("Stuff".getBytes(StandardCharsets.UTF_8))
-        )
-    ).isInstanceOf(IllegalStateException.class)
+    assertThatThrownBy(() -> transactionalKafkaMessageSender
+        .sendMessage(new TkmsMessage().setTopic("NotExistingTopic").setValue("Stuff".getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("No active transaction detected.");
   }
 
@@ -585,10 +549,10 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     SendMessagesResult sendMessagesResult =
         transactionsHelper.withTransaction().call(() -> transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-            .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value))
-            .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(1))
-            .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(0).setPartition(0))
-            .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(0).setPartition(1))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
         ));
 
     assertThat(sendMessagesResult.getResults().size()).isEqualTo(4);
@@ -636,21 +600,21 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     transactionsHelper.withTransaction().run(() -> {
       transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value))
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(0).setPartition(0))
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(0).setPartition(1))
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value).setShard(1))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(0))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0).setPartition(1))
       );
 
       transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(deferUntilCommit)
-          .setTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value)));
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value)));
 
       transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
-          .setTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value)));
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value)));
 
       transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value))
-          .addTkmsMessage(new TkmsMessage().setUuid(generatePrefixCombUuid()).setTopic(topic).setValue(value))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
       );
 
       var messagesCount = tkmsTestDao.getMessagesCount(TkmsShardPartition.of(0, 0))
@@ -696,98 +660,46 @@ abstract class EndToEndIntTest extends BaseIntTest {
 
     assertThatThrownBy(() -> {
       transactionsHelper.withTransaction().run(() -> {
-        transactionalKafkaMessageSender.sendMessages(
-            new SendMessagesRequest().addTkmsMessage(
-                new TkmsMessage()
-                    .setUuid(generatePrefixCombUuid())
-                    .setTopic(topic)
-                    .setValue(value)
-            )
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
         );
 
-        transactionalKafkaMessageSender.sendMessages(
-            new SendMessagesRequest()
-                .setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
-                .addTkmsMessage(
-                    new TkmsMessage()
-                        .setUuid(generatePrefixCombUuid())
-                        .setTopic(topic)
-                        .setValue(value)
-                )
+        transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+            .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
         );
       });
     }).hasMessage("You can not mix deferred and not deferred messages in the same transaction, as it will break the ordering guarantees.");
 
     assertThatThrownBy(() -> {
       transactionsHelper.withTransaction().run(() -> {
-        transactionalKafkaMessageSender.sendMessage(
-            new SendMessageRequest().setTkmsMessage(
-                new TkmsMessage()
-                    .setUuid(generatePrefixCombUuid())
-                    .setTopic(topic)
-                    .setValue(value)
-            )
+        transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
+            .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
         );
 
-        transactionalKafkaMessageSender.sendMessage(
-            new SendMessageRequest()
-                .setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
-                .setTkmsMessage(
-                    new TkmsMessage()
-                        .setUuid(generatePrefixCombUuid())
-                        .setTopic(topic)
-                        .setValue(value)
-                )
+        transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+            .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value))
         );
       });
     }).hasMessage("You can not mix deferred and not deferred messages in the same transaction, as it will break the ordering guarantees.");
 
     // We can mix it between shard-partitions, because between those the order is not important.
     transactionsHelper.withTransaction().run(() -> {
-      transactionalKafkaMessageSender.sendMessages(
-          new SendMessagesRequest().addTkmsMessage(
-              new TkmsMessage()
-                  .setUuid(generatePrefixCombUuid())
-                  .setTopic(topic)
-                  .setValue(value)
-                  .setShard(0)
-          )
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest()
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0))
       );
 
-      transactionalKafkaMessageSender.sendMessages(
-          new SendMessagesRequest()
-              .setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
-              .addTkmsMessage(
-                  new TkmsMessage()
-                      .setUuid(generatePrefixCombUuid())
-                      .setTopic(topic)
-                      .setValue(value)
-                      .setShard(1)
-              )
+      transactionalKafkaMessageSender.sendMessages(new SendMessagesRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+          .addTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
       );
     });
 
     transactionsHelper.withTransaction().run(() -> {
-      transactionalKafkaMessageSender.sendMessage(
-          new SendMessageRequest().setTkmsMessage(
-              new TkmsMessage()
-                  .setUuid(generatePrefixCombUuid())
-                  .setTopic(topic)
-                  .setValue(value)
-                  .setShard(0)
-          )
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest()
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(0))
       );
 
-      transactionalKafkaMessageSender.sendMessage(
-          new SendMessageRequest()
-              .setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
-              .setTkmsMessage(
-                  new TkmsMessage()
-                      .setUuid(generatePrefixCombUuid())
-                      .setTopic(topic)
-                      .setValue(value)
-                      .setShard(1)
-              )
+      transactionalKafkaMessageSender.sendMessage(new SendMessageRequest().setDeferMessageRegistrationUntilCommit(!deferUntilCommit)
+          .setTkmsMessage(new TkmsMessage().setTopic(topic).setValue(value).setShard(1))
       );
     });
 
@@ -823,39 +735,23 @@ abstract class EndToEndIntTest extends BaseIntTest {
           transactionsHelper.withTransaction().call(() ->
               transactionalKafkaMessageSender
                   .sendMessage(
-                      new TkmsMessage()
-                          .setUuid(generatePrefixCombUuid())
-                          .setTopic(testProperties.getTestTopic())
-                          .setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))
-                  )
-          ))
+                      new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII)))))
           .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage("0: Estimated message size is 10485937, which is larger than maximum of 10485760.");
+          .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       assertThatThrownBy(() ->
           transactionsHelper.withTransaction().call(() ->
-              transactionalKafkaMessageSender.sendMessages(
-                  new SendMessagesRequest().addTkmsMessage(
-                      new TkmsMessage()
-                          .setUuid(generatePrefixCombUuid())
-                          .setTopic(testProperties.getTestTopic())
-                          .setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))
-                  )
-              )
-          )
-      )
+              transactionalKafkaMessageSender
+                  .sendMessages(new SendMessagesRequest().addTkmsMessage(
+                      new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))))))
           .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage("0: Estimated message size is 10485937, which is larger than maximum of 10485760.");
+          .hasMessage("0: Estimated message size is 10485878, which is larger than maximum of 10485760.");
 
       message.setValue(message.getValue().substring(0, 10484000));
       transactionsHelper.withTransaction().run(() ->
-          transactionalKafkaMessageSender.sendMessage(
-              new TkmsMessage()
-                  .setUuid(generatePrefixCombUuid())
-                  .setTopic(testProperties.getTestTopic())
-                  .setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))
-          )
-      );
+          transactionalKafkaMessageSender
+              .sendMessage(
+                  new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(message.getValue().getBytes(StandardCharsets.US_ASCII))));
 
       await().until(() -> receivedCount.get() > 0);
 
@@ -895,13 +791,8 @@ abstract class EndToEndIntTest extends BaseIntTest {
     try {
       for (int i = 0; i < messagesCount; i++) {
         TestEvent testEvent = new TestEvent().setId((long) i).setMessage(message);
-        transactionsHelper.withTransaction().run(
-            () -> transactionalKafkaMessageSender.sendMessage(
-                new TkmsMessage()
-                    .setUuid(generatePrefixCombUuid())
-                    .setTopic(testProperties.getTestTopic())
-                    .setValue(toJsonBytes(testEvent)))
-        );
+        transactionsHelper.withTransaction().run(() -> transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))));
       }
 
       await().until(() -> receivedCount.get() >= messagesCount);
@@ -959,20 +850,10 @@ abstract class EndToEndIntTest extends BaseIntTest {
       var testEvent1 = new TestEvent().setId(1L).setMessage(message);
 
       assertThatThrownBy(() -> transactionsHelper.withTransaction().run(() -> {
-        transactionalKafkaMessageSender.sendMessage(
-            new TkmsMessage()
-                .setUuid(generatePrefixCombUuid())
-                .setTopic(testProperties.getTestTopic())
-                .setValue(toJsonBytes(testEvent0))
-                .setShard(0)
-        );
-        transactionalKafkaMessageSender.sendMessage(
-            new TkmsMessage()
-                .setUuid(generatePrefixCombUuid())
-                .setTopic(testProperties.getTestTopic())
-                .setValue(toJsonBytes(testEvent1))
-                .setShard(1)
-        );
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent0)).setShard(0));
+        transactionalKafkaMessageSender
+            .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent1)).setShard(1));
       })).hasMessage("Haha, inserts are failing lol.");
 
       assertThat(receivedCount.get()).isEqualTo(0);
@@ -996,12 +877,12 @@ abstract class EndToEndIntTest extends BaseIntTest {
     var arguments = new ArrayList<Arguments>();
 
     for (var deferUntilCommit : deferUntilCommits) {
-      arguments.add(Arguments.of(CompressionAlgorithm.GZIP, 156, 157, deferUntilCommit));
-      arguments.add(Arguments.of(CompressionAlgorithm.NONE, 1218, 1218, deferUntilCommit));
-      arguments.add(Arguments.of(CompressionAlgorithm.LZ4, 182, 182, deferUntilCommit));
-      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY, 214, 214, deferUntilCommit));
-      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 212, 212, deferUntilCommit));
-      arguments.add(Arguments.of(CompressionAlgorithm.ZSTD, 147, 147, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.GZIP, 102, 103, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.NONE, 1163, 1163, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.LZ4, 126, 126, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY, 158, 158, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.SNAPPY_FRAMED, 156, 156, deferUntilCommit));
+      arguments.add(Arguments.of(CompressionAlgorithm.ZSTD, 92, 92, deferUntilCommit));
     }
 
     return arguments.stream();
@@ -1039,14 +920,9 @@ abstract class EndToEndIntTest extends BaseIntTest {
       TestEvent testEvent = new TestEvent().setId(1L).setMessage(message);
 
       transactionsHelper.withTransaction().run(() ->
-          transactionalKafkaMessageSender.sendMessage(
-              new TkmsMessage()
-                  .setUuid(UUID.fromString("7554ffe0-4da2-4de9-bebf-f3131fd7a84a"))
-                  .setTopic(testProperties.getTestTopic())
-                  .setValue(toJsonBytes(testEvent))
-                  .setCompression(new Compression().setAlgorithm(algorithm))
-          )
-      );
+          transactionalKafkaMessageSender
+              .sendMessage(new TkmsMessage().setTopic(testProperties.getTestTopic()).setValue(toJsonBytes(testEvent))
+                  .setCompression(new Compression().setAlgorithm(algorithm))));
 
       await().until(() -> receivedCount.get() > 0);
       waitUntilTablesAreEmpty();
