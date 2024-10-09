@@ -6,6 +6,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -105,6 +106,17 @@ public class TkmsMessage {
             .setKey("x-wise-priority")
             .setValue(Long.toString(priority).getBytes(StandardCharsets.UTF_8))
     );
+  }
+
+  /**
+   * Copy the passed headers into a ModifiableList to avoid UnsupportedOperationException when `addHeader` is called.
+   * @param headers headers to copy
+   * @return TkmsMessage
+   */
+  public TkmsMessage setHeaders(List<Header> headers) {
+    this.headers = new ArrayList<>(headers);
+
+    return this;
   }
 
   public TkmsMessage addHeader(Header header) {
