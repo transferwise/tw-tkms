@@ -42,7 +42,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
 
   private Map<Pair<TkmsShardPartition, UseCase>, ProducerEntry> producers = new ConcurrentHashMap<>();
 
-  @Autowired
+  @Autowired(required = false)
   private List<ITkmsKafkaProducerPostProcessor> postProcessors = new ArrayList<>();
 
 

@@ -49,9 +49,4 @@ public class TkmsAutoConfiguration {
     return Collections.emptyList();
   }
 
-  @Bean
-  @ConditionalOnMissingBean(ITkmsKafkaProducerPostProcessor.class)
-  public List<ITkmsKafkaProducerPostProcessor> producerPostProcessors() {
-    return Collections.emptyList();
-  }
 }
