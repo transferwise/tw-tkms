@@ -1,11 +1,15 @@
 package com.transferwise.kafka.tkms.api;
 
+import com.transferwise.common.baseutils.UuidUtils;
 import com.transferwise.kafka.tkms.CompressionAlgorithm;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
@@ -70,6 +74,50 @@ public class TkmsMessage {
    * from others.
    */
   private Map<?, ?> metadata;
+
+  /**
+   * Adds {@code x-wise-uuid} header to the message, which uniquely identifies this message for consumers.
+   *
+   * <p>Having UUID in header allows consumers to run deduplication check on this value without need to deserialize payload.
+   * If payload provides uuid it must be the same as this value so that consumers that depend on either of these values can have consistent
+   * deduplication.
+   *
+   * <p>Prefer using sequential uuids (e.g. {@link UuidUtils#generatePrefixCombUuid()}) which are proved to yield better performance.
+   */
+  public TkmsMessage addUuidHeader(UUID uuid) {
+    return addHeader(
+        new Header()
+            .setKey("x-wise-uuid")
+            .setValue(uuid.toString().getBytes(StandardCharsets.UTF_8))
+    );
+  }
+
+  /**
+   * Adds {@code x-wise-priority} header to the message, which defines priority of this message for consumers.
+   *
+   * <p>Lower value means higher priority. For example, 0 is higher priority than 10.
+   *
+   * <p>Having priority in header allows consumers to derive priority without need to deserialize payload. For example, it can be useful
+   * when consumers filter messages based on priority before deciding how to process those.
+   */
+  public TkmsMessage addPriorityHeader(long priority) {
+    return addHeader(
+        new Header()
+            .setKey("x-wise-priority")
+            .setValue(Long.toString(priority).getBytes(StandardCharsets.UTF_8))
+    );
+  }
+
+  /**
+   * Copy the passed headers into a ModifiableList to avoid UnsupportedOperationException when `addHeader` is called.
+   * @param headers headers to copy
+   * @return TkmsMessage
+   */
+  public TkmsMessage setHeaders(List<Header> headers) {
+    this.headers = new ArrayList<>(headers);
+
+    return this;
+  }
 
   public TkmsMessage addHeader(Header header) {
     if (headers == null) {

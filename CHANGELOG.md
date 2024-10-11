@@ -5,9 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.31.0] - 2024-09-09
+## [0.32.0] - 2024-10-11
 ### Added
 - Added a postprocessor to the `TkmsKafkaProducerProvider` to allow features like tracing attached to the Kafka Producer.
+
+## [0.31.1] - 2024-10-09
+### Fixed
+- Override the lombok generated `TkmsMessage#setHeaders` to copy the passed headers into a mutable `ArrayList` in order to avoid `UnsupportedOperationException`
+
+## [0.31.0] - 2024-10-07
+### Changed
+
+Added two new methods to the `TkmsMessage` that allow to conveniently use standard uuid and priority headers:
+
+- `x-wise-uuid` - defines uniqueness of the message.
+- `x-wise-priority` - defines priority of the message. Lower number - higher priority.
+
+Consumers of messages that have UUID and priority headers can efficiently use provided values for deduplication and other processing purposes with no need to deserialize payloads.
+
+Best practices for setting UUID header value:
+- Likely the UUID value provided will be stored and indexed on consumer side. It's recommended to use sequential UUIDs in such scenarios, which proved to yield better performance. One way to generate sequential UUIDs is by using [tw-base-utils](https://github.com/transferwise/tw-base-utils/blob/master/tw-base-utils/src/main/java/com/transferwise/common/baseutils/UuidUtils.java) library.
+- If payload already has UUID value then set the same value in header. It ensures that consumers of such messages can consistently deduplicate them by depending on one of those UUIDs. It simplifies consumers migration to standard header based UUID deduplication.
+- If custom message identification mechanism is used (not based on UUID), still generate and add UUID to the headers. However, be mindful of cases when messages are sent in non-transactional environments. For example, the same message might be sent twice with different UUIDs but the same identity (according to the custom identification mechanism).
 
 ## [0.30.1] - 2024-08-08
 ### Changed
