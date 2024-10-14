@@ -6,7 +6,9 @@ import com.transferwise.kafka.tkms.config.TkmsProperties.ShardProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +18,7 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -39,8 +42,12 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
 
   private Map<Pair<TkmsShardPartition, UseCase>, ProducerEntry> producers = new ConcurrentHashMap<>();
 
+  @Autowired(required = false)
+  private List<ITkmsKafkaProducerPostProcessor> postProcessors = new ArrayList<>();
+
+
   @Override
-  public KafkaProducer<String, byte[]> getKafkaProducer(TkmsShardPartition shardPartition, UseCase useCase) {
+  public Producer<String, byte[]> getKafkaProducer(TkmsShardPartition shardPartition, UseCase useCase) {
     return producers.computeIfAbsent(Pair.of(shardPartition, useCase), key -> {
       Map<String, Object> configs = new HashMap<>();
 
@@ -84,7 +91,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
         }
       }
 
-      final var producer = new KafkaProducer<String, byte[]>(configs);
+      final var producer = getKafkaProducer(configs);
       final var kafkaClientMetrics = new KafkaClientMetrics(producer);
       kafkaClientMetrics.bindTo(meterRegistry);
 
@@ -92,8 +99,16 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
     }).getProducer();
   }
 
+  private Producer<String, byte[]> getKafkaProducer(Map<String, Object> configs) {
+    Producer<String, byte[]> producer = new KafkaProducer<>(configs);
+    for (ITkmsKafkaProducerPostProcessor pp : this.postProcessors) {
+      producer = pp.apply(producer);
+    }
+    return producer;
+  }
+
   @Override
-  public KafkaProducer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition) {
+  public Producer<String, byte[]> getKafkaProducerForTopicValidation(TkmsShardPartition shardPartition) {
     return getKafkaProducer(TkmsShardPartition.of(shardPartition.getShard(), 0), UseCase.TOPIC_VALIDATION);
   }
 
@@ -139,7 +154,7 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
   @Accessors(chain = true)
   protected static class ProducerEntry {
 
-    private KafkaProducer<String, byte[]> producer;
+    private Producer<String, byte[]> producer;
 
     private KafkaClientMetrics kafkaClientMetric;
   }

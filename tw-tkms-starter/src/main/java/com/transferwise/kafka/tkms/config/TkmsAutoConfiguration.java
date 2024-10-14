@@ -37,8 +37,6 @@ public class TkmsAutoConfiguration {
     return new MeterCache(meterRegistry);
   }
 
-
-
   @Bean
   @ConditionalOnMissingBean(ITransactionsHelper.class)
   public TransactionsHelper twTransactionsHelper() {
