@@ -52,7 +52,7 @@ public class TkmsMariaDao extends TkmsDao {
         boolean engineIndependentStatsEnabled = isEngineIndependentStatsEnabled();
         if (!engineIndependentStatsEnabled) {
           problemNotifier.notify(null, NotificationType.ENGINE_INDEPENDENT_STATS_NOT_ENABLED, NotificationLevel.WARN, () ->
-              "Engine independent statics are not enabled.");
+              "Engine independent statistics are not enabled.");
         }
       } catch (DataAccessException dae) {
         problemNotifier.notify(null, NotificationType.TABLE_INDEX_STATS_CHECK_ERROR, NotificationLevel.ERROR, () ->
