@@ -233,10 +233,8 @@ public class TkmsProperties implements InitializingBean {
    *
    * <p>The tradeoff is that higher application memory is required for transactions sending out huge number or/and huge messages.
    * However, in practical applications, large transactions should be avoided anyway.
-   *
-   * <p>May default to true for Postgres in upcoming versions. Or even default to true in all situations.
    */
-  private boolean deferMessageRegistrationUntilCommit = false;
+  private boolean deferMessageRegistrationUntilCommit = true;
 
   @Valid
   @jakarta.validation.Valid
