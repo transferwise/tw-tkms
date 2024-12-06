@@ -4,7 +4,7 @@ import org.eclipse.jgit.api.errors.RefAlreadyExistsException
 
 buildscript {
     if (!project.hasProperty("springBootVersion")) {
-        ext.springBootVersion = System.getenv("SPRING_BOOT_VERSION") ?: "3.2.2"
+        ext.springBootVersion = System.getenv("SPRING_BOOT_VERSION") ?: "3.3.1"
     }
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.9.4'
