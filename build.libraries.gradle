@@ -1,6 +1,6 @@
 ext {
     protobufVersion = "3.24.0"
-    springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '3.3.1'}"
+    springBootVersion = "${System.getenv("SPRING_BOOT_VERSION") ?: '3.4.6'}"
     libraries = [
             // version defined
             awaitility                      : 'org.awaitility:awaitility:4.2.0',
@@ -48,5 +48,6 @@ ext {
             springBootStarterWeb            : 'org.springframework.boot:spring-boot-starter-web',
             springJdbc                      : 'org.springframework:spring-jdbc',
             springKafka                     : 'org.springframework.kafka:spring-kafka',
+            junitPlatformLauncher           : 'org.junit.platform:junit-platform-launcher',
     ]
 }
