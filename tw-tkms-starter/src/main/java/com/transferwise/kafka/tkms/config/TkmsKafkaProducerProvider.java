@@ -3,6 +3,7 @@ package com.transferwise.kafka.tkms.config;
 import com.transferwise.common.gracefulshutdown.GracefulShutdownStrategy;
 import com.transferwise.kafka.tkms.api.TkmsShardPartition;
 import com.transferwise.kafka.tkms.config.TkmsProperties.ShardProperties;
+import io.micrometer.core.instrument.ImmutableTag;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics;
 import java.time.Duration;
@@ -66,9 +67,10 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       configs.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
       configs.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
       configs.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
-      configs.put(ProducerConfig.CLIENT_ID_CONFIG,
-          "tw-tkms-" + shardPartition.getShard() + "-" + shardPartition.getPartition() + "-" + useCase.name().toLowerCase()
-              + "-" + sequence.incrementAndGet());
+
+      final var clientId = "tw-tkms-" + shardPartition.getShard() + "-" + shardPartition.getPartition() + "-" + useCase.name().toLowerCase()
+          + "-" + sequence.incrementAndGet();
+      configs.put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
 
       if (useCase == UseCase.PROXY) {
         // We use large lingering time, because we are calling the `.flush()` anyway.
@@ -92,7 +94,9 @@ public class TkmsKafkaProducerProvider implements ITkmsKafkaProducerProvider, Gr
       }
 
       final var producer = getKafkaProducer(configs);
-      final var kafkaClientMetrics = new KafkaClientMetrics(producer);
+      // Spring id is added to be compatible with Spring Boot Actuator's Kafka metrics, which from 3.4 onwards include the spring.id tag. Without
+      // warnings may be generated on service startup, about registering meters with different sets of tag keys
+      final var kafkaClientMetrics = new KafkaClientMetrics(producer, List.of(new ImmutableTag("spring.id", clientId)));
       kafkaClientMetrics.bindTo(meterRegistry);
 
       return new ProducerEntry().setProducer(producer).setKafkaClientMetric(kafkaClientMetrics);
