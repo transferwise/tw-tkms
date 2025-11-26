@@ -2,21 +2,21 @@ version: '3.7'
 
 services:
   zk-service:
-    image: bitnami/zookeeper:3.5.5
+    image: bitnamilegacy/zookeeper:3.9.3 # this is the last build, so we can use legacy version (internal lib uses different one already)
     hostname: zk-service
     ports:
       - "2181:2181"
     environment:
       ALLOW_ANONYMOUS_LOGIN: "yes"
-      JVMFLAGS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20 -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses
+      JVMFLAGS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
   kafka-zk:
-    image: bitnami/zookeeper:3.4.14
+    image: bitnamilegacy/zookeeper:3.9.3 # this is the last build, so we can use legacy version (internal lib uses different one already)
     hostname: kafka-zk
     ports:
       - "2183:2181"
     environment:
       ALLOW_ANONYMOUS_LOGIN: "yes"
-      JVMFLAGS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20 -XX:+ExplicitGCInvokesConcurrentAndUnloadsClasses
+      JVMFLAGS: -server -Xms25m -Xmx512m -XX:+UseG1GC -Djava.awt.headless=true -XX:MaxMetaspaceExpansion=2M -XX:+TieredCompilation -XX:+HeapDumpOnOutOfMemoryError -XX:GCHeapFreeLimit=5 -XX:GCTimeLimit=90 -noverify -XX:ReservedCodeCacheSize=256m -Djava.security.egd=file:/dev/./urandom -Dcom.sun.xml.internal.bind.v2.runtime.JAXBContextImpl.fastBoot=true -XX:+AggressiveOpts -Dcom.sun.xml.internal.bind.v2.bytecode.ClassTailor.noOptimize=true -XX:SoftRefLRUPolicyMSPerMB=5 -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
   kafka:
     image: wurstmeister/kafka:2.12-2.2.0
     depends_on:
