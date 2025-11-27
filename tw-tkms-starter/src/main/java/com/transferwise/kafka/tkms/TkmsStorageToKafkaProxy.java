@@ -187,7 +187,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       pollAllInterval = null;
     }
 
-    TkmsMessagePooler messagePooler = new TkmsMessagePooler(tkmsDaoProvider, executorServicesProvider,
+    TkmsMessagePoller messagePooler = new TkmsMessagePoller(tkmsDaoProvider, executorServicesProvider,
         properties.getPollerParallelism(shardPartition.getShard()));
 
     try {

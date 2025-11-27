@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class TkmsMessagePooler {
+public class TkmsMessagePoller {
 
   private final ITkmsDaoProvider tkmsDaoProvider;
   private final IExecutorServicesProvider executorServicesProvider;
@@ -22,7 +22,7 @@ public class TkmsMessagePooler {
 
   boolean useExecutors;
 
-  public TkmsMessagePooler(ITkmsDaoProvider tkmsDaoProvider, IExecutorServicesProvider executorServicesProvider, int pollerParallelism) {
+  public TkmsMessagePoller(ITkmsDaoProvider tkmsDaoProvider, IExecutorServicesProvider executorServicesProvider, int pollerParallelism) {
     this.tkmsDaoProvider = tkmsDaoProvider;
     this.executorServicesProvider = executorServicesProvider;
     this.pollerParallelism = pollerParallelism;
