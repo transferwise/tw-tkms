@@ -31,6 +31,7 @@ tw-tkms:
   polling-interval: 5ms
   shards-count: 3
   insert-batch-size: 2
+  poller-parallelism: 2
   topics:
     - TestTopic
   kafka:

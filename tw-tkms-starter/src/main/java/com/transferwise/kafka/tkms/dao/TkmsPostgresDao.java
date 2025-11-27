@@ -37,8 +37,23 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
+  protected String getSelectWithOffsetSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexScan(om) */ id, message from " + getTableName(shardPartition) + " om where id >= ? order by id limit ? offset ?";
+  }
+
+  @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
     return "select /*+ IndexOnlyScan(om)  */ 1 from " + getTableName(shardPartition) + " om where id < ? order by id desc limit 1";
+  }
+
+  @Override
+  protected String getMinMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexOnlyScan(om) */ min(id) from " + getTableName(shardPartition) + " om";
+  }
+
+  @Override
+  protected String getMaxMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexOnlyScan(om) */ max(id) from " + getTableName(shardPartition) + " om";
   }
 
   @Override

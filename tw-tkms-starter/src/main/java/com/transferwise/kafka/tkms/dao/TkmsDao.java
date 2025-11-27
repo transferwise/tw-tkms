@@ -262,6 +262,59 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
   }
 
   @Override
+  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int limit, int offset) {
+    var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "getMessagesWithOffset"), k -> getSelectWithOffsetSql(shardPartition));
+    var result = ExceptionUtils.doUnchecked(() -> {
+      long startNanoTime = System.nanoTime();
+
+      Connection con = DataSourceUtils.getConnection(dataSource);
+      try {
+        metricsTemplate.recordDaoPollGetConnection(shardPartition, startNanoTime);
+        startNanoTime = System.nanoTime();
+        int i = 0;
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+          ps.setLong(1, earliestMessageId);
+          ps.setLong(2, limit);
+          ps.setLong(3, offset);
+
+          List<MessageRecord> records = new ArrayList<>();
+          try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+              if (i++ == 0) {
+                metricsTemplate.recordDaoPollFirstResult(shardPartition, startNanoTime);
+              }
+
+              var messageId = rs.getLong(1);
+              MDC.put(properties.getMdc().getMessageIdKey(), String.valueOf(messageId));
+              try {
+                MessageRecord messageRecord = new MessageRecord();
+                messageRecord.setId(messageId);
+                messageRecord.setMessage(messageSerializer.deserialize(shardPartition, rs.getBinaryStream(2)));
+
+                records.add(messageRecord);
+              } catch (Throwable t) {
+                throw new RuntimeException(
+                    "Failed to deserialize message " + messageId + ", retrieved from table '" + getTableName(shardPartition) + "'.", t);
+              } finally {
+                MDC.remove(properties.getMdc().getMessageIdKey());
+              }
+            }
+          }
+
+          return records;
+        } finally {
+          metricsTemplate.recordDaoPollAllResults(shardPartition, i, startNanoTime);
+        }
+      } finally {
+        DataSourceUtils.releaseConnection(con, dataSource);
+      }
+    });
+
+    return result;
+  }
+
+  @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> ids) {
     var batchSizeExists =
         deleteBatchSizes.computeIfAbsent(shardPartition, k -> new HashSet<>(properties.getDeleteBatchSizes(k.getShard()))).contains(ids.size());
@@ -328,7 +381,25 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
     return result;
   }
 
+  @Override
+  public Long getMinMessageId(TkmsShardPartition shardPartition) {
+    var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "getMinMessageId"), k -> getMinMessageIdSql(shardPartition));
+    List<Long> ids = jdbcTemplate.queryForList(sql, Long.class);
+    return ids.isEmpty() ? null : ids.get(0);
+  }
+
+  @Override
+  public Long getMaxMessageId(TkmsShardPartition shardPartition) {
+    var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "getMaxMessageId"), k -> getMaxMessageIdSql(shardPartition));
+    List<Long> ids = jdbcTemplate.queryForList(sql, Long.class);
+    return ids.isEmpty() ? null : ids.get(0);
+  }
+
   protected abstract String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getMinMessageIdSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getMaxMessageIdSql(TkmsShardPartition shardPartition);
 
   protected abstract boolean doesEarliestVisibleMessagesTableExist();
 
@@ -373,6 +444,8 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
   protected abstract String getInsertSql(TkmsShardPartition shardPartition);
 
   protected abstract String getSelectSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getSelectWithOffsetSql(TkmsShardPartition shardPartition);
 
   protected abstract String getDeleteSql(TkmsShardPartition shardPartition, int batchSize);
 

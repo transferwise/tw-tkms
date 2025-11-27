@@ -32,6 +32,17 @@ public interface ITkmsDao {
 
   List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount);
 
+  /**
+   * Retrieves messages using limit and offset for efficient pagination.
+   *
+   * @param shardPartition the shard partition to query
+   * @param earliestMessageId the earliest message ID to start from (-1 for all messages)
+   * @param limit the maximum number of messages to return
+   * @param offset the number of records to skip
+   * @return list of message records ordered by ID
+   */
+  List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int limit, int offset);
+
   @Data
   @Accessors(chain = true)
   class MessageRecord {
@@ -47,6 +58,22 @@ public interface ITkmsDao {
   void saveEarliestMessageId(TkmsShardPartition shardPartition, long messageId);
 
   boolean insertEarliestMessageId(TkmsShardPartition shardPartition);
+
+  /**
+   * Returns the minimum message ID from the outbox table.
+   *
+   * @param shardPartition the shard partition to query
+   * @return the minimum message ID
+   */
+  Long getMinMessageId(TkmsShardPartition shardPartition);
+
+  /**
+   * Returns the maximum message ID from the outbox table.
+   *
+   * @param shardPartition the shard partition to query
+   * @return the maximum message ID
+   */
+  Long getMaxMessageId(TkmsShardPartition shardPartition);
 
   /**
    * Validates the database in general.

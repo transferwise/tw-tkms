@@ -197,8 +197,23 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   @Override
+  protected String getSelectWithOffsetSql(TkmsShardPartition shardPartition) {
+    return "select id, message from " + getTableName(shardPartition) + " use index (PRIMARY) where id >= ? order by id limit ? offset ?";
+  }
+
+  @Override
   protected String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition) {
     return "select 1 from " + getTableName(shardPartition) + " use index(PRIMARY) where id < ? limit 1";
+  }
+
+  @Override
+  protected String getMinMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select min(id) from " + getTableName(shardPartition) + " use index(PRIMARY)";
+  }
+
+  @Override
+  protected String getMaxMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select max(id) from " + getTableName(shardPartition) + " use index(PRIMARY)";
   }
 
   @Override
