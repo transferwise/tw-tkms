@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class TkmsMessagePoller {
+public class TkmsMessagePoller implements ITkmsMessagePoller {
 
   private final ITkmsDaoProvider tkmsDaoProvider;
   private final IExecutorServicesProvider executorServicesProvider;
@@ -29,6 +29,7 @@ public class TkmsMessagePoller {
     this.useExecutors = pollerParallelism > 1;
   }
 
+  @Override
   public List<MessageRecord> pullMessages(
       TkmsShardPartition shardPartition,
       long earliestMessageId,

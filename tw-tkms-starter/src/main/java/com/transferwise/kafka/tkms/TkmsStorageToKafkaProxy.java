@@ -82,6 +82,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private SharedReentrantLockBuilderFactory lockBuilderFactory;
   @Autowired
   private ITkmsInterrupterService tkmsInterrupterService;
+  @Autowired
+  private ITkmsMessagePollerFactory messagePollerFactory;
 
   @TestOnly
   private volatile boolean paused = false;
@@ -187,8 +189,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
       pollAllInterval = null;
     }
 
-    TkmsMessagePoller messagePooler = new TkmsMessagePoller(tkmsDaoProvider, executorServicesProvider,
-        properties.getPollerParallelism(shardPartition.getShard()));
+    ITkmsMessagePoller messagePooler = messagePollerFactory.createPoller(shardPartition.getShard());
 
     try {
       MutableObject<Duration> proxyCyclePauseRequest = new MutableObject<>();

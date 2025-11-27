@@ -5,6 +5,7 @@ import com.transferwise.kafka.tkms.EnvironmentValidator;
 import com.transferwise.kafka.tkms.IEnvironmentValidator;
 import com.transferwise.kafka.tkms.IProblemNotifier;
 import com.transferwise.kafka.tkms.ITkmsInterrupterService;
+import com.transferwise.kafka.tkms.ITkmsMessagePollerFactory;
 import com.transferwise.kafka.tkms.ITkmsPaceMaker;
 import com.transferwise.kafka.tkms.ITkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.ITkmsTopicValidator;
@@ -13,6 +14,7 @@ import com.transferwise.kafka.tkms.JavaxValidationEnvironmentValidator;
 import com.transferwise.kafka.tkms.ProblemNotifier;
 import com.transferwise.kafka.tkms.TkmsInterrupterService;
 import com.transferwise.kafka.tkms.TkmsMessageInterceptors;
+import com.transferwise.kafka.tkms.TkmsMessagePollerFactory;
 import com.transferwise.kafka.tkms.TkmsPaceMaker;
 import com.transferwise.kafka.tkms.TkmsStorageToKafkaProxy;
 import com.transferwise.kafka.tkms.TkmsTopicValidator;
@@ -238,5 +240,11 @@ public class TkmsConfiguration {
   @ConditionalOnMissingBean(ITkmsTopicValidator.class)
   public ITkmsTopicValidator tkmsTopicValidator() {
     return new TkmsTopicValidator();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(ITkmsMessagePollerFactory.class)
+  public ITkmsMessagePollerFactory tkmsMessagePollerFactory() {
+    return new TkmsMessagePollerFactory();
   }
 }
