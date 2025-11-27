@@ -70,8 +70,7 @@ public class TkmsMessagePoller {
       futures.add(CompletableFuture.supplyAsync(
           () -> tkmsDao.getMessages(shardPartition, minId, limit, offset),
           executorServicesProvider.getGlobalExecutorService()));
-      long lastLimit =  minId + (long) (i + 1) * batchSize;
-      if (lastLimit > maxId) {
+      if (minId + offset + limit > maxId) {
         break;
       }
     }
