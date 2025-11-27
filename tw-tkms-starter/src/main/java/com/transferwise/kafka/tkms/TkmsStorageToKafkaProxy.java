@@ -83,6 +83,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   @Autowired
   private ITkmsInterrupterService tkmsInterrupterService;
 
+  private TkmsMessagePooler messagePooler;
+
   @TestOnly
   private volatile boolean paused = false;
   @TestOnly
@@ -94,6 +96,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
 
   @Override
   public void afterPropertiesSet() {
+    messagePooler = new TkmsMessagePooler(tkmsDaoProvider, executorServicesProvider);
+
     for (int s = 0; s < properties.getShardsCount(); s++) {
       for (int p = 0; p < properties.getPartitionsCount(s); p++) {
         TkmsShardPartition shardPartition = TkmsShardPartition.of(s, p);
@@ -169,6 +173,7 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
   private void poll0(Control control, TkmsShardPartition shardPartition, Producer<String, byte[]> kafkaProducer) {
 
     int pollerBatchSize = properties.getPollerBatchSize(shardPartition.getShard());
+    int pollerParallelism = properties.getPollerParallelism(shardPartition.getShard());
     long startTimeMs = System.currentTimeMillis();
 
     long timeToLiveMs = properties.getProxyTimeToLive().toMillis() + ThreadLocalRandom.current().nextLong(TimeUnit.SECONDS.toMillis(5));
@@ -244,7 +249,8 @@ public class TkmsStorageToKafkaProxy implements GracefulShutdownStrategy, ITkmsS
                     lastPollAllTimeMs.setValue(System.currentTimeMillis());
                   }
                 }
-                var records = tkmsDao.getMessages(shardPartition, earliestMessageIdToUse, pollerBatchSize);
+
+                var records = messagePooler.pullMessages(shardPartition, earliestMessageIdToUse, pollerBatchSize, pollerParallelism);
                 polledRecordsCount = records.size();
 
                 metricsTemplate.recordProxyPoll(shardPartition, polledRecordsCount, cycleStartNanoTime);

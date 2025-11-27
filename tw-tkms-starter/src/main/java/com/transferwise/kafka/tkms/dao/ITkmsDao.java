@@ -32,6 +32,17 @@ public interface ITkmsDao {
 
   List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int maxCount);
 
+  /**
+   * Retrieves messages using limit and offset for efficient pagination.
+   *
+   * @param shardPartition the shard partition to query
+   * @param earliestMessageId the earliest message ID to start from (-1 for all messages)
+   * @param limit the maximum number of messages to return
+   * @param offset the number of records to skip
+   * @return list of message records ordered by ID
+   */
+  List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int limit, int offset);
+
   @Data
   @Accessors(chain = true)
   class MessageRecord {

@@ -102,6 +102,17 @@ public class TkmsProperties implements InitializingBean {
   private int pollerBatchSize = 1024;
 
   /**
+   * Number of parallel threads to use for pulling messages from the database.
+   *
+   * <p>Default is 1 (sequential). Increase to improve throughput when database can handle concurrent queries.
+   *
+   * <p>Each thread will pull up to pollerBatchSize messages, so total messages per poll cycle = pollerBatchSize * pollerParallelism.
+   */
+  @Positive
+  @jakarta.validation.constraints.Positive
+  private int pollerParallelism = 1;
+
+  /**
    * Specifies the parameters counts used when executing messages deletions queries, right after successfully sending batch of messages out.
    *
    * <p>You may want/need to reduce the maximum batch sizes, in the case your database tries to execute queries in a very inefficent way. E.g. doing
@@ -296,6 +307,7 @@ public class TkmsProperties implements InitializingBean {
     private DatabaseDialect databaseDialect;
     private Integer partitionsCount;
     private Integer pollerBatchSize;
+    private Integer pollerParallelism;
     private Duration pollingInterval;
     private Duration pauseTimeOnErrors;
     private Integer insertBatchSize;
@@ -367,6 +379,14 @@ public class TkmsProperties implements InitializingBean {
       return shardProperties.getPollerBatchSize();
     }
     return pollerBatchSize;
+  }
+
+  public int getPollerParallelism(int shard) {
+    var shardProperties = shards.get(shard);
+    if (shardProperties != null && shardProperties.getPollerParallelism() != null) {
+      return shardProperties.getPollerParallelism();
+    }
+    return pollerParallelism;
   }
 
   public Duration getPollingInterval(int shard) {

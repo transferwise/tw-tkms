@@ -57,6 +57,11 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   }
 
   @Override
+  public List<MessageRecord> getMessages(TkmsShardPartition shardPartition, long earliestMessageId, int limit, int offset) {
+    return delegate.getMessages(shardPartition, earliestMessageId, limit, offset);
+  }
+
+  @Override
   public void deleteMessages(TkmsShardPartition shardPartition, List<Long> records) {
     if (deleteMessagesFails) {
       throw new IllegalStateException("Delete messages has a bad day.");
