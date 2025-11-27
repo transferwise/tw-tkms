@@ -60,6 +60,22 @@ public interface ITkmsDao {
   boolean insertEarliestMessageId(TkmsShardPartition shardPartition);
 
   /**
+   * Returns the minimum message ID from the outbox table.
+   *
+   * @param shardPartition the shard partition to query
+   * @return the minimum message ID
+   */
+  Long getMinMessageId(TkmsShardPartition shardPartition);
+
+  /**
+   * Returns the maximum message ID from the outbox table.
+   *
+   * @param shardPartition the shard partition to query
+   * @return the maximum message ID
+   */
+  Long getMaxMessageId(TkmsShardPartition shardPartition);
+
+  /**
    * Validates the database in general.
    *
    * <p>E.g. if index hints are supported.

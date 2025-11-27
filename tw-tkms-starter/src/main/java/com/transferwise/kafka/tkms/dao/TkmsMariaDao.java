@@ -207,6 +207,16 @@ public class TkmsMariaDao extends TkmsDao {
   }
 
   @Override
+  protected String getMinMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select min(id) from " + getTableName(shardPartition) + " use index(PRIMARY)";
+  }
+
+  @Override
+  protected String getMaxMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select max(id) from " + getTableName(shardPartition) + " use index(PRIMARY)";
+  }
+
+  @Override
   protected String getExplainClause() {
     return "EXPLAIN FORMAT=JSON";
   }

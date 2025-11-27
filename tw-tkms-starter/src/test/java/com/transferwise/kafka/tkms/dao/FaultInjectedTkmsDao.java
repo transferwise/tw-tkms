@@ -86,6 +86,16 @@ public class FaultInjectedTkmsDao implements ITkmsDao {
   }
 
   @Override
+  public Long getMinMessageId(TkmsShardPartition shardPartition) {
+    return delegate.getMinMessageId(shardPartition);
+  }
+
+  @Override
+  public Long getMaxMessageId(TkmsShardPartition shardPartition) {
+    return delegate.getMaxMessageId(shardPartition);
+  }
+
+  @Override
   public void validateDatabase() {
     delegate.validateDatabase();
   }

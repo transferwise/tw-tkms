@@ -381,7 +381,25 @@ public abstract class TkmsDao implements ITkmsDao, InitializingBean {
     return result;
   }
 
+  @Override
+  public Long getMinMessageId(TkmsShardPartition shardPartition) {
+    var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "getMinMessageId"), k -> getMinMessageIdSql(shardPartition));
+    List<Long> ids = jdbcTemplate.queryForList(sql, Long.class);
+    return ids.isEmpty() ? null : ids.get(0);
+  }
+
+  @Override
+  public Long getMaxMessageId(TkmsShardPartition shardPartition) {
+    var sql = sqlCache.computeIfAbsent(Pair.of(shardPartition, "getMaxMessageId"), k -> getMaxMessageIdSql(shardPartition));
+    List<Long> ids = jdbcTemplate.queryForList(sql, Long.class);
+    return ids.isEmpty() ? null : ids.get(0);
+  }
+
   protected abstract String getHasMessagesBeforeIdSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getMinMessageIdSql(TkmsShardPartition shardPartition);
+
+  protected abstract String getMaxMessageIdSql(TkmsShardPartition shardPartition);
 
   protected abstract boolean doesEarliestVisibleMessagesTableExist();
 

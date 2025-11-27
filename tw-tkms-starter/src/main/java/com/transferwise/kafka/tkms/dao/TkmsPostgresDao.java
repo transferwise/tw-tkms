@@ -47,6 +47,16 @@ public class TkmsPostgresDao extends TkmsDao {
   }
 
   @Override
+  protected String getMinMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexOnlyScan(om) */ min(id) from " + getTableName(shardPartition) + " om";
+  }
+
+  @Override
+  protected String getMaxMessageIdSql(TkmsShardPartition shardPartition) {
+    return "select /*+ IndexOnlyScan(om) */ max(id) from " + getTableName(shardPartition) + " om";
+  }
+
+  @Override
   protected String getExplainClause() {
     return "EXPLAIN";
   }

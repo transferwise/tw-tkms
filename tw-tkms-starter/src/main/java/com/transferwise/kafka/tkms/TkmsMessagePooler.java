@@ -18,26 +18,35 @@ public class TkmsMessagePooler {
 
   private final ITkmsDaoProvider tkmsDaoProvider;
   private final IExecutorServicesProvider executorServicesProvider;
+  private final int pollerParallelism;
 
-  public TkmsMessagePooler(ITkmsDaoProvider tkmsDaoProvider, IExecutorServicesProvider executorServicesProvider) {
+  boolean useExecutors;
+
+  public TkmsMessagePooler(ITkmsDaoProvider tkmsDaoProvider, IExecutorServicesProvider executorServicesProvider, int pollerParallelism) {
     this.tkmsDaoProvider = tkmsDaoProvider;
     this.executorServicesProvider = executorServicesProvider;
+    this.pollerParallelism = pollerParallelism;
+    this.useExecutors = pollerParallelism > 1;
   }
 
   public List<MessageRecord> pullMessages(
       TkmsShardPartition shardPartition,
       long earliestMessageId,
-      int batchSize, int parallelism) {
-
-    if (parallelism > 1) {
-      return pullMessagesParallel(shardPartition, earliestMessageId, batchSize, parallelism);
+      int batchSize) {
+    List<MessageRecord> messageRecords;
+    if (useExecutors) {
+      messageRecords = pullMessagesParallel(shardPartition, batchSize);
+      useExecutors = messageRecords.size() > batchSize;
     } else {
-      return pullMessagesSequential(shardPartition, earliestMessageId, batchSize);
+      messageRecords = pullMessagesSequential(shardPartition, earliestMessageId, batchSize);
+      useExecutors = messageRecords.size() == batchSize && pollerParallelism > 1;
     }
+    return messageRecords;
   }
 
   private List<MessageRecord> pullMessagesSequential(
       TkmsShardPartition shardPartition,
+
       long earliestMessageId,
       int batchSize) {
 
@@ -47,20 +56,24 @@ public class TkmsMessagePooler {
 
   private List<MessageRecord> pullMessagesParallel(
       TkmsShardPartition shardPartition,
-      long earliestMessageId,
-      int batchSize,
-      int parallelism) {
+      int batchSize) {
 
     ITkmsDao tkmsDao = tkmsDaoProvider.getTkmsDao(shardPartition.getShard());
-
+    Long minMessageId = tkmsDao.getMinMessageId(shardPartition);
+    Long maxMessageId = tkmsDao.getMaxMessageId(shardPartition);
+    long minId = minMessageId != null ? minMessageId : 0;
+    long maxId = maxMessageId != null ? maxMessageId : 0;
     List<CompletableFuture<List<MessageRecord>>> futures = new ArrayList<>();
-    for (int i = 0; i < parallelism; i++) {
+    for (int i = 0; i < pollerParallelism; i++) {
       final int offset = i * batchSize;
       final int limit = batchSize;
-
       futures.add(CompletableFuture.supplyAsync(
-          () -> tkmsDao.getMessages(shardPartition, earliestMessageId, limit, offset),
+          () -> tkmsDao.getMessages(shardPartition, minId, limit, offset),
           executorServicesProvider.getGlobalExecutorService()));
+      long lastLimit =  minId + (long) (i + 1) * batchSize;
+      if (lastLimit > maxId) {
+        break;
+      }
     }
 
     List<MessageRecord> allRecords = new ArrayList<>();
