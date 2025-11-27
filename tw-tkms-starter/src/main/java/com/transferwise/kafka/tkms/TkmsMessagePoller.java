@@ -20,7 +20,7 @@ public class TkmsMessagePoller {
   private final IExecutorServicesProvider executorServicesProvider;
   private final int pollerParallelism;
 
-  boolean useExecutors;
+  private boolean useExecutors;
 
   public TkmsMessagePoller(ITkmsDaoProvider tkmsDaoProvider, IExecutorServicesProvider executorServicesProvider, int pollerParallelism) {
     this.tkmsDaoProvider = tkmsDaoProvider;
